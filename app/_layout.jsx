@@ -1,25 +1,25 @@
-import FontAwesome from '@expo/vector-icons/FontAwesome';
-import { DefaultTheme, ThemeProvider } from '@react-navigation/native';
-import { useFonts } from 'expo-font';
-import { Stack } from 'expo-router';
-import * as SplashScreen from 'expo-splash-screen';
-import { useEffect } from 'react';
-import 'react-native-reanimated';
+import FontAwesome from "@expo/vector-icons/FontAwesome";
+import { DefaultTheme, ThemeProvider } from "@react-navigation/native";
+import { useFonts } from "expo-font";
+import { Stack } from "expo-router";
+import * as SplashScreen from "expo-splash-screen";
+import { useEffect, useState } from "react"; // Added useState
+import "react-native-reanimated";
 
-import AppColors from '@/constants/AppColors';
+import AnimatedSplashScreen from "@/components/AnimatedSplashScreen"; // 1. Import your custom splash screen
+import AppColors from "@/constants/AppColors";
 
 export {
   // Catch any errors thrown by the Layout component.
   ErrorBoundary
-} from 'expo-router';
+} from "expo-router";
 
 export const unstable_settings = {
   // Ensure that reloading on `/modal` keeps a back button present.
-  initialRouteName: 'login',
+  initialRouteName: "login",
 };
 
-// Prevent the splash screen from auto-hiding before asset loading is complete.
-SplashScreen.preventAutoHideAsync();
+SplashScreen.hideAsync();
 
 const NavigationTheme = {
   ...DefaultTheme,
@@ -36,9 +36,12 @@ const NavigationTheme = {
 
 export default function RootLayout() {
   const [loaded, error] = useFonts({
-    SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
+    SpaceMono: require("../assets/fonts/SpaceMono-Regular.ttf"),
     ...FontAwesome.font,
   });
+
+  // 2. Add a state to track when your custom animation is done
+  const [animationFinished, setAnimationFinished] = useState(false);
 
   // Expo Router uses Error Boundaries to catch errors in the navigation tree.
   useEffect(() => {
@@ -46,15 +49,27 @@ export default function RootLayout() {
   }, [error]);
 
   useEffect(() => {
+    // 3. Only hide the NATIVE splash screen when the fonts are finally loaded
     if (loaded) {
       SplashScreen.hideAsync();
     }
   }, [loaded]);
 
+  // 4. Hold on the native splash screen while fonts are loading
   if (!loaded) {
     return null;
   }
 
+  // 5. Fonts are loaded! Now show your custom animation until it finishes
+  if (!animationFinished) {
+    return (
+      <AnimatedSplashScreen
+        onAnimationFinish={() => setAnimationFinished(true)}
+      />
+    );
+  }
+
+  // 6. Animation is completely done. Hand the screen over to your app routes.
   return <RootLayoutNav />;
 }
 
@@ -67,12 +82,12 @@ function RootLayoutNav() {
         <Stack.Screen
           name="allNotification"
           options={{
-            title: 'Notification',
-            headerShown: true,   // built-in header with Back button
+            title: "Notification",
+            headerShown: true, // built-in header with Back button
           }}
         />
-        <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
-    </Stack>
+        <Stack.Screen name="modal" options={{ presentation: "modal" }} />
+      </Stack>
     </ThemeProvider>
   );
 }
