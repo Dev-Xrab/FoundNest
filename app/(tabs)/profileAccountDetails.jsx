@@ -1,6 +1,9 @@
 import ConfirmDiscardModal from '@/components/ConfirmDiscardModal';
 import Toast from '@/components/Toast';
+import { API_BASE_URL } from '@/constants/api';
 import AppColors from '@/constants/AppColors';
+import { fetchWithAuth } from '@/constants/authApi';
+import { getUser } from '@/constants/StudentData';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
@@ -18,26 +21,38 @@ import {
 export default function ProfileAccountDetails() {
   const router = useRouter();
 
-  const [user, setUser]                   = useState(null);
-  const [contactNumber, setContactNumber] = useState('');
-  const [isEditing, setIsEditing]         = useState(false);
-  const [isSaving, setIsSaving]           = useState(false);
-  const [contactError, setContactError]   = useState('');
+  const [user, setUser]                     = useState(null);
+  const [contactNumber, setContactNumber]   = useState('');
+  const [isEditing, setIsEditing]           = useState(false);
+  const [isSaving, setIsSaving]             = useState(false);
+  const [contactError, setContactError]     = useState('');
   const [discardVisible, setDiscardVisible] = useState(false);
-  const [toast, setToast]                 = useState({ visible: false, type: 'success', message: '' });
+  const [toast, setToast]                   = useState({ visible: false, type: 'success', message: '' });
 
   useEffect(() => {
-    const mockUser = {
-      user_id: 4,
-      student_number: '2023100464',
-      first_name: 'Manuel',
-      last_name: 'Santiago',
-      contact_number: '09171234567',
-      email: '2023100464@ms.bulsu.edu.ph',
-      profile_image_url: null,
-    };
-    setUser(mockUser);
-    setContactNumber(mockUser.contact_number ?? '');
+    async function loadProfile() {
+      try {
+        const sessionUser = await getUser();
+        if (!sessionUser) return;
+
+        const res = await fetchWithAuth(
+          `${API_BASE_URL}/api/profile/${sessionUser.user_id}`
+        );
+        const data = await res.json();
+
+        if (!res.ok) {
+          console.error('Failed to load profile:', data.message);
+          return;
+        }
+
+        setUser(data);
+        setContactNumber(data.contact_number ?? '');
+      } catch (err) {
+        console.error('Load profile error:', err);
+      }
+    }
+
+    loadProfile();
   }, []);
 
   const hasChanges = contactNumber !== (user?.contact_number ?? '');
@@ -72,22 +87,40 @@ export default function ProfileAccountDetails() {
   };
 
   const handleSave = async () => {
-  if (!validateContact(contactNumber)) {
-    setContactError('Please enter a valid contact number.');
-    return;
-  }
+    if (!validateContact(contactNumber)) {
+      setContactError('Please enter a valid contact number.');
+      return;
+    }
 
-  setContactError('');
-  setIsSaving(true);
+    setContactError('');
+    setIsSaving(true);
 
-  // Simulate network delay
-  await new Promise((resolve) => setTimeout(resolve, 800));
+    try {
+      const res = await fetchWithAuth(
+        `${API_BASE_URL}/api/profile/${user.user_id}`,
+        {
+          method: 'PUT',
+          body: JSON.stringify({ contact_number: contactNumber.trim() }),
+        }
+      );
 
-  setUser((prev) => ({ ...prev, contact_number: contactNumber.trim() }));
-  setIsEditing(false);
-  setIsSaving(false);
-  showToast('success', 'Changes saved successfully.');
-};
+      const data = await res.json();
+
+      if (!res.ok) {
+        showToast('error', data.message || 'Failed to save changes.');
+        return;
+      }
+
+      setUser((prev) => ({ ...prev, contact_number: contactNumber.trim() }));
+      setIsEditing(false);
+      showToast('success', 'Changes saved successfully.');
+    } catch (err) {
+      console.error('Save profile error:', err);
+      showToast('error', 'Could not connect to server.');
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   if (!user) {
     return (

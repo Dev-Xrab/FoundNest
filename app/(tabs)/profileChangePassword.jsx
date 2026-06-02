@@ -1,6 +1,9 @@
 import ConfirmDiscardModal from '@/components/ConfirmDiscardModal';
 import Toast from '@/components/Toast';
+import { API_BASE_URL } from '@/constants/api';
 import AppColors from '@/constants/AppColors';
+import { fetchWithAuth } from '@/constants/authApi';
+import { getUser } from '@/constants/StudentData';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
@@ -43,7 +46,7 @@ function PasswordField({ label, value, onChangeText, showPassword, onToggle, err
 
 function PasswordChecklist({ password }) {
   const rules = [
-    { label: 'At least 8 characters',       met: password.length >= 8 },
+    { label: 'At least 8 characters',        met: password.length >= 8 },
     { label: 'At least one uppercase letter', met: /[A-Z]/.test(password) },
     { label: 'At least one number',           met: /[0-9]/.test(password) },
     { label: 'At least one special character', met: /[^a-zA-Z0-9]/.test(password) },
@@ -70,16 +73,16 @@ function PasswordChecklist({ password }) {
 export default function ProfileChangePassword() {
   const router = useRouter();
 
-  const [user, setUser]                         = useState(null);
-  const [currentPassword, setCurrentPassword]   = useState('');
-  const [newPassword, setNewPassword]           = useState('');
-  const [confirmPassword, setConfirmPassword]   = useState('');
-  const [showCurrent, setShowCurrent]           = useState(false);
-  const [showNew, setShowNew]                   = useState(false);
-  const [showConfirm, setShowConfirm]           = useState(false);
-  const [isSaving, setIsSaving]                 = useState(false);
-  const [discardVisible, setDiscardVisible]     = useState(false);
-  const [toast, setToast]                       = useState({ visible: false, type: 'success', message: '' });
+  const [user, setUser]                       = useState(null);
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword]         = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showCurrent, setShowCurrent]         = useState(false);
+  const [showNew, setShowNew]                 = useState(false);
+  const [showConfirm, setShowConfirm]         = useState(false);
+  const [isSaving, setIsSaving]               = useState(false);
+  const [discardVisible, setDiscardVisible]   = useState(false);
+  const [toast, setToast]                     = useState({ visible: false, type: 'success', message: '' });
 
   const [errors, setErrors] = useState({
     current: '',
@@ -98,7 +101,7 @@ export default function ProfileChangePassword() {
     /[^a-zA-Z0-9]/.test(newPassword);
 
   useEffect(() => {
-    setUser({ user_id: 4 });
+    getUser().then(setUser);
   }, []);
 
   const handleCancel = () => {
@@ -140,20 +143,40 @@ export default function ProfileChangePassword() {
     setErrors({ current: '', confirm: '' });
     setIsSaving(true);
 
-    await new Promise((resolve) => setTimeout(resolve, 800));
+    try {
+      const res = await fetchWithAuth(
+        `${API_BASE_URL}/api/profile/${user.user_id}/change-password`,
+        {
+          method: 'PUT',
+          body: JSON.stringify({
+            currentPassword,
+            newPassword,
+          }),
+        }
+      );
 
-    // Hardcoded current password check
-    if (currentPassword !== 'Test@1234') {
-      setErrors((e) => ({ ...e, current: 'Incorrect current password.' }));
+      const data = await res.json();
+
+      if (!res.ok) {
+        if (res.status === 401) {
+          setErrors((e) => ({ ...e, current: data.message }));
+        } else {
+          showToast('error', data.message || 'Failed to change password.');
+        }
+        return;
+      }
+
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+      showToast('success', 'Password changed successfully.');
+
+    } catch (err) {
+      console.error('Change password error:', err);
+      showToast('error', 'Could not connect to server.');
+    } finally {
       setIsSaving(false);
-      return;
     }
-
-    setCurrentPassword('');
-    setNewPassword('');
-    setConfirmPassword('');
-    setIsSaving(false);
-    showToast('success', 'Password changed successfully.');
   };
 
   return (

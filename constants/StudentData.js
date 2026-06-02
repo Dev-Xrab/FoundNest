@@ -19,7 +19,7 @@ export async function saveSession(accessToken, user, rememberMe = false, refresh
   } else {
     _token        = accessToken;
     _user         = user;
-    _refreshToken = null; // no refresh token for non-remember me
+    _refreshToken = refreshToken;
   }
 }
 

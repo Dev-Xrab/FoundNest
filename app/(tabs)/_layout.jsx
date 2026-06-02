@@ -1,5 +1,5 @@
 import { isLoggedIn } from "@/constants/StudentData";
-import { Redirect, Tabs } from "expo-router";
+import { Redirect, Tabs, usePathname } from "expo-router";
 import { useEffect, useState } from "react";
 import { ActivityIndicator, View } from "react-native";
 
@@ -21,6 +21,7 @@ Notifications.setNotificationHandler({
 export default function TabLayout() {
   const [authChecked, setAuthChecked] = useState(false);
   const [loggedIn, setLoggedIn] = useState(false);
+  const pathname = usePathname();
 
   // Authentication Check
   useEffect(() => {
@@ -28,7 +29,7 @@ export default function TabLayout() {
       setLoggedIn(result);
       setAuthChecked(true);
     });
-  }, []);
+  }, [pathname]);
 
   // Still checking SecureStore — show a spinner
   if (!authChecked) {
@@ -94,6 +95,14 @@ export default function TabLayout() {
         name="profileAccountDetails"
         options={{
           title: "Account Details",
+          href: null,
+        }}
+      />
+
+      <Tabs.Screen
+        name="profileChangePassword"
+        options={{
+          title: "Change Password",
           href: null,
         }}
       />
