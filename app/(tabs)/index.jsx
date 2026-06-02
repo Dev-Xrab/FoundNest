@@ -19,6 +19,7 @@ import { Ionicons } from "@expo/vector-icons";
 import * as Notifications from "expo-notifications";
 import { useRouter } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
+import Alert from "react-native/Libraries/Alert/Alert";
 
 const SCREEN_WIDTH = Dimensions.get("window").width;
 const CARD_HORIZONTAL_PADDING = 20;
@@ -126,82 +127,6 @@ function RecentFindsCarousel({ items, activeIndex, onIndexChange }) {
   );
 }
 
-const carouselStyles = StyleSheet.create({
-  wrapper: {
-    marginHorizontal: -CARD_HORIZONTAL_PADDING,
-  },
-  scroll: {
-    height: CARD_HEIGHT,
-  },
-  scrollContent: {
-    alignItems: "center",
-  },
-  slide: {
-    width: SCREEN_WIDTH,
-    paddingHorizontal: CARD_HORIZONTAL_PADDING,
-    height: CARD_HEIGHT,
-  },
-  card: {
-    flex: 1,
-    borderRadius: 16,
-    overflow: "hidden",
-    justifyContent: "flex-end",
-  },
-  cardImage: {
-    borderRadius: 16,
-  },
-  overlay: {
-    backgroundColor: "rgba(0,0,0,0.45)",
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-  },
-  itemName: {
-    color: "#fff",
-    fontSize: 20,
-    fontWeight: "800",
-    marginBottom: 8,
-  },
-  divider: {
-    height: 1,
-    backgroundColor: "rgba(255,255,255,0.6)",
-    marginBottom: 10,
-  },
-  metaRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    marginBottom: 4,
-  },
-  metaText: {
-    color: "#fff",
-    fontSize: 13,
-    flex: 1,
-  },
-  dots: {
-    flexDirection: "row",
-    justifyContent: "center",
-    gap: 8,
-    marginTop: 14,
-    paddingHorizontal: CARD_HORIZONTAL_PADDING,
-  },
-  dot: {
-    width: 28,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: "rgba(255,255,255,0.25)",
-  },
-  dotActive: {
-    backgroundColor: "#FFF8F0",
-    width: 40,
-  },
-  counter: {
-    color: "rgba(255,255,255,0.85)",
-    fontSize: 12,
-    textAlign: "center",
-    marginTop: 8,
-  },
-});
-
 export default function HomeScreen() {
   const [search, setSearch] = useState("");
   const [foundReports, setFoundReports] = useState([]);
@@ -215,22 +140,40 @@ export default function HomeScreen() {
   // Notifications Setup (Request Permissions & Get Token)
   useEffect(() => {
     async function setupNotifications() {
-      // 1. Request permissions first
-      const { status } = await Notifications.requestPermissionsAsync();
-      if (status !== "granted") {
-        Alert.alert(
-          "Permission Needed",
-          "Please allow notifications so we can tell you when your lost item is found!",
-        );
-        return; // Stop here if they deny permission
+      // 1. Check the CURRENT status first without triggering a prompt
+      const { status: existingStatus } =
+        await Notifications.getPermissionsAsync();
+
+      // If they already permanently declined in the past, quietly stop here. No spam!
+      if (existingStatus === "denied") {
+        return;
       }
 
-      // 2. If granted, get the token
-      const token = await registerForPushNotificationsAsync();
-      if (token) {
-        setExpoPushToken(token); // Now this works!
-        console.log("MY EXPO PUSH TOKEN:", token);
-        // TODO: Send this token to your Neon Backend right here via a fetch() request
+      let finalStatus = existingStatus;
+
+      // 2. If we haven't asked yet (undetermined), trigger the system permission prompt
+      if (existingStatus !== "granted") {
+        const { status } = await Notifications.requestPermissionsAsync();
+        finalStatus = status;
+
+        // If they JUST hit "Decline" on the system prompt right now, show the alert once.
+        if (finalStatus !== "granted") {
+          Alert.alert(
+            "Permission Needed",
+            "Please allow notifications so we can tell you when your lost item is found!",
+          );
+          return;
+        }
+      }
+
+      // 3. If granted (either just now, or in the past), get the token
+      if (finalStatus === "granted") {
+        const token = await registerForPushNotificationsAsync();
+        if (token) {
+          setExpoPushToken(token);
+          console.log("MY EXPO PUSH TOKEN:", token);
+          // TODO: Send this token to your Neon Backend right here via a fetch() request
+        }
       }
     }
 
@@ -545,5 +488,81 @@ const styles = StyleSheet.create({
     fontSize: 15,
     textAlign: "center",
     marginVertical: 24,
+  },
+});
+
+const carouselStyles = StyleSheet.create({
+  wrapper: {
+    marginHorizontal: -CARD_HORIZONTAL_PADDING,
+  },
+  scroll: {
+    height: CARD_HEIGHT,
+  },
+  scrollContent: {
+    alignItems: "center",
+  },
+  slide: {
+    width: SCREEN_WIDTH,
+    paddingHorizontal: CARD_HORIZONTAL_PADDING,
+    height: CARD_HEIGHT,
+  },
+  card: {
+    flex: 1,
+    borderRadius: 16,
+    overflow: "hidden",
+    justifyContent: "flex-end",
+  },
+  cardImage: {
+    borderRadius: 16,
+  },
+  overlay: {
+    backgroundColor: "rgba(0,0,0,0.45)",
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+  },
+  itemName: {
+    color: "#fff",
+    fontSize: 20,
+    fontWeight: "800",
+    marginBottom: 8,
+  },
+  divider: {
+    height: 1,
+    backgroundColor: "rgba(255,255,255,0.6)",
+    marginBottom: 10,
+  },
+  metaRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginBottom: 4,
+  },
+  metaText: {
+    color: "#fff",
+    fontSize: 13,
+    flex: 1,
+  },
+  dots: {
+    flexDirection: "row",
+    justifyContent: "center",
+    gap: 8,
+    marginTop: 14,
+    paddingHorizontal: CARD_HORIZONTAL_PADDING,
+  },
+  dot: {
+    width: 28,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: "rgba(255,255,255,0.25)",
+  },
+  dotActive: {
+    backgroundColor: "#FFF8F0",
+    width: 40,
+  },
+  counter: {
+    color: "rgba(255,255,255,0.85)",
+    fontSize: 12,
+    textAlign: "center",
+    marginTop: 8,
   },
 });
