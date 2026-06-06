@@ -70,6 +70,11 @@ export default function ProfileScreen() {
       return;
     }
 
+    if (key === 'qr') {
+      router.push('/(tabs)/qrItem');
+      return;
+    }
+
     Alert.alert('Coming soon', `"${key}" screen is not yet implemented.`);
   };
 

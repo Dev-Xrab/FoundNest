@@ -71,6 +71,11 @@ export default function LoginScreen() {
         return;
       }
 
+      if (data.user?.user_role !== 'user') {
+        setLoginError('This account is not authorized for mobile access.');
+        return;
+      }
+
       await saveSession(data.accessToken, data.user, rememberMe, data.refreshToken);
       router.replace('/(tabs)');
 

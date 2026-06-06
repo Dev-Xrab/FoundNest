@@ -70,41 +70,61 @@ export default function TabLayout() {
       {/* Hidden Screens (href: null) */}
       <Tabs.Screen
         name="FoundItemDetails"
-        options={{
-          title: "Item Details",
-          href: null,
-        }}
+        options={{ title: "Item Details", href: null }}
       />
-
       <Tabs.Screen
         name="officeModal"
-        options={{
-          href: null,
-        }}
+        options={{ href: null }}
       />
-
       <Tabs.Screen
         name="reportNextPage"
-        options={{
-          title: "Report",
-          href: null,
-        }}
+        options={{ title: "Report", href: null }}
       />
 
+      {/* Profile sub-screens (Retained your descriptive titles) */}
       <Tabs.Screen
         name="profileAccountDetails"
-        options={{
-          title: "Account Details",
-          href: null,
-        }}
+        options={{ title: "Account Details", href: null }}
       />
-
       <Tabs.Screen
         name="profileChangePassword"
-        options={{
-          title: "Change Password",
-          href: null,
-        }}
+        options={{ title: "Change Password", href: null }}
+      />
+
+      {/* === Coworker's Added QR Screens === */}
+      
+      {/* QR Item — white header shows "Profile" (direct child of Profile) */}
+      <Tabs.Screen
+        name="qrItem"
+        options={{ title: "Profile", href: null }}
+      />
+
+      {/* QR sub-screens — white header shows "QR Item" */}
+      <Tabs.Screen
+        name="qrItemRegister"
+        options={{ title: "QR Item", href: null }}
+      />
+      <Tabs.Screen
+        name="qrItemList"
+        options={{ title: "QR Item", href: null }}
+      />
+      <Tabs.Screen
+        name="qrItemSuccess"
+        options={{ title: "QR Item", href: null }}
+      />
+      <Tabs.Screen
+        name="qrItemScan"
+        options={{ title: "QR Item", href: null }}
+      />
+
+      {/* Item detail/edit — white header shows "Registered Items" */}
+      <Tabs.Screen
+        name="qrItemView"
+        options={{ title: "Registered Items", href: null }}
+      />
+      <Tabs.Screen
+        name="qrItemEdit"
+        options={{ title: "Registered Items", href: null }}
       />
     </Tabs>
   );

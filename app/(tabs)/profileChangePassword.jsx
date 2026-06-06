@@ -191,7 +191,7 @@ export default function ProfileChangePassword() {
       <View style={styles.redHeader}>
         <View style={styles.headerRow}>
           <TouchableOpacity
-            onPress={() => router.back()}
+            onPress={() => router.navigate('/(tabs)/profile')}
             activeOpacity={0.7}
             style={styles.backButton}
           >

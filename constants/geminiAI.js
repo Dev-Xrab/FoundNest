@@ -1,4 +1,5 @@
 import { API_BASE_URL } from '@/constants/api';
+import { getToken } from '@/constants/StudentData';
 import { parseApiError } from '@/utils/lostReport';
 
 /**
@@ -35,9 +36,19 @@ export async function DescribeItem({
     formData.append('categoryOptions', categoryOptions.join(','));
   }
 
+  // Get the token and attach it — do NOT set Content-Type manually
+  // so that fetch can set the correct multipart/form-data boundary itself
+  const token = await getToken();
+
   const response = await fetch(
     `${API_BASE_URL}/api/gemini-item-listing/describe-item`,
-    { method: 'POST', body: formData },
+    {
+      method: 'POST',
+      body: formData,
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    },
   );
 
   if (!response.ok) {

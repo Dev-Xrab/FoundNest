@@ -12,7 +12,6 @@ export const category = [
 // FETCH CATEGORIES
 export const getCategories = async () => {
   try {
-    // Make sure to include https://
     const response = await fetch("https://foundnest-backend.onrender.com/api/categories");
     
     if (!response.ok) {
@@ -20,11 +19,41 @@ export const getCategories = async () => {
     }
     
     const data = await response.json();
-    console.log("Fetched categories:", data); // Log the fetched data for debugging
-    return data; // Return the data so the component can receive it
+    console.log("Fetched categories:", data);
+    return data;
     
   } catch (error) {
     console.error("Failed to fetch categories:", error);
-    return []; // Return an empty array as a fallback if it fails
+    return [];
   }
+};
+
+/**
+ * Matches an AI-returned category string to the closest item in the
+ * categories list fetched from the backend.
+ *
+ * @param {string} aiCategory - The category string returned by Gemini
+ * @param {Array}  categoryList - Array of { category_id, category_name }
+ * @returns The matched category object, or null if nothing matches
+ */
+export const matchCategoryFromAi = (aiCategory, categoryList) => {
+  if (!aiCategory || !categoryList?.length) return null;
+
+  const normalized = aiCategory.trim().toLowerCase();
+
+  // 1. Exact match (case-insensitive)
+  const exact = categoryList.find(
+    (c) => c.category_name.toLowerCase() === normalized
+  );
+  if (exact) return exact;
+
+  // 2. Partial match — AI string contains the category name or vice versa
+  const partial = categoryList.find(
+    (c) =>
+      normalized.includes(c.category_name.toLowerCase()) ||
+      c.category_name.toLowerCase().includes(normalized)
+  );
+  if (partial) return partial;
+
+  return null;
 };
