@@ -1,12 +1,12 @@
 // @/constants/category.js
 
 export const category = [
-  "Academic Material", 
-  "Clothing and Accessories", 
-  "Electronics", 
-  "Official Documents", 
-  "Personal Items", 
-  "Equipments" 
+  "Academic Material",
+  "Clothing and Accessories",
+  "Electronics",
+  "Official Documents",
+  "Personal Items",
+  "Equipments",
 ];
 
 // FETCH CATEGORIES
@@ -17,7 +17,7 @@ export const getCategories = async () => {
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
-    
+
     const data = await response.json();
     console.log("Fetched categories:", data);
     return data;
