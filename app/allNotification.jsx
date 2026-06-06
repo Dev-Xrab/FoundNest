@@ -1,16 +1,22 @@
+import AppColors from "@/constants/AppColors";
 import { fetchWithAuth } from "@/constants/authApi";
 import { getUser } from "@/constants/StudentData";
-import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
 import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
   StyleSheet,
   Text,
+  TouchableOpacity,
   View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 export default function NotificationsScreen() {
+  const router = useRouter();
+  const insets = useSafeAreaInsets();
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -93,9 +99,19 @@ export default function NotificationsScreen() {
 
   return (
     <View style={styles.container}>
-      {/* Red Header Bar */}
+      <View style={[styles.header, { paddingTop: insets.top }]}>
+        <View style={styles.headerRow}>
+          <TouchableOpacity
+            onPress={() => router.back()}
+            activeOpacity={0.7}
+            style={styles.backButton}
+          >
+            <Ionicons name="arrow-back" size={28} color="#FFFFFF" />
+          </TouchableOpacity>
+          <Text style={styles.title}>Notifications</Text>
+        </View>
+      </View>
 
-      {/* Main Content Area */}
       <View style={styles.content}>
         <Text style={styles.sectionTitle}>Latest</Text>
 
@@ -132,17 +148,24 @@ const styles = StyleSheet.create({
     backgroundColor: "#FAF0DE",
   },
   header: {
-    backgroundColor: "#A0001A",
-    paddingHorizontal: 24,
-    paddingTop: 20,
-    paddingBottom: 20,
-    borderBottomLeftRadius: 12,
-    borderBottomRightRadius: 12,
+    backgroundColor: AppColors.background,
+    paddingHorizontal: 16,
+  },
+  headerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    height: 56,
+  },
+  backButton: {
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 8,
   },
   title: {
-    fontSize: 24,
-    fontWeight: "bold",
-    color: "#FFFFFF",
+    fontSize: 22,
+    fontWeight: "700",
+    color: AppColors.surface,
+    marginLeft: 4,
   },
   content: {
     flex: 1,

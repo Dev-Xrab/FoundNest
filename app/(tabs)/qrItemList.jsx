@@ -17,6 +17,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 // ── Nest illustration (empty state) ──────────────────────────────────────────
 const emptyNestBg = require('@/assets/images/Empty Nest/empty-nest-bg.png');
@@ -77,6 +78,7 @@ function ItemCard({ item, onPress, onEdit, onDelete }) {
 // ── Main screen ───────────────────────────────────────────────────────────────
 export default function QrItemList() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { toastType, toastMessage, toastKey } = useLocalSearchParams();
   const [toast, setToast] = useState({
     visible: false,
@@ -197,7 +199,7 @@ export default function QrItemList() {
       />
 
       {/* RED HEADER */}
-      <View style={styles.redHeader}>
+      <View style={[styles.redHeader, { paddingTop: insets.top }]}>
         <View style={styles.headerRow}>
           <TouchableOpacity
             onPress={() => router.navigate('/(tabs)/qrItem')}

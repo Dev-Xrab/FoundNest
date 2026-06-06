@@ -17,9 +17,11 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function ProfileAccountDetails() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
 
   const [user, setUser]                     = useState(null);
   const [contactNumber, setContactNumber]   = useState('');
@@ -138,8 +140,7 @@ export default function ProfileAccountDetails() {
         onDiscard={handleDiscard}
       />
 
-      {/* RED HEADER */}
-      <View style={styles.redHeader}>
+      <View style={[styles.redHeader, { paddingTop: insets.top }]}>
         <View style={styles.headerRow}>
           <TouchableOpacity
             onPress={() => router.navigate('/(tabs)/profile')}

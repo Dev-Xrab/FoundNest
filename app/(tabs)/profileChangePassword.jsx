@@ -16,6 +16,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 function PasswordField({ label, value, onChangeText, showPassword, onToggle, error }) {
   return (
@@ -72,6 +73,7 @@ function PasswordChecklist({ password }) {
 
 export default function ProfileChangePassword() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
 
   const [user, setUser]                       = useState(null);
   const [currentPassword, setCurrentPassword] = useState('');
@@ -187,8 +189,7 @@ export default function ProfileChangePassword() {
         onDiscard={handleDiscard}
       />
 
-      {/* HEADER */}
-      <View style={styles.redHeader}>
+      <View style={[styles.redHeader, { paddingTop: insets.top }]}>
         <View style={styles.headerRow}>
           <TouchableOpacity
             onPress={() => router.navigate('/(tabs)/profile')}

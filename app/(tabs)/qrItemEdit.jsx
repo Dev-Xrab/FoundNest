@@ -19,6 +19,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Dropdown } from 'react-native-element-dropdown';
 
 function FieldError({ message }) {
@@ -47,6 +48,7 @@ function RequiredLabel({ label }) {
 
 export default function QrItemEdit() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { item: itemParam, editSession } = useLocalSearchParams();
 
   // Stable parse of the param — qr_code_id / qr_data don't change while on
@@ -358,7 +360,7 @@ export default function QrItemEdit() {
       />
 
       {/* RED HEADER */}
-      <View style={styles.redHeader}>
+      <View style={[styles.redHeader, { paddingTop: insets.top }]}>
         <View style={styles.headerRow}>
           <TouchableOpacity
             onPress={handleCancel}

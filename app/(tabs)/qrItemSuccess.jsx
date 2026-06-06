@@ -13,11 +13,13 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import QRCode from 'react-native-qrcode-svg';
 import ViewShot from 'react-native-view-shot';
 
 export default function QrItemSuccess() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { qr_data, itemName, mode } = useLocalSearchParams();
   const isEditMode = mode === 'edit';
   const bannerText = isEditMode ? 'Item Edited Successfully!' : 'Item Successfully Registered!';
@@ -51,7 +53,7 @@ export default function QrItemSuccess() {
 
   return (
     <ScrollView
-      contentContainerStyle={styles.container}
+      contentContainerStyle={[styles.container, { paddingTop: insets.top + 30 }]}
       showsVerticalScrollIndicator={false}
     >
       {/* SUCCESS BANNER */}

@@ -104,7 +104,7 @@ export default function QrItemScan() {
   if (!permission.granted) {
     return (
       <View style={[styles.centeredScreen, { paddingBottom: insets.bottom }]}>
-        <View style={styles.redHeader}>
+        <View style={[styles.redHeader, { paddingTop: insets.top }]}>
           <View style={styles.headerRow}>
             <TouchableOpacity
               onPress={() => router.navigate('/(tabs)/qrItem')}
@@ -139,7 +139,7 @@ export default function QrItemScan() {
   if (scanState === 'loading') {
     return (
       <View style={styles.fullScreen}>
-        <View style={styles.redHeader}>
+        <View style={[styles.redHeader, { paddingTop: insets.top }]}>
           <View style={styles.headerRow}>
             <TouchableOpacity
               onPress={() => router.navigate('/(tabs)/qrItem')}
@@ -163,7 +163,7 @@ export default function QrItemScan() {
   if (scanState === 'not_found') {
     return (
       <View style={[styles.centeredScreen, { paddingBottom: insets.bottom }]}>
-        <View style={styles.redHeader}>
+        <View style={[styles.redHeader, { paddingTop: insets.top }]}>
           <View style={styles.headerRow}>
             <TouchableOpacity
               onPress={() => router.navigate('/(tabs)/qrItem')}
@@ -207,7 +207,7 @@ export default function QrItemScan() {
   if (scanState === 'not_owner') {
     return (
       <View style={[styles.centeredScreen, { paddingBottom: insets.bottom }]}>
-        <View style={styles.redHeader}>
+        <View style={[styles.redHeader, { paddingTop: insets.top }]}>
           <View style={styles.headerRow}>
             <TouchableOpacity
               onPress={() => router.navigate('/(tabs)/qrItem')}
@@ -250,7 +250,7 @@ export default function QrItemScan() {
   // ── Camera / scanning view ────────────────────────────────────────────────
   return (
     <View style={styles.fullScreen}>
-      <View style={styles.redHeader}>
+      <View style={[styles.redHeader, { paddingTop: insets.top }]}>
         <View style={styles.headerRow}>
           <TouchableOpacity
             onPress={() => router.navigate('/(tabs)/qrItem')}

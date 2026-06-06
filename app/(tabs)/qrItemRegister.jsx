@@ -20,6 +20,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Dropdown } from 'react-native-element-dropdown';
 
 function FieldError({ message }) {
@@ -49,6 +50,7 @@ function ReadOnlyField({ label, value }) {
 
 export default function QrItemRegister() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
 
   // Session / owner info
   const [user, setUser] = useState(null);
@@ -316,7 +318,7 @@ export default function QrItemRegister() {
       />
 
       {/* RED HEADER */}
-      <View style={styles.redHeader}>
+      <View style={[styles.redHeader, { paddingTop: insets.top }]}>
         <View style={styles.headerRow}>
           <TouchableOpacity
             onPress={handleCancel}

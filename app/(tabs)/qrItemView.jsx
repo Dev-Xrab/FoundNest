@@ -9,6 +9,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 function ReadOnlyField({ label, value, multiline = false }) {
   return (
@@ -23,6 +24,7 @@ function ReadOnlyField({ label, value, multiline = false }) {
 
 export default function QrItemView() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { item: itemParam, fromScan } = useLocalSearchParams();
   const item = JSON.parse(itemParam || '{}');
   const isFromScan = fromScan === 'true';
@@ -45,7 +47,7 @@ export default function QrItemView() {
   return (
     <View style={styles.screen}>
       {/* RED HEADER */}
-      <View style={styles.redHeader}>
+      <View style={[styles.redHeader, { paddingTop: insets.top }]}>
         <View style={styles.headerRow}>
           <TouchableOpacity
             onPress={handleBack}

@@ -70,7 +70,7 @@ export default function TabLayout() {
       {/* Hidden Screens (href: null) */}
       <Tabs.Screen
         name="FoundItemDetails"
-        options={{ title: "Item Details", href: null }}
+        options={{ href: null, headerShown: false }}
       />
 
       <Tabs.Screen
@@ -85,17 +85,39 @@ export default function TabLayout() {
         options={{ title: "Report", href: null }}
       />
 
-      {/* Profile sub-screens (Retained your descriptive titles) */}
+      {/* Profile sub-screens — hide tab header; each screen uses its own back header */}
       <Tabs.Screen
         name="profileAccountDetails"
-        options={{ title: "Account Details", href: null }}
+        options={{ href: null, headerShown: false }}
       />
       <Tabs.Screen
         name="profileChangePassword"
-        options={{
-          title: "Change Password",
-          href: null,
-        }}
+        options={{ href: null, headerShown: false }}
+      />
+      <Tabs.Screen name="qrItem" options={{ href: null, headerShown: false }} />
+      <Tabs.Screen
+        name="qrItemRegister"
+        options={{ href: null, headerShown: false }}
+      />
+      <Tabs.Screen
+        name="qrItemList"
+        options={{ href: null, headerShown: false }}
+      />
+      <Tabs.Screen
+        name="qrItemScan"
+        options={{ href: null, headerShown: false }}
+      />
+      <Tabs.Screen
+        name="qrItemView"
+        options={{ href: null, headerShown: false }}
+      />
+      <Tabs.Screen
+        name="qrItemEdit"
+        options={{ href: null, headerShown: false }}
+      />
+      <Tabs.Screen
+        name="qrItemSuccess"
+        options={{ href: null, headerShown: false }}
       />
     </Tabs>
   );

@@ -50,7 +50,7 @@ export default function QrItemScreen() {
     <View style={[styles.screen, { paddingBottom: insets.bottom }]}>
 
       {/* RED HEADER */}
-      <View style={styles.redHeader}>
+      <View style={[styles.redHeader, { paddingTop: insets.top }]}>
         <View style={styles.headerRow}>
           <TouchableOpacity
             onPress={() => router.navigate('/(tabs)/profile')}
