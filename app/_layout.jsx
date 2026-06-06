@@ -19,7 +19,8 @@ export const unstable_settings = {
   initialRouteName: "login",
 };
 
-SplashScreen.hideAsync();
+// Prevent the splash screen from auto-hiding before asset loading is complete.
+SplashScreen.preventAutoHideAsync();
 
 const NavigationTheme = {
   ...DefaultTheme,
@@ -83,7 +84,7 @@ function RootLayoutNav() {
           name="allNotification"
           options={{
             title: "Notification",
-            headerShown: true, // built-in header with Back button
+            headerShown: true,
           }}
         />
         <Stack.Screen name="modal" options={{ presentation: "modal" }} />

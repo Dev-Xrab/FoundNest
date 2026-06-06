@@ -1,9 +1,9 @@
-import { API_BASE_URL } from '@/constants/api';
-import AppColors from '@/constants/AppColors';
-import { saveSession } from '@/constants/StudentData';
-import Ionicons from '@expo/vector-icons/Ionicons';
-import { useRouter } from 'expo-router';
-import { useState } from 'react';
+import { API_BASE_URL } from "@/constants/api";
+import AppColors from "@/constants/AppColors";
+import { saveSession } from "@/constants/StudentData";
+import Ionicons from "@expo/vector-icons/Ionicons";
+import { useRouter } from "expo-router";
+import { useState } from "react";
 import {
   ActivityIndicator,
   Image,
@@ -11,12 +11,22 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  View
-} from 'react-native';
-import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+  View,
+} from "react-native";
+import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-function FloatingLabelInput({ label, value, onChangeText, secureTextEntry, keyboardType, returnKeyType, onSubmitEditing, editable, rightElement }) {
+function FloatingLabelInput({
+  label,
+  value,
+  onChangeText,
+  secureTextEntry,
+  keyboardType,
+  returnKeyType,
+  onSubmitEditing,
+  editable,
+  rightElement,
+}) {
   return (
     <View style={styles.floatWrapper}>
       <Text style={styles.floatLabel}>{label}</Text>
@@ -34,9 +44,7 @@ function FloatingLabelInput({ label, value, onChangeText, secureTextEntry, keybo
           editable={editable}
           placeholderTextColor="rgba(0,0,0,0.25)"
         />
-        {rightElement && (
-          <View style={styles.floatRight}>{rightElement}</View>
-        )}
+        {rightElement && <View style={styles.floatRight}>{rightElement}</View>}
       </View>
     </View>
   );
@@ -46,12 +54,12 @@ export default function LoginScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
 
-  const [email, setEmail]               = useState('');
-  const [password, setPassword]         = useState('');
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [rememberMe, setRememberMe]     = useState(false);
-  const [isLoading, setIsLoading]       = useState(false);
-  const [loginError, setLoginError]     = useState('');
+  const [rememberMe, setRememberMe] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [loginError, setLoginError] = useState("");
 
   const isFormIncomplete = !email.trim() || !password.trim();
 
@@ -59,24 +67,31 @@ export default function LoginScreen() {
     setIsLoading(true);
     try {
       const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: email.trim(), password, rememberMe }),
       });
 
       const data = await response.json();
 
       if (!response.ok) {
-        setLoginError(data.message || 'Invalid email or password. Please try again.');
+        setLoginError(
+          data.message || "Invalid email or password. Please try again.",
+        );
         return;
       }
 
-      await saveSession(data.accessToken, data.user, rememberMe, data.refreshToken);
-      router.replace('/(tabs)');
-
+      await saveSession(
+        data.accessToken,
+        data.user,
+        rememberMe,
+        data.refreshToken,
+      );
+      console.log("User logged in successfully:", data.user); // Log user data for debugging
+      router.replace("/(tabs)");
     } catch (error) {
-      setLoginError('Could not connect to server. Check your connection.');
-      console.error('Login error:', error);
+      setLoginError("Could not connect to server. Check your connection.");
+      console.error("Login error:", error);
     } finally {
       setIsLoading(false);
     }
@@ -95,7 +110,7 @@ export default function LoginScreen() {
       {/* TOP — white section with illustration */}
       <View style={styles.topSection}>
         <Image
-          source={require('@/assets/images/login-image.png')}
+          source={require("@/assets/images/login-image.png")}
           style={styles.illustration}
           resizeMode="contain"
         />
@@ -117,7 +132,7 @@ export default function LoginScreen() {
             value={email}
             onChangeText={(text) => {
               setEmail(text);
-              setLoginError('');
+              setLoginError("");
             }}
             keyboardType="email-address"
             returnKeyType="next"
@@ -132,7 +147,7 @@ export default function LoginScreen() {
             value={password}
             onChangeText={(text) => {
               setPassword(text);
-              setLoginError('');
+              setLoginError("");
             }}
             secureTextEntry={!showPassword}
             returnKeyType="done"
@@ -142,10 +157,12 @@ export default function LoginScreen() {
               <TouchableOpacity
                 onPress={() => setShowPassword((v) => !v)}
                 accessibilityRole="button"
-                accessibilityLabel={showPassword ? 'Hide password' : 'Show password'}
+                accessibilityLabel={
+                  showPassword ? "Hide password" : "Show password"
+                }
               >
                 <Ionicons
-                  name={showPassword ? 'eye-outline' : 'eye-off-outline'}
+                  name={showPassword ? "eye-outline" : "eye-off-outline"}
                   size={20}
                   color="rgba(0,0,0,0.35)"
                 />
@@ -154,9 +171,7 @@ export default function LoginScreen() {
           />
         </View>
 
-        {loginError ? (
-          <Text style={styles.errorText}>{loginError}</Text>
-        ) : null}
+        {loginError ? <Text style={styles.errorText}>{loginError}</Text> : null}
 
         {/* Remember me + Forgot password */}
         <View style={styles.optionsRow}>
@@ -167,9 +182,15 @@ export default function LoginScreen() {
             accessibilityRole="checkbox"
             accessibilityState={{ checked: rememberMe }}
           >
-            <View style={[styles.checkbox, rememberMe && styles.checkboxChecked]}>
+            <View
+              style={[styles.checkbox, rememberMe && styles.checkboxChecked]}
+            >
               {rememberMe && (
-                <Ionicons name="checkmark" size={12} color={AppColors.background} />
+                <Ionicons
+                  name="checkmark"
+                  size={12}
+                  color={AppColors.background}
+                />
               )}
             </View>
             <Text style={styles.rememberText}>Remember me</Text>
@@ -210,15 +231,15 @@ const styles = StyleSheet.create({
   },
   scroll: {
     flexGrow: 1,
-    justifyContent: 'space-between',
+    justifyContent: "space-between",
   },
   topSection: {
     backgroundColor: AppColors.surface,
     paddingTop: 60,
-    alignItems: 'center',
+    alignItems: "center",
   },
   illustration: {
-    width: '70%',
+    width: "70%",
     height: 300,
     marginTop: 10,
   },
@@ -233,9 +254,9 @@ const styles = StyleSheet.create({
   },
   heading: {
     fontSize: 28,
-    fontWeight: '700',
+    fontWeight: "700",
     color: AppColors.surface,
-    textAlign: 'center',
+    textAlign: "center",
     marginBottom: 30,
   },
   inputWrapper: {
@@ -250,13 +271,13 @@ const styles = StyleSheet.create({
   },
   floatLabel: {
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: "600",
     color: AppColors.background,
     marginBottom: 2,
   },
   floatInputRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
   },
   floatInput: {
     flex: 1,
@@ -265,27 +286,27 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
   },
   floatRight: {
-    position: 'absolute',
+    position: "absolute",
     right: 0,
     padding: 2,
   },
   errorText: {
-    color: '#F9E055',
+    color: "#F9E055",
     fontSize: 13,
     marginTop: -4,
     marginBottom: 12,
     marginLeft: 4,
   },
   optionsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     marginTop: 4,
     marginBottom: 28,
   },
   checkboxRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 8,
   },
   checkbox: {
@@ -293,9 +314,9 @@ const styles = StyleSheet.create({
     height: 18,
     borderRadius: 4,
     borderWidth: 1.5,
-    borderColor: 'rgba(255,255,255,0.55)',
-    alignItems: 'center',
-    justifyContent: 'center',
+    borderColor: "rgba(255,255,255,0.55)",
+    alignItems: "center",
+    justifyContent: "center",
   },
   checkboxChecked: {
     backgroundColor: AppColors.surface,
@@ -303,26 +324,26 @@ const styles = StyleSheet.create({
   },
   rememberText: {
     fontSize: 13,
-    color: 'rgba(255,255,255,0.80)',
+    color: "rgba(255,255,255,0.80)",
   },
   forgotText: {
     fontSize: 13,
-    color: '#F5C542',
-    fontWeight: '600',
+    color: "#F5C542",
+    fontWeight: "600",
   },
   loginButton: {
-    backgroundColor: '#FFF3E0',
+    backgroundColor: "#FFF3E0",
     borderRadius: 12,
     paddingVertical: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   loginButtonDisabled: {
     opacity: 0.6,
   },
   loginButtonText: {
     fontSize: 16,
-    fontWeight: '700',
+    fontWeight: "700",
     color: AppColors.background,
   },
 });

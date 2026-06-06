@@ -1,33 +1,33 @@
-import React, { useState, useEffect, useRef } from 'react';
-import {
-  StyleSheet,
-  Text,
-  View,
-  TouchableOpacity,
-  ScrollView,
-  KeyboardAvoidingView,
-  Platform,
-  Alert,
-  ActivityIndicator,
-} from 'react-native';
-import DatePicker from 'react-native-date-picker';
-import { MaterialIcons } from '@expo/vector-icons';
-import AppColors from '@/constants/AppColors';
-import { useRouter } from 'expo-router';
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withTiming,
-} from 'react-native-reanimated';
-import { bulsuColleges } from '@/constants/centerLocation';
-import { gates } from '@/constants/Gates';
-import { sharedStudentSpaces } from '@/constants/SharedStudentSpaces';
-import { clearReportDraft, getReportDraft } from '@/constants/reportDraft';
+import AppColors from "@/constants/AppColors";
+import { bulsuColleges } from "@/constants/centerLocation";
+import { gates } from "@/constants/Gates";
+import { clearReportDraft, getReportDraft } from "@/constants/reportDraft";
+import { sharedStudentSpaces } from "@/constants/SharedStudentSpaces";
 import {
   buildLocationLost,
   submitLostReport,
   validateReportPage2,
-} from '@/utils/lostReport';
+} from "@/utils/lostReport";
+import { MaterialIcons } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
+import React, { useEffect, useRef, useState } from "react";
+import {
+  ActivityIndicator,
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
+import DatePicker from "react-native-date-picker";
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from "react-native-reanimated";
 
 function FieldError({ message }) {
   if (!message) return null;
@@ -40,7 +40,7 @@ const CustomCheckbox = ({ label, value, onValueChange }) => (
     onPress={() => onValueChange(!value)}
   >
     <MaterialIcons
-      name={value ? 'check-box' : 'check-box-outline-blank'}
+      name={value ? "check-box" : "check-box-outline-blank"}
       size={24}
       color={AppColors.background}
     />
@@ -62,7 +62,9 @@ const ExpandableDropdown = ({
 
   const formattedData = Array.isArray(data)
     ? data.map((item) =>
-        typeof item === 'object' && item !== null && item.name ? item.name : item,
+        typeof item === "object" && item !== null && item.name
+          ? item.name
+          : item,
       )
     : [];
 
@@ -95,7 +97,7 @@ const ExpandableDropdown = ({
             <MaterialIcons
               name="keyboard-arrow-down"
               size={24}
-              color={disabled ? '#aaa' : AppColors.background}
+              color={disabled ? "#aaa" : AppColors.background}
             />
           </Animated.View>
         </View>
@@ -143,9 +145,9 @@ export default function ReportNextPage() {
     const saved = getReportDraft();
     if (!saved) {
       Alert.alert(
-        'Incomplete form',
-        'Please complete page 1 before continuing.',
-        [{ text: 'OK', onPress: () => router.replace('/(tabs)/report') }],
+        "Incomplete form",
+        "Please complete page 1 before continuing.",
+        [{ text: "OK", onPress: () => router.replace("/(tabs)/report") }],
       );
       return;
     }
@@ -187,7 +189,7 @@ export default function ReportNextPage() {
 
   const handleSubmit = async () => {
     if (!draft) {
-      router.replace('/(tabs)/report');
+      router.replace("/(tabs)/report");
       return;
     }
 
@@ -207,8 +209,8 @@ export default function ReportNextPage() {
         mainRotation.value = withTiming(180, { duration: 300 });
       }
       Alert.alert(
-        'Missing information',
-        Object.values(validation.errors).join('\n'),
+        "Missing information",
+        Object.values(validation.errors).join("\n"),
       );
       scrollRef.current?.scrollToEnd({ animated: true });
       return;
@@ -238,20 +240,20 @@ export default function ReportNextPage() {
 
       clearReportDraft();
       Alert.alert(
-        'Report submitted',
-        'Your lost item report was sent successfully.',
+        "Report submitted",
+        "Your lost item report was sent successfully.",
         [
           {
-            text: 'OK',
-            onPress: () => router.replace('/(tabs)/'),
+            text: "OK",
+            onPress: () => router.replace("/(tabs)/"),
           },
         ],
       );
     } catch (error) {
-      console.error('Submit lost report:', error);
+      console.error("Submit lost report:", error);
       Alert.alert(
-        'Submission failed',
-        error?.message ?? 'Could not submit your report. Please try again.',
+        "Submission failed",
+        error?.message ?? "Could not submit your report. Please try again.",
       );
     } finally {
       setIsSubmitting(false);
@@ -268,7 +270,7 @@ export default function ReportNextPage() {
 
   return (
     <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
       style={styles.container}
     >
       <DatePicker
@@ -327,8 +329,8 @@ export default function ReportNextPage() {
           <View style={styles.dataPickerButton}>
             <Text>
               {time.toLocaleTimeString([], {
-                hour: '2-digit',
-                minute: '2-digit',
+                hour: "2-digit",
+                minute: "2-digit",
               })}
             </Text>
             <MaterialIcons
@@ -371,7 +373,9 @@ export default function ReportNextPage() {
               data={bulsuColleges}
               selectedItems={selectedColleges}
               disabled={cantRemember}
-              onSelectionChange={handleLocationSelectionChange(setSelectedColleges)}
+              onSelectionChange={handleLocationSelectionChange(
+                setSelectedColleges,
+              )}
             />
 
             <ExpandableDropdown
@@ -379,7 +383,9 @@ export default function ReportNextPage() {
               data={sharedStudentSpaces}
               selectedItems={selectedSpaces}
               disabled={cantRemember}
-              onSelectionChange={handleLocationSelectionChange(setSelectedSpaces)}
+              onSelectionChange={handleLocationSelectionChange(
+                setSelectedSpaces,
+              )}
             />
 
             <ExpandableDropdown
@@ -387,7 +393,9 @@ export default function ReportNextPage() {
               data={gates}
               selectedItems={selectedGates}
               disabled={cantRemember}
-              onSelectionChange={handleLocationSelectionChange(setSelectedGates)}
+              onSelectionChange={handleLocationSelectionChange(
+                setSelectedGates,
+              )}
             />
 
             <CustomCheckbox
@@ -434,13 +442,13 @@ export default function ReportNextPage() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFF1E0',
+    backgroundColor: "#FFF1E0",
   },
   loadingScreen: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#FFF1E0',
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#FFF1E0",
   },
   scrollContent: {
     flexGrow: 1,
@@ -449,15 +457,15 @@ const styles = StyleSheet.create({
   title: {
     backgroundColor: AppColors.background,
     fontSize: 22,
-    fontWeight: '700',
+    fontWeight: "700",
     color: AppColors.surface,
     padding: 20,
   },
   subTitle: {
     borderBottomWidth: 1,
-    borderColor: '#000000',
+    borderColor: "#000000",
     fontSize: 17,
-    fontWeight: '900',
+    fontWeight: "900",
     color: AppColors.textOnLight,
     padding: 20,
     paddingLeft: 10,
@@ -466,19 +474,19 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   nextSection: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    justifyContent: "space-between",
     marginHorizontal: 20,
     marginTop: 20,
     paddingVertical: 30,
     borderTopWidth: 1,
-    borderColor: 'rgba(0, 0, 0, 0.24)',
-    alignItems: 'center',
-    flexWrap: 'wrap',
+    borderColor: "rgba(0, 0, 0, 0.24)",
+    alignItems: "center",
+    flexWrap: "wrap",
     gap: 12,
   },
   pageIndicator: {
-    fontWeight: 'bold',
+    fontWeight: "bold",
   },
   submitButton: {
     padding: 10,
@@ -486,7 +494,7 @@ const styles = StyleSheet.create({
     backgroundColor: AppColors.background,
     borderRadius: 10,
     minWidth: 100,
-    alignItems: 'center',
+    alignItems: "center",
   },
   submitButtonDisabled: {
     opacity: 0.7,
@@ -502,42 +510,42 @@ const styles = StyleSheet.create({
   },
   buttonSection: {
     gap: 8,
-    flexDirection: 'row',
+    flexDirection: "row",
   },
   sectionTitle: {
     fontSize: 17,
-    fontWeight: '800',
+    fontWeight: "800",
     color: AppColors.textOnLight,
     paddingLeft: 20,
     marginTop: 20,
     marginBottom: 8,
   },
   dataPickerButton: {
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    flexDirection: 'row',
+    justifyContent: "space-between",
+    alignItems: "center",
+    flexDirection: "row",
     marginHorizontal: 20,
     marginBottom: 10,
     padding: 12,
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
     borderRadius: 8,
   },
   dataPickerButtonActive: {
-    backgroundColor: '#c7c7c7',
+    backgroundColor: "#c7c7c7",
   },
   selectLocationLabel: {
-    fontWeight: '600',
+    fontWeight: "600",
   },
   inputErrorBorder: {
     borderWidth: 1,
-    borderColor: '#C62828',
+    borderColor: "#C62828",
   },
   nestedLocations: {
     marginTop: 5,
   },
   checkboxContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     marginHorizontal: 20,
     marginBottom: 15,
     marginTop: 5,
@@ -555,10 +563,10 @@ const styles = StyleSheet.create({
     opacity: 0.55,
   },
   disabledText: {
-    color: '#8C7A70',
+    color: "#8C7A70",
   },
   dropdownList: {
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
     marginHorizontal: 20,
     paddingTop: 10,
     borderBottomLeftRadius: 8,
@@ -567,7 +575,7 @@ const styles = StyleSheet.create({
     paddingBottom: 10,
   },
   fieldError: {
-    color: '#C62828',
+    color: "#C62828",
     fontSize: 13,
     marginHorizontal: 20,
     marginBottom: 8,
