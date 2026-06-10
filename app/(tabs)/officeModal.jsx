@@ -1,12 +1,11 @@
 import { getUser } from "@/constants/StudentData";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react"; // <-- Added useRef here
 import {
   ActivityIndicator,
   Alert,
   Image,
   KeyboardAvoidingView,
   Modal,
-  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -83,18 +82,17 @@ export default function OfficeModal({ visible, onClose, office }) {
   const [isLoadingReviews, setIsLoadingReviews] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Keep track of whether the user is editing an existing review
   const [existingReviewId, setExistingReviewId] = useState(null);
+
+  // 1. Create a reference for the ScrollView
+  const scrollViewRef = useRef(null);
 
   const fetchReviewsAndCheckExisting = async () => {
     if (!office || !office.office_id) return;
     setIsLoadingReviews(true);
 
     try {
-      // 1. Get the current user exactly like your old code
       const userId = await getUser();
-
-      // 2. Fetch the reviews
       const res = await fetch(
         `https://foundnest-backend.onrender.com/api/offices/${office.office_id}/reviews`,
       );
@@ -104,19 +102,16 @@ export default function OfficeModal({ visible, onClose, office }) {
       const fetchedReviews = Array.isArray(data) ? data : data.reviews || [];
       setReviews(fetchedReviews);
 
-      // 3. Look for a review from the current user
       if (userId) {
         const myReview = fetchedReviews.find(
           (r) => r.user_id === userId.user_id || r.email === userId.email,
         );
 
         if (myReview) {
-          // Pre-fill the form if they already left a review!
           setExistingReviewId(myReview.review_id);
           setRating(myReview.rating);
           setReviewText(myReview.review_text || "");
         } else {
-          // Clean state if they haven't reviewed yet
           setExistingReviewId(null);
           setRating(0);
           setReviewText("");
@@ -147,9 +142,7 @@ export default function OfficeModal({ visible, onClose, office }) {
 
     setIsSubmitting(true);
     try {
-      // Using your exact old user fetching method
       const userId = await getUser();
-      console.log("Current user for review submission:", userId); // Log the user data for debugging
       const isEditing = existingReviewId !== null;
       const endpoint = isEditing
         ? `https://foundnest-backend.onrender.com/api/offices/${office.office_id}/reviews/${existingReviewId}`
@@ -163,7 +156,7 @@ export default function OfficeModal({ visible, onClose, office }) {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          user_id: userId.user_id, // Restored exactly as you had it!
+          user_id: userId.user_id,
           rating: rating,
           review_text: reviewText,
         }),
@@ -181,7 +174,6 @@ export default function OfficeModal({ visible, onClose, office }) {
           : "Your review has been posted!",
       );
 
-      // Re-fetch to update the list and ensure everything is synced
       fetchReviewsAndCheckExisting();
     } catch (error) {
       console.error("Post review error:", error);
@@ -225,7 +217,8 @@ export default function OfficeModal({ visible, onClose, office }) {
       onRequestClose={onClose}
     >
       <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        // 2. We keep this as padding so the overall sheet behaves
+        behavior="padding"
         style={styles.overlay}
       >
         <TouchableOpacity
@@ -251,8 +244,11 @@ export default function OfficeModal({ visible, onClose, office }) {
           </View>
 
           <ScrollView
+            // 3. Attach the ref to the ScrollView here
+            ref={scrollViewRef}
             showsVerticalScrollIndicator={false}
             contentContainerStyle={styles.scrollContent}
+            keyboardShouldPersistTaps="handled" // Important for scrolling while keyboard is up
           >
             <OfficeBanner office={office} />
 
@@ -262,6 +258,7 @@ export default function OfficeModal({ visible, onClose, office }) {
               <View style={styles.divider} />
 
               <View style={styles.ratingOverview}>
+                {/* ... existing rating UI ... */}
                 <View style={styles.scoreContainer}>
                   <Text style={styles.hugeScore}>{averageRating}</Text>
                   <Text style={styles.stars}>⭐⭐⭐⭐⭐</Text>
@@ -294,7 +291,11 @@ export default function OfficeModal({ visible, onClose, office }) {
 
               <View style={styles.starSelector}>
                 {[1, 2, 3, 4, 5].map((star) => (
-                  <TouchableOpacity key={star} onPress={() => setRating(star)}>
+                  <TouchableOpacity
+                    key={star}
+                    onPress={() => setRating(star)}
+                    disabled={isLoadingReviews}
+                  >
                     <Text
                       style={[
                         styles.starIcon,
@@ -308,23 +309,37 @@ export default function OfficeModal({ visible, onClose, office }) {
               </View>
 
               <TextInput
-                style={styles.textInput}
+                style={[
+                  styles.textInput,
+                  isLoadingReviews && {
+                    opacity: 0.6,
+                    backgroundColor: "#EFEFEF",
+                  },
+                ]}
                 placeholder="Tell others about your experience at this office."
                 multiline
                 numberOfLines={4}
                 value={reviewText}
                 onChangeText={setReviewText}
                 textAlignVertical="top"
+                editable={!isLoadingReviews}
+                // 4. Scroll exactly to the bottom when the user clicks the input!
+                onFocus={() => {
+                  setTimeout(() => {
+                    scrollViewRef.current?.scrollToEnd({ animated: true });
+                  }, 150); // slight delay gives the keyboard time to animate up first
+                }}
               />
 
               <TouchableOpacity
                 style={[
                   styles.postButton,
                   (reviewText.length > 0 || rating > 0) &&
+                    !isLoadingReviews &&
                     styles.postButtonActive,
                 ]}
                 onPress={handlePostReview}
-                disabled={isSubmitting}
+                disabled={isSubmitting || isLoadingReviews}
               >
                 {isSubmitting ? (
                   <ActivityIndicator size="small" color={AppColors.surface} />
@@ -383,8 +398,8 @@ export default function OfficeModal({ visible, onClose, office }) {
     </Modal>
   );
 }
+
 // Styles remain completely unchanged down below...
-// Keep all your exact same styles down here!
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
@@ -439,7 +454,7 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
   },
   scrollContent: {
-    paddingBottom: 100,
+    paddingBottom: 40, // Added a little extra padding bottom just to be safe
   },
   imageBanner: {
     width: "100%",

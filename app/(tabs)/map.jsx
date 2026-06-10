@@ -1,3 +1,6 @@
+import AppColors from "@/constants/AppColors";
+import fetchBulsuColleges from "@/constants/centerLocation";
+import { Ionicons } from "@expo/vector-icons";
 import {
   Camera,
   Map,
@@ -6,15 +9,19 @@ import {
 } from "@maplibre/maplibre-react-native";
 import * as Location from "expo-location";
 import { useEffect, useState } from "react";
-import { ActivityIndicator, Alert, StyleSheet, Text, View } from "react-native";
-
+import {
+  ActivityIndicator,
+  Alert,
+  FlatList,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from "react-native";
 import OfficeModal from "./officeModal";
-// Import the fetch function you created (adjust the path to match your project structure)
-import fetchBulsuColleges from "@/constants/centerLocation";
 
 const BULSU_CENTER = [120.8142, 14.8582];
-
-// I chose a nice standard Map Pin Red. You can change this to any hex code!
 const MARKER_COLOR = "#D32F2F";
 
 const highDetailHybridStyle = {
@@ -41,10 +48,15 @@ const highDetailHybridStyle = {
 export default function MapScreen() {
   const [hasPermission, setHasPermission] = useState(false);
   const [isWakingGPS, setIsWakingGPS] = useState(true);
+  const [isDataLoading, setIsDataLoading] = useState(true);
   const [selectedOffice, setSelectedOffice] = useState(null);
   const [modalVisible, setModalVisible] = useState(false);
-
   const [colleges, setColleges] = useState([]);
+
+  // --- Search States ---
+  const [searchQuery, setSearchQuery] = useState("");
+  const [filteredColleges, setFilteredColleges] = useState([]);
+  const [isDropdownVisible, setIsDropdownVisible] = useState(false);
 
   const [cameraConfig, setCameraConfig] = useState({
     center: BULSU_CENTER,
@@ -82,22 +94,76 @@ export default function MapScreen() {
     activateAndFetchGPS();
   }, []);
 
-  // 2. Fetch Colleges Data from your backend
+  // 2. Fetch Colleges Data
   useEffect(() => {
     async function loadColleges() {
-      const data = await fetchBulsuColleges();
-      if (data && data.length > 0) {
-        setColleges(data);
-        console.log("Colleges loaded:", data);
+      try {
+        const data = await fetchBulsuColleges();
+        if (data && data.length > 0) {
+          setColleges(data);
+          console.log("Colleges loaded:", data);
+        }
+      } catch (error) {
+        console.error("Error fetching colleges:", error);
+      } finally {
+        setIsDataLoading(false);
       }
     }
 
     loadColleges();
   }, []);
 
+  // --- Search Functions ---
+  function handleSearch(text) {
+    setSearchQuery(text);
+    if (text) {
+      const filtered = colleges.filter((college) =>
+        college.office_name.toLowerCase().includes(text.toLowerCase()),
+      );
+      setFilteredColleges(filtered);
+      setIsDropdownVisible(true);
+    } else {
+      setFilteredColleges([]);
+      setIsDropdownVisible(false);
+    }
+  }
+
+  // New function to handle explicitly clicking the dropdown arrow icon
+  // Shows all available items if the search bar is empty
+  function toggleDropdown() {
+    if (isDropdownVisible) {
+      setIsDropdownVisible(false);
+    } else {
+      if (searchQuery.trim() === "") {
+        setFilteredColleges(colleges); // Populate list with all items
+      } else {
+        const filtered = colleges.filter((college) =>
+          college.office_name.toLowerCase().includes(searchQuery.toLowerCase()),
+        );
+        setFilteredColleges(filtered);
+      }
+      setIsDropdownVisible(true);
+    }
+  }
+
+  function handleSelectLocation(college) {
+    const lng = parseFloat(college.longitude);
+    const lat = parseFloat(college.latitude);
+
+    if (!isNaN(lng) && !isNaN(lat)) {
+      setCameraConfig({
+        center: [lng, lat],
+        zoom: 19,
+        animationDuration: 1500,
+      });
+    }
+
+    setSearchQuery(college.office_name);
+    setIsDropdownVisible(false);
+  }
+
   function handleMarkerPress(college) {
     setSelectedOffice(college);
-    console.log("Selected office:", college);
     setModalVisible(true);
   }
 
@@ -108,11 +174,57 @@ export default function MapScreen() {
 
   return (
     <View style={styles.container}>
-      {isWakingGPS && (
+      {(isWakingGPS || isDataLoading) && (
         <View style={styles.loadingOverlay}>
           <ActivityIndicator size="large" color="#900000" />
         </View>
       )}
+
+      {/* --- Search Overlay --- */}
+      <View style={styles.searchContainer}>
+        <View style={styles.searchBar}>
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Search for a Drop-off location..."
+            placeholderTextColor="#888"
+            value={searchQuery}
+            onChangeText={handleSearch}
+            onFocus={() => {
+              if (searchQuery) setIsDropdownVisible(true);
+            }}
+          />
+          {/* Wrapped the icon inside a TouchableOpacity to enable clicks */}
+          <TouchableOpacity
+            onPress={toggleDropdown}
+            style={styles.iconContainer}
+            activeOpacity={0.7}
+          >
+            <Ionicons
+              name={isDropdownVisible ? "chevron-up" : "chevron-down"}
+              size={22}
+              color="#888"
+            />
+          </TouchableOpacity>
+        </View>
+
+        {isDropdownVisible && filteredColleges.length > 0 && (
+          <View style={styles.dropdown}>
+            <FlatList
+              data={filteredColleges}
+              keyExtractor={(item) => item.office_id.toString()}
+              keyboardShouldPersistTaps="handled"
+              renderItem={({ item }) => (
+                <TouchableOpacity
+                  style={styles.dropdownItem}
+                  onPress={() => handleSelectLocation(item)}
+                >
+                  <Text style={styles.dropdownText}>{item.office_name}</Text>
+                </TouchableOpacity>
+              )}
+            />
+          </View>
+        )}
+      </View>
 
       <Map
         style={styles.map}
@@ -128,25 +240,22 @@ export default function MapScreen() {
 
         {hasPermission && !isWakingGPS && <NativeUserLocation />}
 
-        {/* Filter out nulls, then render the markers */}
         {colleges
           .filter(
             (college) =>
               college.longitude !== null && college.latitude !== null,
           )
           .map((college) => {
-            // 1. Convert the string coordinates to actual numbers
             const lng = parseFloat(college.longitude);
             const lat = parseFloat(college.latitude);
 
-            // 2. Double-check that the conversion worked (safeguard)
             if (isNaN(lng) || isNaN(lat)) return null;
 
             return (
               <Marker
                 key={college.office_id}
                 id={college.office_id.toString()}
-                lngLat={[lng, lat]} // Now passing clean Numbers!
+                lngLat={[lng, lat]}
                 anchor="bottom"
                 onPress={() => handleMarkerPress(college)}
               >
@@ -177,6 +286,56 @@ const styles = StyleSheet.create({
   map: {
     flex: 1,
   },
+  searchContainer: {
+    position: "absolute",
+    top: 40,
+    left: 20,
+    right: 20,
+    zIndex: 20,
+    elevation: 10,
+  },
+  searchBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#FFFFFF",
+    borderRadius: 8,
+    paddingLeft: 12, // Swapped paddingHorizontal to allow custom touch targets on the right
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  searchInput: {
+    flex: 1,
+    paddingVertical: 12,
+    fontSize: 15,
+    color: "#000",
+  },
+  iconContainer: {
+    padding: 12, // Increases the touch target size for easier clicking
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  dropdown: {
+    backgroundColor: AppColors.surface,
+    borderRadius: 8,
+    marginTop: 8,
+    maxHeight: 220,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  dropdownItem: {
+    padding: 15,
+    borderBottomWidth: 0,
+  },
+  dropdownText: {
+    fontSize: 14,
+    color: "#333",
+  },
   loadingOverlay: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: "rgba(255, 241, 224, 0.8)",
@@ -199,7 +358,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     borderWidth: 1.5,
     borderColor: "#FFFFFF",
-    backgroundColor: MARKER_COLOR, // Hardcoded red color
+    backgroundColor: MARKER_COLOR,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -222,7 +381,7 @@ const styles = StyleSheet.create({
     borderTopWidth: 8,
     borderLeftColor: "transparent",
     borderRightColor: "transparent",
-    borderTopColor: MARKER_COLOR, // Hardcoded red color
+    borderTopColor: MARKER_COLOR,
     marginTop: -1.5,
   },
 });
