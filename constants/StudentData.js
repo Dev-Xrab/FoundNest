@@ -3,6 +3,7 @@ import * as SecureStore from 'expo-secure-store';
 const TOKEN_KEY         = 'session_token';
 const USER_KEY          = 'session_user';
 const REFRESH_TOKEN_KEY = 'session_refresh_token';
+export const EMAIL_KEY  = 'saved_email';
 
 // In-memory fallback for when rememberMe is false
 let _token        = null;
@@ -63,4 +64,16 @@ export async function isLoggedIn() {
   if (_token) return true;
   const token = await SecureStore.getItemAsync(TOKEN_KEY);
   return !!token;
+}
+
+export async function saveEmail(email) {
+  await SecureStore.setItemAsync(EMAIL_KEY, email);
+}
+
+export async function getSavedEmail() {
+  return await SecureStore.getItemAsync(EMAIL_KEY);
+}
+
+export async function clearSavedEmail() {
+  await SecureStore.deleteItemAsync(EMAIL_KEY);
 }

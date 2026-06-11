@@ -70,6 +70,11 @@ export default function ProfileScreen() {
       return;
     }
 
+    if (key === 'history') {
+      router.push('/(tabs)/profileReportHistory');
+      return;
+    }
+
     if (key === 'qr') {
       router.push('/(tabs)/qrItem');
       return;

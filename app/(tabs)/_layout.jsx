@@ -94,6 +94,26 @@ export default function TabLayout() {
         name="profileChangePassword"
         options={{ href: null, headerShown: false }}
       />
+      <Tabs.Screen
+        name="profileReportHistory"
+        options={{ href: null, headerShown: false }}
+      />
+      <Tabs.Screen
+        name="profileReportHistoryView"
+        options={{ href: null, headerShown: false }}
+      />
+      <Tabs.Screen 
+        name="profileReportHistoryEdit" 
+        options={{ href: null, title: "Report" }} 
+      />
+      <Tabs.Screen 
+        name="profileReportHistoryEditNext" 
+        options={{ href: null, title: "Report" }} 
+      />
+      <Tabs.Screen 
+        name="reportSuccess" 
+        options={{ href: null, headerShown: false }} 
+        />
       <Tabs.Screen name="qrItem" options={{ href: null, headerShown: false }} />
       <Tabs.Screen
         name="qrItemRegister"

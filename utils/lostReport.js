@@ -1,4 +1,5 @@
-import { API_BASE_URL, DEFAULT_USER_ID } from '@/constants/api';
+import { API_BASE_URL } from '@/constants/api';
+import { getToken, getUser } from '@/constants/StudentData';
 
 export function formatLostDateTime(datePart, timePart) {
   const combined = new Date(datePart);
@@ -114,11 +115,17 @@ export async function submitLostReport({
   description,
   contents,
   categoryId,
-  userId = DEFAULT_USER_ID,
   locationLost,
   dateLost,
   timeLost,
 }) {
+  const token = await getToken();
+  const user = await getUser();
+
+  if (!token || !user?.user_id) {
+    throw new Error('You must be logged in to submit a report.');
+  }
+
   const formData = new FormData();
 
   if (imageUri) {
@@ -142,13 +149,16 @@ export async function submitLostReport({
   formData.append('description', description.trim());
   formData.append('contents', contents?.trim() ?? '');
   formData.append('category_id', String(categoryId));
-  formData.append('user_id', String(userId));
+  formData.append('user_id', String(user.user_id));
   formData.append('location_lost', locationLost);
   formData.append('lost_date', formatLostDateTime(dateLost, timeLost));
 
   const response = await fetch(`${API_BASE_URL}/api/lost-reports`, {
     method: 'POST',
     body: formData,
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
   });
 
   if (!response.ok) {

@@ -1,9 +1,9 @@
 import { API_BASE_URL } from "@/constants/api";
 import AppColors from "@/constants/AppColors";
-import { saveSession } from "@/constants/StudentData";
+import { clearSavedEmail, getSavedEmail, saveEmail, saveSession } from "@/constants/StudentData";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useRouter } from "expo-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Image,
@@ -61,6 +61,14 @@ export default function LoginScreen() {
   const [isLoading, setIsLoading] = useState(false);
   const [loginError, setLoginError] = useState("");
 
+  useEffect(() => {
+    const loadSavedEmail = async () => {
+      const saved = await getSavedEmail();
+      if (saved) setEmail(saved);
+    };
+    loadSavedEmail();
+  }, []);
+
   const isFormIncomplete = !email.trim() || !password.trim();
 
   const handleLogin = async () => {
@@ -84,6 +92,12 @@ export default function LoginScreen() {
       if (data.user?.user_role !== 'user') {
         setLoginError('This account is not authorized for mobile access.');
         return;
+      }
+
+      if (rememberMe) {
+        await saveEmail(data.user.email);  
+      } else {
+        await clearSavedEmail();
       }
 
       await saveSession(data.accessToken, data.user, rememberMe, data.refreshToken);
