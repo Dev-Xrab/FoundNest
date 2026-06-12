@@ -52,3 +52,48 @@ export async function fetchWithAuth(url, options = {}) {
 
   return response;
 }
+
+/**
+ * Authenticated multipart upload (e.g. image for AI analysis).
+ * Do NOT set Content-Type — fetch must add the multipart boundary itself.
+ */
+export async function uploadWithAuth(url, formData) {
+  let token = await getToken();
+
+  const doUpload = (authToken) =>
+    fetch(url, {
+      method: 'POST',
+      body: formData,
+      headers: {
+        Authorization: `Bearer ${authToken}`,
+      },
+    });
+
+  let response = await doUpload(token);
+
+  if (response.status === 401) {
+    const refreshToken = await getRefreshToken();
+
+    if (!refreshToken) {
+      await clearSession();
+      return response;
+    }
+
+    const refreshResponse = await fetch(`${API_BASE_URL}/api/auth/refresh`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refreshToken }),
+    });
+
+    if (!refreshResponse.ok) {
+      await clearSession();
+      return response;
+    }
+
+    const refreshData = await refreshResponse.json();
+    await updateAccessToken(refreshData.accessToken);
+    response = await doUpload(refreshData.accessToken);
+  }
+
+  return response;
+}

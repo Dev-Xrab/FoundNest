@@ -8,6 +8,7 @@ import {
   NativeUserLocation,
 } from "@maplibre/maplibre-react-native";
 import * as Location from "expo-location";
+import { useLocalSearchParams } from "expo-router";
 import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
@@ -57,6 +58,9 @@ export default function MapScreen() {
   const [searchQuery, setSearchQuery] = useState("");
   const [filteredColleges, setFilteredColleges] = useState([]);
   const [isDropdownVisible, setIsDropdownVisible] = useState(false);
+
+  // --- Incoming params (for "View Office Location" deep link) ---
+  const { officeId } = useLocalSearchParams();
 
   const [cameraConfig, setCameraConfig] = useState({
     center: BULSU_CENTER,
@@ -113,6 +117,31 @@ export default function MapScreen() {
     loadColleges();
   }, []);
 
+  // 3. Handle incoming "View Office Location" param
+  useEffect(() => {
+    if (!officeId || colleges.length === 0) return;
+
+    const target = colleges.find(
+      (college) => college.office_id.toString() === officeId.toString(),
+    );
+
+    if (target) {
+      const lng = parseFloat(target.longitude);
+      const lat = parseFloat(target.latitude);
+
+      if (!isNaN(lng) && !isNaN(lat)) {
+        setCameraConfig({
+          center: [lng, lat],
+          zoom: 19,
+          animationDuration: 1500,
+        });
+      }
+
+      setSelectedOffice(target);
+      setModalVisible(true);
+    }
+  }, [officeId, colleges]);
+
   // --- Search Functions ---
   function handleSearch(text) {
     setSearchQuery(text);
@@ -128,14 +157,13 @@ export default function MapScreen() {
     }
   }
 
-  // New function to handle explicitly clicking the dropdown arrow icon
-  // Shows all available items if the search bar is empty
+  // Handle explicitly clicking the dropdown arrow icon
   function toggleDropdown() {
     if (isDropdownVisible) {
       setIsDropdownVisible(false);
     } else {
       if (searchQuery.trim() === "") {
-        setFilteredColleges(colleges); // Populate list with all items
+        setFilteredColleges(colleges);
       } else {
         const filtered = colleges.filter((college) =>
           college.office_name.toLowerCase().includes(searchQuery.toLowerCase()),
@@ -172,6 +200,12 @@ export default function MapScreen() {
     setSelectedOffice(null);
   }
 
+  // Connector function integrated inside the scope to handle externalized UI actions safely
+  function showCenterInfo(location) {
+    handleMarkerPress(location);
+    handleSelectLocation(location);
+  }
+
   return (
     <View style={styles.container}>
       {(isWakingGPS || isDataLoading) && (
@@ -193,7 +227,6 @@ export default function MapScreen() {
               if (searchQuery) setIsDropdownVisible(true);
             }}
           />
-          {/* Wrapped the icon inside a TouchableOpacity to enable clicks */}
           <TouchableOpacity
             onPress={toggleDropdown}
             style={styles.iconContainer}
@@ -299,7 +332,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     backgroundColor: "#FFFFFF",
     borderRadius: 8,
-    paddingLeft: 12, // Swapped paddingHorizontal to allow custom touch targets on the right
+    paddingLeft: 12,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.15,
@@ -313,7 +346,7 @@ const styles = StyleSheet.create({
     color: "#000",
   },
   iconContainer: {
-    padding: 12, // Increases the touch target size for easier clicking
+    padding: 12,
     justifyContent: "center",
     alignItems: "center",
   },
