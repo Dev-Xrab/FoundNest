@@ -13,7 +13,6 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-
 const ItemDetails = () => {
   const insets = useSafeAreaInsets();
   const { itemString } = useLocalSearchParams();
@@ -108,7 +107,17 @@ const ItemDetails = () => {
             <Text style={styles.primaryButtonText}>How to claim?</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.secondaryButton}>
+          <TouchableOpacity
+            style={styles.secondaryButton}
+            onPress={async () => {
+              console.log("Office Location ID:", item.office_id); // This will now log the real ID
+
+              router.push({
+                pathname: "/(tabs)/map",
+                params: { officeId: String(item.office_id) },
+              });
+            }}
+          >
             <Text style={styles.secondaryButtonText}>View Office Location</Text>
           </TouchableOpacity>
         </View>

@@ -1,5 +1,10 @@
-import { API_BASE_URL } from './api';
-import { clearSession, getRefreshToken, getToken, updateAccessToken } from './StudentData';
+import { API_BASE_URL } from "./api";
+import {
+  clearSession,
+  getRefreshToken,
+  getToken,
+  updateAccessToken,
+} from "./StudentData";
 
 export async function fetchWithAuth(url, options = {}) {
   let token = await getToken();
@@ -9,7 +14,7 @@ export async function fetchWithAuth(url, options = {}) {
     ...options,
     headers: {
       ...options.headers,
-      'Content-Type': 'application/json',
+      "Content-Type": "application/json",
       Authorization: `Bearer ${token}`,
     },
   });
@@ -25,8 +30,8 @@ export async function fetchWithAuth(url, options = {}) {
     }
 
     const refreshResponse = await fetch(`${API_BASE_URL}/api/auth/refresh`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ refreshToken }),
     });
 
@@ -44,7 +49,7 @@ export async function fetchWithAuth(url, options = {}) {
       ...options,
       headers: {
         ...options.headers,
-        'Content-Type': 'application/json',
+        "Content-Type": "application/json",
         Authorization: `Bearer ${refreshData.accessToken}`,
       },
     });
@@ -53,16 +58,12 @@ export async function fetchWithAuth(url, options = {}) {
   return response;
 }
 
-/**
- * Authenticated multipart upload (e.g. image for AI analysis).
- * Do NOT set Content-Type — fetch must add the multipart boundary itself.
- */
 export async function uploadWithAuth(url, formData) {
   let token = await getToken();
 
   const doUpload = (authToken) =>
     fetch(url, {
-      method: 'POST',
+      method: "POST",
       body: formData,
       headers: {
         Authorization: `Bearer ${authToken}`,
@@ -80,8 +81,8 @@ export async function uploadWithAuth(url, formData) {
     }
 
     const refreshResponse = await fetch(`${API_BASE_URL}/api/auth/refresh`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ refreshToken }),
     });
 

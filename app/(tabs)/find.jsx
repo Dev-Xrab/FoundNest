@@ -113,6 +113,7 @@ const Find = () => {
           "https://foundnest-backend.onrender.com/api/found-reports",
         );
         const json = await response.json();
+        console.log("Raw fetched data:", json); // Debug log to check raw data from backend
 
         const formattedData = json.map((item) => ({
           id: item.found_report_id.toString(),
@@ -120,11 +121,12 @@ const Find = () => {
           category: item.category_name,
           date: formatDateTime(item.found_date),
           location: item.location_found,
-          currentLocation: `${item.location_found} FoundNest Office`,
+          currentLocation: `${item.office_name} `,
           imageUrl: item.image_url,
           description: item.description,
           reportedBy: item.reported_by,
           status: item.status,
+          office_id: item.office_id,
         }));
 
         setItems(formattedData);
@@ -218,15 +220,18 @@ const Find = () => {
     );
   };
 
-  const renderItem = ({ item }) => (
+  const renderItem = (
+    { item }, // Debug log to check item data before rendering
+  ) => (
     <TouchableOpacity
       style={styles.card}
-      onPress={() =>
+      onPress={() => {
+        console.log("Rendering item:", item);
         router.push({
           pathname: "/FoundItemDetails",
           params: { itemString: JSON.stringify(item) },
-        })
-      }
+        });
+      }}
     >
       <Image source={{ uri: item.imageUrl }} style={styles.cardImage} />
       <View style={styles.categoryTag}>
@@ -391,10 +396,6 @@ const Find = () => {
                 <LocationTab group={locationGroups[0]} />
                 <LocationTab group={locationGroups[1]} />
               </View>
-              {/* ROW 1 CONTENT BOX */} // Isang box na nag-a-appear sa ilalim
-              ng active tab (College or Shared) kapag pinindot. Nagdi-display
-              ito ng corresponding locations bilang chips. Only one box can be
-              open at a time, depende sa activeLocationGroup state. Gates tab
               has its own separate box sa row 2.
               {(activeLocationGroup === "college" ||
                 activeLocationGroup === "shared") && (

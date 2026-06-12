@@ -1,5 +1,5 @@
 import AppColors from "@/constants/AppColors";
-import fetchBulsuColleges from "@/constants/centerLocation";
+import { fetchBulsuColleges } from "@/constants/centerLocation";
 import { Ionicons } from "@expo/vector-icons";
 import {
   Camera,
@@ -117,12 +117,23 @@ export default function MapScreen() {
     loadColleges();
   }, []);
 
-  // 3. Handle incoming "View Office Location" param
+  // 3. Handle incoming "View Office Location" param reliably
   useEffect(() => {
-    if (!officeId || colleges.length === 0) return;
+    // We log this to watch our variables synchronize
+    console.log(
+      "Auto-open synchronization check -> officeId:",
+      officeId,
+      "Colleges count:",
+      colleges.length,
+    );
 
+    if (!officeId || !Array.isArray(colleges) || colleges.length === 0) {
+      return; // Wait patiently until BOTH values are fully ready
+    }
+
+    // Find target using clean string comparisons
     const target = colleges.find(
-      (college) => college.office_id.toString() === officeId.toString(),
+      (college) => college?.office_id?.toString() === officeId.toString(),
     );
 
     if (target) {
@@ -139,8 +150,10 @@ export default function MapScreen() {
 
       setSelectedOffice(target);
       setModalVisible(true);
+    } else {
+      console.warn(`Could not find a college office matching ID: ${officeId}`);
     }
-  }, [officeId, colleges]);
+  }, [officeId, colleges]); // Re-evaluates safely when the API finishes loading
 
   // --- Search Functions ---
   function handleSearch(text) {
@@ -198,12 +211,6 @@ export default function MapScreen() {
   function handleCloseModal() {
     setModalVisible(false);
     setSelectedOffice(null);
-  }
-
-  // Connector function integrated inside the scope to handle externalized UI actions safely
-  function showCenterInfo(location) {
-    handleMarkerPress(location);
-    handleSelectLocation(location);
   }
 
   return (
