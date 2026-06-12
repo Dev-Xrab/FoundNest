@@ -8,6 +8,7 @@ import {
   NativeUserLocation,
 } from "@maplibre/maplibre-react-native";
 import * as Location from "expo-location";
+import { useLocalSearchParams } from "expo-router";
 import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
@@ -57,6 +58,9 @@ export default function MapScreen() {
   const [searchQuery, setSearchQuery] = useState("");
   const [filteredColleges, setFilteredColleges] = useState([]);
   const [isDropdownVisible, setIsDropdownVisible] = useState(false);
+
+  // --- Incoming params (for "View Office Location" deep link) ---
+  const { officeId } = useLocalSearchParams();
 
   const [cameraConfig, setCameraConfig] = useState({
     center: BULSU_CENTER,
@@ -112,6 +116,33 @@ export default function MapScreen() {
 
     loadColleges();
   }, []);
+
+  // 3. Handle incoming "View Office Location" param
+  // Once colleges are loaded, find the matching office, fly the camera to it,
+  // and open its modal automatically.
+  useEffect(() => {
+    if (!officeId || colleges.length === 0) return;
+
+    const target = colleges.find(
+      (college) => college.office_id.toString() === officeId.toString(),
+    );
+
+    if (target) {
+      const lng = parseFloat(target.longitude);
+      const lat = parseFloat(target.latitude);
+
+      if (!isNaN(lng) && !isNaN(lat)) {
+        setCameraConfig({
+          center: [lng, lat],
+          zoom: 19,
+          animationDuration: 1500,
+        });
+      }
+
+      setSelectedOffice(target);
+      setModalVisible(true);
+    }
+  }, [officeId, colleges]);
 
   // --- Search Functions ---
   function handleSearch(text) {
