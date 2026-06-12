@@ -1,12 +1,12 @@
-import CancelReasonModal from '@/components/CancelReasonModal';
-import Toast from '@/components/Toast';
-import { API_BASE_URL } from '@/constants/api';
-import AppColors from '@/constants/AppColors';
-import { fetchWithAuth } from '@/constants/authApi';
-import { getToken, getUser } from '@/constants/StudentData';
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
+import CancelReasonModal from "@/components/CancelReasonModal";
+import Toast from "@/components/Toast";
+import { API_BASE_URL } from "@/constants/api";
+import AppColors from "@/constants/AppColors";
+import { fetchWithAuth } from "@/constants/authApi";
+import { getToken, getUser } from "@/constants/StudentData";
+import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
+import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
+import { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Image,
@@ -15,36 +15,36 @@ import {
   Text,
   TouchableOpacity,
   View,
-} from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+} from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 // ── Nest illustration (empty state) ──────────────────────────────────────────
-const emptyNestBg   = require('@/assets/images/Empty Nest/empty-nest-bg.png');
-const emptyNest     = require('@/assets/images/Empty Nest/empty-nest.png');
-const upperLeft     = require('@/assets/images/Empty Nest/upper-left.png');
-const upperRight    = require('@/assets/images/Empty Nest/upper-right.png');
-const upperRightBee = require('@/assets/images/Empty Nest/upper-right-bee.png');
+const emptyNestBg = require("@/assets/images/Empty Nest/empty-nest-bg.png");
+const emptyNest = require("@/assets/images/Empty Nest/empty-nest.png");
+const upperLeft = require("@/assets/images/Empty Nest/upper-left.png");
+const upperRight = require("@/assets/images/Empty Nest/upper-right.png");
+const upperRightBee = require("@/assets/images/Empty Nest/upper-right-bee.png");
 
 function EmptyNestIllustration() {
   return (
     <View style={styles.nestWrapper}>
-      <Image source={emptyNestBg}    style={styles.nestBg} />
-      <Image source={upperLeft}      style={styles.upperLeft} />
-      <Image source={upperRight}     style={styles.upperRight} />
-      <Image source={upperRightBee}  style={styles.upperRightBee} />
-      <Image source={emptyNest}      style={styles.nestImage} />
+      <Image source={emptyNestBg} style={styles.nestBg} />
+      <Image source={upperLeft} style={styles.upperLeft} />
+      <Image source={upperRight} style={styles.upperRight} />
+      <Image source={upperRightBee} style={styles.upperRightBee} />
+      <Image source={emptyNest} style={styles.nestImage} />
     </View>
   );
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function formatDate(dateStr) {
-  if (!dateStr) return '—';
+  if (!dateStr) return "—";
   const d = new Date(dateStr);
-  return d.toLocaleDateString('en-US', {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
+  return d.toLocaleDateString("en-US", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
   });
 }
 
@@ -66,19 +66,19 @@ function mergeReportsAndNotifs(reportsData, notifsData) {
 
   // Every lost report becomes a card; matches attached if any exist
   return reportsData.map((r) => ({
-    lost_report_id:   r.lost_report_id,
-    lost_item_name:   r.item_name,
-    lost_item_image:  r.image_url,
-    lost_date:        r.date_reported,
+    lost_report_id: r.lost_report_id,
+    lost_item_name: r.item_name,
+    lost_item_image: r.image_url,
+    lost_date: r.date_reported,
     actual_lost_date: r.lost_date,
-    location_lost:    r.location_lost,
-    status:           r.status,
+    location_lost: r.location_lost,
+    status: r.status,
     // Fields needed to pre-fill the edit form
-    item_name:        r.item_name,
-    description:      r.description,
-    contents:         r.contents,
-    category_id:      r.category_id,
-    matches:          notifMap.get(r.lost_report_id) ?? [],
+    item_name: r.item_name,
+    description: r.description,
+    contents: r.contents,
+    category_id: r.category_id,
+    matches: notifMap.get(r.lost_report_id) ?? [],
   }));
 }
 
@@ -97,10 +97,17 @@ function MatchCard({ match, label, onPress }) {
         {/* Square image + badge overlay */}
         <View style={styles.matchImageContainer}>
           {match.found_item_image ? (
-            <Image source={{ uri: match.found_item_image }} style={styles.matchImage} />
+            <Image
+              source={{ uri: match.found_item_image }}
+              style={styles.matchImage}
+            />
           ) : (
             <View style={[styles.matchImage, styles.matchImageFallback]}>
-              <MaterialCommunityIcons name="image-off-outline" size={28} color="#B0A09A" />
+              <MaterialCommunityIcons
+                name="image-off-outline"
+                size={28}
+                color="#B0A09A"
+              />
             </View>
           )}
 
@@ -117,19 +124,27 @@ function MatchCard({ match, label, onPress }) {
         {/* Text info below image */}
         <View style={styles.matchInfo}>
           <Text style={styles.matchName} numberOfLines={2}>
-            {match.found_item_name ?? '—'}
+            {match.found_item_name ?? "—"}
           </Text>
           <View style={styles.matchDivider} />
           <View style={styles.matchMeta}>
-            <Ionicons name="calendar-outline" size={11} color={AppColors.textMuted} />
+            <Ionicons
+              name="calendar-outline"
+              size={11}
+              color={AppColors.textMuted}
+            />
             <Text style={styles.matchMetaText} numberOfLines={1}>
               {formatDate(match.found_date)}
             </Text>
           </View>
           <View style={styles.matchMeta}>
-            <Ionicons name="location-outline" size={11} color={AppColors.textMuted} />
+            <Ionicons
+              name="location-outline"
+              size={11}
+              color={AppColors.textMuted}
+            />
             <Text style={styles.matchMetaText} numberOfLines={1}>
-              {match.location_found ?? '—'}
+              {match.location_found ?? "—"}
             </Text>
           </View>
         </View>
@@ -144,22 +159,29 @@ function ReportCard({ report, onCancel, router }) {
   const hasMatches = report.matches.length > 0;
 
   const handleMatchPress = (match) => {
+    console.log("Match pressed:", match);
     router.push({
-      pathname: '/(tabs)/profileReportHistoryView',
+      pathname: "/(tabs)/profileReportHistoryView",
       params: { match: JSON.stringify(match) },
     });
   };
 
   return (
     <View style={styles.reportCard}>
-
       {/* ── Top section: image + info + badge ── */}
       <View style={styles.reportTop}>
         {report.lost_item_image ? (
-          <Image source={{ uri: report.lost_item_image }} style={styles.reportImage} />
+          <Image
+            source={{ uri: report.lost_item_image }}
+            style={styles.reportImage}
+          />
         ) : (
           <View style={[styles.reportImage, styles.reportImageFallback]}>
-            <MaterialCommunityIcons name="image-off-outline" size={32} color="#B0A09A" />
+            <MaterialCommunityIcons
+              name="image-off-outline"
+              size={32}
+              color="#B0A09A"
+            />
           </View>
         )}
 
@@ -170,7 +192,9 @@ function ReportCard({ report, onCancel, router }) {
             </View>
           )}
           <Text style={styles.reportLabel}>Lost Item Name:</Text>
-          <Text style={styles.reportItemName}>{report.lost_item_name ?? '—'}</Text>
+          <Text style={styles.reportItemName}>
+            {report.lost_item_name ?? "—"}
+          </Text>
           <Text style={styles.reportLabel}>Date Reported:</Text>
           <Text style={styles.reportDate}>{formatDate(report.lost_date)}</Text>
         </View>
@@ -186,10 +210,10 @@ function ReportCard({ report, onCancel, router }) {
             activeOpacity={0.8}
           >
             <Text style={styles.viewMatchesText}>
-              {expanded ? 'Hide Matches' : 'View Matches'}
+              {expanded ? "Hide Matches" : "View Matches"}
             </Text>
             <Ionicons
-              name={expanded ? 'chevron-up' : 'chevron-down'}
+              name={expanded ? "chevron-up" : "chevron-down"}
               size={18}
               color={AppColors.background}
             />
@@ -218,15 +242,22 @@ function ReportCard({ report, onCancel, router }) {
           activeOpacity={0.7}
           onPress={() =>
             router.push({
-              pathname: '/(tabs)/profileReportHistoryEdit',
-              params: { report: JSON.stringify(report), editSession: Date.now(), },
+              pathname: "/(tabs)/profileReportHistoryEdit",
+              params: {
+                report: JSON.stringify(report),
+                editSession: Date.now(),
+              },
             })
           }
         >
-          <MaterialCommunityIcons name="pencil-outline" size={16} color={AppColors.background} />
+          <MaterialCommunityIcons
+            name="pencil-outline"
+            size={16}
+            color={AppColors.background}
+          />
           <Text style={styles.editButtonText}>Edit Report</Text>
         </TouchableOpacity>
-        {report.status !== 'resolved' && (
+        {report.status !== "resolved" && (
           <>
             <View style={styles.actionDivider} />
             <TouchableOpacity
@@ -239,28 +270,27 @@ function ReportCard({ report, onCancel, router }) {
           </>
         )}
       </View>
-
     </View>
   );
 }
 
 // ── Main screen ───────────────────────────────────────────────────────────────
 export default function ProfileReportHistory() {
-  const router  = useRouter();
-  const insets  = useSafeAreaInsets();
+  const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { toast: toastParam } = useLocalSearchParams();
 
-  const [reports,  setReports]  = useState([]);
+  const [reports, setReports] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [cancelModalVisible, setCancelModalVisible] = useState(false);
   const [reportToCancel, setReportToCancel] = useState(null);
   const [toastVisible, setToastVisible] = useState(false);
-  const [toastMessage, setToastMessage] = useState('');
+  const [toastMessage, setToastMessage] = useState("");
 
   // Show toast if navigated back from Edit with cancel param
   useEffect(() => {
-    if (toastParam === 'editCancelled') {
-      setToastMessage('Edit has been cancelled.');
+    if (toastParam === "editCancelled") {
+      setToastMessage("Edit has been cancelled.");
       setToastVisible(true);
     }
   }, [toastParam]);
@@ -268,7 +298,7 @@ export default function ProfileReportHistory() {
   useFocusEffect(
     useCallback(() => {
       loadReports();
-    }, [])
+    }, []),
   );
 
   const loadReports = async () => {
@@ -288,13 +318,13 @@ export default function ProfileReportHistory() {
 
       if (!reportsRes.ok) {
         const text = await reportsRes.text();
-        console.error('Failed to load lost reports:', reportsRes.status, text);
+        console.error("Failed to load lost reports:", reportsRes.status, text);
         setReports([]);
         return;
       }
       if (!notifsRes.ok) {
         const text = await notifsRes.text();
-        console.error('Failed to load notifications:', notifsRes.status, text);
+        console.error("Failed to load notifications:", notifsRes.status, text);
         return;
       }
 
@@ -305,7 +335,7 @@ export default function ProfileReportHistory() {
 
       setReports(mergeReportsAndNotifs(reportsData, notifsData));
     } catch (err) {
-      console.error('Load report history error:', err?.message ?? err);
+      console.error("Load report history error:", err?.message ?? err);
     } finally {
       setIsLoading(false);
     }
@@ -323,20 +353,22 @@ export default function ProfileReportHistory() {
     try {
       const res = await fetchWithAuth(
         `${API_BASE_URL}/api/lost-reports/${reportToCancel.lost_report_id}/cancel`,
-        { method: 'PUT' }
+        { method: "PUT" },
       );
       if (res.ok) {
         setReports((prev) =>
-          prev.filter((r) => r.lost_report_id !== reportToCancel.lost_report_id)
+          prev.filter(
+            (r) => r.lost_report_id !== reportToCancel.lost_report_id,
+          ),
         );
-        setToastMessage('Report Cancelled. Thank you for your feedback!');
+        setToastMessage("Report Cancelled. Thank you for your feedback!");
         setToastVisible(true);
       } else {
         const data = await res.json();
-        console.error('Cancel report failed:', data.error);
+        console.error("Cancel report failed:", data.error);
       }
     } catch (err) {
-      console.error('Cancel report error:', err);
+      console.error("Cancel report error:", err);
     } finally {
       setReportToCancel(null);
     }
@@ -344,7 +376,6 @@ export default function ProfileReportHistory() {
 
   return (
     <View style={styles.screen}>
-
       <CancelReasonModal
         visible={cancelModalVisible}
         onKeepIt={() => {
@@ -365,7 +396,7 @@ export default function ProfileReportHistory() {
       <View style={[styles.redHeader, { paddingTop: insets.top }]}>
         <View style={styles.headerRow}>
           <TouchableOpacity
-            onPress={() => router.navigate('/(tabs)/profile')}
+            onPress={() => router.navigate("/(tabs)/profile")}
             activeOpacity={0.7}
             style={styles.backButton}
           >
@@ -385,7 +416,8 @@ export default function ProfileReportHistory() {
           <EmptyNestIllustration />
           <Text style={styles.emptyTitle}>Nothing here yet!</Text>
           <Text style={styles.emptySubtitle}>
-            Your report history is currently empty.{'\n'}Any new report you make will appear here.
+            Your report history is currently empty.{"\n"}Any new report you make
+            will appear here.
           </Text>
         </View>
       ) : (
@@ -403,7 +435,6 @@ export default function ProfileReportHistory() {
           ))}
         </ScrollView>
       )}
-
     </View>
   );
 }
@@ -412,7 +443,7 @@ export default function ProfileReportHistory() {
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: '#FFF1E0',
+    backgroundColor: "#FFF1E0",
   },
 
   // ── Header
@@ -421,38 +452,38 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
   headerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     height: 70,
   },
   backButton: {
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     marginRight: 8,
   },
   headerTitle: {
     fontSize: 22,
-    fontWeight: '700',
-    color: '#FFFFFF',
+    fontWeight: "700",
+    color: "#FFFFFF",
     marginLeft: 4,
   },
 
   // ── Loading / empty
   centered: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
   emptyContainer: {
     flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     paddingHorizontal: 32,
     paddingBottom: 120,
   },
   emptyTitle: {
     fontSize: 20,
-    fontWeight: '800',
+    fontWeight: "800",
     color: AppColors.textOnLight,
     marginTop: 16,
     marginBottom: 10,
@@ -460,7 +491,7 @@ const styles = StyleSheet.create({
   emptySubtitle: {
     fontSize: 14,
     color: AppColors.textMuted,
-    textAlign: 'center',
+    textAlign: "center",
     lineHeight: 22,
   },
 
@@ -473,17 +504,17 @@ const styles = StyleSheet.create({
 
   // ── Report card
   reportCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: "#FFFFFF",
     borderRadius: 16,
-    overflow: 'hidden',
-    shadowColor: '#000',
+    overflow: "hidden",
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.07,
     shadowRadius: 8,
     elevation: 3,
   },
   reportTop: {
-    flexDirection: 'row',
+    flexDirection: "row",
     padding: 14,
     gap: 12,
   },
@@ -491,20 +522,20 @@ const styles = StyleSheet.create({
     width: 90,
     height: 90,
     borderRadius: 10,
-    resizeMode: 'cover',
+    resizeMode: "cover",
   },
   reportImageFallback: {
-    backgroundColor: '#EDE0D4',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "#EDE0D4",
+    justifyContent: "center",
+    alignItems: "center",
   },
   reportMeta: {
     flex: 1,
-    justifyContent: 'center',
+    justifyContent: "center",
   },
   matchBadge: {
-    alignSelf: 'flex-start',
-    backgroundColor: '#F5C518',
+    alignSelf: "flex-start",
+    backgroundColor: "#F5C518",
     borderRadius: 20,
     paddingHorizontal: 10,
     paddingVertical: 3,
@@ -512,8 +543,8 @@ const styles = StyleSheet.create({
   },
   matchBadgeText: {
     fontSize: 11,
-    fontWeight: '700',
-    color: '#1a1a1a',
+    fontWeight: "700",
+    color: "#1a1a1a",
   },
   reportLabel: {
     fontSize: 12,
@@ -522,88 +553,88 @@ const styles = StyleSheet.create({
   },
   reportItemName: {
     fontSize: 16,
-    fontWeight: '700',
+    fontWeight: "700",
     color: AppColors.textOnLight,
     marginBottom: 4,
   },
   reportDate: {
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: "600",
     color: AppColors.textOnLight,
   },
 
   // ── View Matches button (yellow)
   viewMatchesButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
     gap: 6,
     marginHorizontal: 14,
     marginBottom: 12,
     paddingVertical: 11,
     borderRadius: 10,
-    backgroundColor: '#F5C518',
+    backgroundColor: "#F5C518",
   },
   viewMatchesText: {
     fontSize: 14,
-    fontWeight: '700',
+    fontWeight: "700",
     color: AppColors.background,
   },
   matchDividerLine: {
     height: 1,
-    backgroundColor: 'rgba(0,0,0,0.07)',
+    backgroundColor: "rgba(0,0,0,0.07)",
     marginHorizontal: 14,
     marginBottom: 12,
   },
 
   // ── Match grid (2 per row)
   matchGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+    flexDirection: "row",
+    flexWrap: "wrap",
     paddingHorizontal: 14,
     paddingBottom: 4,
     gap: 10,
   },
   matchCardWrapper: {
-    width: '47%',
+    width: "47%",
   },
   matchLabel: {
     fontSize: 12,
-    fontWeight: '800',
+    fontWeight: "800",
     color: AppColors.textOnLight,
     marginBottom: 6,
   },
   matchCard: {
-    backgroundColor: '#FAF6F2',
+    backgroundColor: "#FAF6F2",
     borderRadius: 12,
-    overflow: 'hidden',
+    overflow: "hidden",
     borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.06)',
+    borderColor: "rgba(0,0,0,0.06)",
   },
   matchImageContainer: {
-    width: '100%',
+    width: "100%",
     aspectRatio: 1,
-    position: 'relative',
+    position: "relative",
   },
   matchImage: {
-    width: '100%',
-    height: '100%',
-    resizeMode: 'cover',
+    width: "100%",
+    height: "100%",
+    resizeMode: "cover",
   },
   matchImageFallback: {
-    backgroundColor: '#EDE0D4',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "#EDE0D4",
+    justifyContent: "center",
+    alignItems: "center",
   },
   categoryBadge: {
-    position: 'absolute',
+    position: "absolute",
     bottom: 8,
     right: 8,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: "#FFFFFF",
     borderRadius: 20,
     paddingHorizontal: 8,
     paddingVertical: 3,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.15,
     shadowRadius: 2,
@@ -611,7 +642,7 @@ const styles = StyleSheet.create({
   },
   categoryBadgeText: {
     fontSize: 10,
-    fontWeight: '700',
+    fontWeight: "700",
     color: AppColors.textOnLight,
   },
   matchInfo: {
@@ -620,17 +651,17 @@ const styles = StyleSheet.create({
   },
   matchDivider: {
     height: 1,
-    backgroundColor: 'rgba(0,0,0,0.08)',
+    backgroundColor: "rgba(0,0,0,0.08)",
     marginVertical: 4,
   },
   matchName: {
     fontSize: 12,
-    fontWeight: '700',
+    fontWeight: "700",
     color: AppColors.textOnLight,
   },
   matchMeta: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 3,
   },
   matchMetaText: {
@@ -641,83 +672,83 @@ const styles = StyleSheet.create({
 
   // ── Action buttons
   cardActions: {
-    flexDirection: 'row',
+    flexDirection: "row",
     borderTopWidth: 1,
-    borderColor: 'rgba(0,0,0,0.07)',
+    borderColor: "rgba(0,0,0,0.07)",
     marginTop: 12,
   },
   editButton: {
     flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
     gap: 6,
     paddingVertical: 13,
   },
   actionDivider: {
     width: 1,
-    backgroundColor: 'rgba(0,0,0,0.07)',
+    backgroundColor: "rgba(0,0,0,0.07)",
   },
   editButtonText: {
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: "600",
     color: AppColors.background,
   },
   cancelButton: {
     flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     paddingVertical: 13,
     backgroundColor: AppColors.background,
   },
   cancelButtonText: {
     fontSize: 14,
-    fontWeight: '600',
-    color: '#FFFFFF',
+    fontWeight: "600",
+    color: "#FFFFFF",
   },
 
   // ── Empty nest illustration
   nestWrapper: {
     width: 280,
     height: 240,
-    justifyContent: 'center',
-    alignItems: 'center',
-    position: 'relative',
+    justifyContent: "center",
+    alignItems: "center",
+    position: "relative",
   },
   nestBg: {
     width: 280,
     height: 240,
-    resizeMode: 'contain',
-    position: 'absolute',
+    resizeMode: "contain",
+    position: "absolute",
   },
   nestImage: {
     width: 170,
     height: 90,
-    resizeMode: 'contain',
-    position: 'absolute',
+    resizeMode: "contain",
+    position: "absolute",
     bottom: 45,
   },
   upperLeft: {
     width: 55,
     height: 55,
-    resizeMode: 'contain',
-    position: 'absolute',
+    resizeMode: "contain",
+    position: "absolute",
     left: 55,
     top: 55,
   },
   upperRight: {
     width: 55,
     height: 55,
-    resizeMode: 'contain',
-    position: 'absolute',
+    resizeMode: "contain",
+    position: "absolute",
     right: 60,
     top: 35,
   },
   upperRightBee: {
     width: 20,
     height: 20,
-    resizeMode: 'contain',
-    position: 'absolute',
+    resizeMode: "contain",
+    position: "absolute",
     right: 42,
     top: 25,
   },

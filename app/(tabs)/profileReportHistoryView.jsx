@@ -1,7 +1,7 @@
-import AppColors from '@/constants/AppColors';
-import { Ionicons } from '@expo/vector-icons';
-import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useState } from 'react';
+import AppColors from "@/constants/AppColors";
+import { Ionicons } from "@expo/vector-icons";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import { useState } from "react";
 import {
   Image,
   Modal,
@@ -10,32 +10,32 @@ import {
   Text,
   TouchableOpacity,
   View,
-} from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+} from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function formatDate(dateStr) {
-  if (!dateStr) return 'Not specified';
+  if (!dateStr) return "Not specified";
   const d = new Date(dateStr);
-  return d.toLocaleDateString('en-US', {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
+  return d.toLocaleDateString("en-US", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
   });
 }
 
 function formatTime(dateStr) {
-  if (!dateStr) return 'Not specified';
+  if (!dateStr) return "Not specified";
   const d = new Date(dateStr);
-  return d.toLocaleTimeString('en-US', {
-    hour: 'numeric',
-    minute: '2-digit',
+  return d.toLocaleTimeString("en-US", {
+    hour: "numeric",
+    minute: "2-digit",
     hour12: true,
   });
 }
 
 function orNA(val) {
-  if (!val || String(val).trim() === '' || val === 'N/A') return null;
+  if (!val || String(val).trim() === "" || val === "N/A") return null;
   return val;
 }
 
@@ -45,10 +45,10 @@ function orNA(val) {
 function formatLocation(val) {
   if (!val) return null;
   const str = String(val).trim();
-  if (str.startsWith('[') && str.endsWith(']')) {
+  if (str.startsWith("[") && str.endsWith("]")) {
     try {
       const arr = JSON.parse(str);
-      if (Array.isArray(arr)) return arr.join(', ');
+      if (Array.isArray(arr)) return arr.join(", ");
     } catch (e) {
       // not valid JSON, fall through to raw string
     }
@@ -59,9 +59,22 @@ function formatLocation(val) {
 // ── Image viewer modal ────────────────────────────────────────────────────────
 function ImageModal({ uri, visible, onClose }) {
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={onClose}>
-        <Image source={{ uri }} style={styles.modalImage} resizeMode="contain" />
+    <Modal
+      visible={visible}
+      transparent
+      animationType="fade"
+      onRequestClose={onClose}
+    >
+      <TouchableOpacity
+        style={styles.modalOverlay}
+        activeOpacity={1}
+        onPress={onClose}
+      >
+        <Image
+          source={{ uri }}
+          style={styles.modalImage}
+          resizeMode="contain"
+        />
       </TouchableOpacity>
     </Modal>
   );
@@ -116,12 +129,14 @@ function TableRow({ label, yourValue, matchValue, isLast }) {
       </View>
       <View style={styles.tableValueCell}>
         <Text style={[styles.tableValueText, !yours && styles.tableValueMuted]}>
-          {yours ?? 'Not specified'}
+          {yours ?? "Not specified"}
         </Text>
       </View>
       <View style={[styles.tableValueCell, styles.tableValueCellRight]}>
-        <Text style={[styles.tableValueText, !theirs && styles.tableValueMuted]}>
-          {theirs ?? 'Not specified'}
+        <Text
+          style={[styles.tableValueText, !theirs && styles.tableValueMuted]}
+        >
+          {theirs ?? "Not specified"}
         </Text>
       </View>
     </View>
@@ -131,7 +146,12 @@ function TableRow({ label, yourValue, matchValue, isLast }) {
 // ── How to Claim bottom sheet ─────────────────────────────────────────────────
 function HowToClaimSheet({ visible, onClose }) {
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+    <Modal
+      visible={visible}
+      transparent
+      animationType="slide"
+      onRequestClose={onClose}
+    >
       <TouchableOpacity
         style={styles.sheetOverlay}
         activeOpacity={1}
@@ -145,9 +165,9 @@ function HowToClaimSheet({ visible, onClose }) {
           <Text style={styles.stepTitle}>Step 1: Bring Proof</Text>
           <Text style={styles.stepBody}>
             Please bring your BulSU Student ID/COR/or any form of identification
-            and be ready to provide proof of ownership (e.g., describing a unique
-            detail on an item, showing a photo of you while holding the item, or
-            unlocking the item for devices).
+            and be ready to provide proof of ownership (e.g., describing a
+            unique detail on an item, showing a photo of you while holding the
+            item, or unlocking the item for devices).
           </Text>
 
           <Text style={styles.stepTitle}>Step 2: Visit the Office</Text>
@@ -177,12 +197,11 @@ export default function ProfileReportHistoryView() {
 
   // Derived display values
   const officeDisplay = orNA(match.office_name)
-    ? `${match.office_name}${orNA(match.office_location) ? `\n${match.office_location}` : ''}`
+    ? `${match.office_name}${orNA(match.office_location) ? `\n${match.office_location}` : ""}`
     : null;
 
   return (
     <View style={styles.screen}>
-
       <HowToClaimSheet
         visible={claimSheetVisible}
         onClose={() => setClaimSheetVisible(false)}
@@ -192,7 +211,7 @@ export default function ProfileReportHistoryView() {
       <View style={[styles.redHeader, { paddingTop: insets.top }]}>
         <View style={styles.headerRow}>
           <TouchableOpacity
-            onPress={() => router.navigate('/(tabs)/profileReportHistory')}
+            onPress={() => router.navigate("/(tabs)/profileReportHistory")}
             activeOpacity={0.7}
             style={styles.backButton}
           >
@@ -206,7 +225,6 @@ export default function ProfileReportHistoryView() {
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
       >
-
         {/* ── Image Comparison ───────────────────────────────────────────── */}
         <View style={styles.sectionDividerRow}>
           <View style={styles.sectionDividerLine} />
@@ -217,7 +235,10 @@ export default function ProfileReportHistoryView() {
         <View style={styles.imageCard}>
           <View style={styles.imageRow}>
             <CompareImage uri={match.lost_item_image} label="Your Image" />
-            <CompareImage uri={match.found_item_image} label="Potential Match" />
+            <CompareImage
+              uri={match.found_item_image}
+              label="Potential Match"
+            />
           </View>
         </View>
 
@@ -228,14 +249,19 @@ export default function ProfileReportHistoryView() {
           <View style={styles.sectionDividerLine} />
         </View>
         <View style={styles.table}>
-
           {/* Table header */}
           <View style={styles.tableHeader}>
             <View style={styles.tableLabelCell} />
             <View style={[styles.tableValueCell, styles.tableHeaderRight]}>
               <Text style={styles.tableHeaderText}>Your Report</Text>
             </View>
-            <View style={[styles.tableValueCell, styles.tableValueCellRight, styles.tableHeaderRight]}>
+            <View
+              style={[
+                styles.tableValueCell,
+                styles.tableValueCellRight,
+                styles.tableHeaderRight,
+              ]}
+            >
               <Text style={styles.tableHeaderText}>Potential Match</Text>
             </View>
           </View>
@@ -303,14 +329,13 @@ export default function ProfileReportHistoryView() {
           activeOpacity={0.8}
           onPress={() => {
             router.push({
-              pathname: '/(tabs)/map',
+              pathname: "/(tabs)/map",
               params: { officeId: String(match.office_id) },
             });
           }}
         >
           <Text style={styles.officeButtonText}>View Office Location</Text>
         </TouchableOpacity>
-
       </ScrollView>
     </View>
   );
@@ -320,7 +345,7 @@ export default function ProfileReportHistoryView() {
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: '#FFF1E0',
+    backgroundColor: "#FFF1E0",
   },
 
   // ── Header
@@ -329,19 +354,19 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
   headerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     height: 70,
   },
   backButton: {
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     marginRight: 8,
   },
   headerTitle: {
     fontSize: 22,
-    fontWeight: '700',
-    color: '#FFFFFF',
+    fontWeight: "700",
+    color: "#FFFFFF",
     marginLeft: 4,
   },
 
@@ -354,104 +379,104 @@ const styles = StyleSheet.create({
 
   // ── Section divider row (lines + title)
   sectionDividerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     marginVertical: 16,
     gap: 10,
   },
   sectionDividerLine: {
     flex: 1,
     height: 1,
-    backgroundColor: 'rgba(0,0,0,0.15)',
+    backgroundColor: "rgba(0,0,0,0.15)",
   },
   sectionTitle: {
     fontSize: 15,
-    fontWeight: '700',
+    fontWeight: "700",
     color: AppColors.textOnLight,
-    textAlign: 'center',
+    textAlign: "center",
   },
 
   // ── Image comparison white card
   imageCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: "#FFFFFF",
     borderRadius: 16,
     padding: 12,
     marginBottom: 8,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.06,
     shadowRadius: 6,
     elevation: 2,
   },
   imageRow: {
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: 12,
   },
   compareImageWrapper: {
     flex: 1,
-    alignItems: 'center',
+    alignItems: "center",
     gap: 8,
   },
   compareLabel: {
     fontSize: 13,
-    fontWeight: '600',
+    fontWeight: "600",
     color: AppColors.textOnLight,
   },
   compareImageBox: {
-    width: '100%',
+    width: "100%",
     aspectRatio: 1,
     borderRadius: 12,
-    overflow: 'hidden',
-    backgroundColor: '#EDE0D4',
+    overflow: "hidden",
+    backgroundColor: "#EDE0D4",
     borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.2)',
+    borderColor: "rgba(0,0,0,0.2)",
   },
   compareImage: {
-    width: '100%',
-    height: '100%',
-    resizeMode: 'cover',
+    width: "100%",
+    height: "100%",
+    resizeMode: "cover",
   },
   compareImageFallback: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
   expandIcon: {
-    position: 'absolute',
+    position: "absolute",
     bottom: 8,
     right: 8,
-    backgroundColor: 'rgba(0,0,0,0.45)',
+    backgroundColor: "rgba(0,0,0,0.45)",
     borderRadius: 6,
     padding: 4,
   },
 
   // ── Table
   table: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: "#FFFFFF",
     borderRadius: 12,
-    overflow: 'hidden',
+    overflow: "hidden",
     borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.08)',
+    borderColor: "rgba(0,0,0,0.08)",
     marginBottom: 8,
   },
   tableHeader: {
-    flexDirection: 'row',
+    flexDirection: "row",
     borderBottomWidth: 1,
-    borderColor: 'rgba(0,0,0,0.08)',
+    borderColor: "rgba(0,0,0,0.08)",
   },
   tableHeaderText: {
     fontSize: 12,
-    fontWeight: '700',
+    fontWeight: "700",
     color: AppColors.textOnLight,
-    textAlign: 'center',
+    textAlign: "center",
   },
   tableHeaderRight: {
-    backgroundColor: '#fcde7d',
+    backgroundColor: "#fcde7d",
   },
   tableRow: {
-    flexDirection: 'row',
+    flexDirection: "row",
     borderBottomWidth: 1,
-    borderColor: 'rgba(0,0,0,0.06)',
+    borderColor: "rgba(0,0,0,0.06)",
   },
   tableRowLast: {
     borderBottomWidth: 0,
@@ -460,23 +485,23 @@ const styles = StyleSheet.create({
     width: 100,
     paddingVertical: 10,
     paddingHorizontal: 10,
-    justifyContent: 'center',
+    justifyContent: "center",
     borderRightWidth: 1,
-    borderColor: 'rgba(0,0,0,0.06)',
-    backgroundColor: '#FAF6F2',
+    borderColor: "rgba(0,0,0,0.06)",
+    backgroundColor: "#FAF6F2",
   },
   tableLabelText: {
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: "600",
     color: AppColors.textOnLight,
   },
   tableValueCell: {
     flex: 1,
     paddingVertical: 10,
     paddingHorizontal: 8,
-    justifyContent: 'center',
+    justifyContent: "center",
     borderRightWidth: 1,
-    borderColor: 'rgba(0,0,0,0.06)',
+    borderColor: "rgba(0,0,0,0.06)",
   },
   tableValueCellRight: {
     borderRightWidth: 0,
@@ -484,17 +509,17 @@ const styles = StyleSheet.create({
   tableValueText: {
     fontSize: 12,
     color: AppColors.textOnLight,
-    textAlign: 'center',
+    textAlign: "center",
   },
   tableValueMuted: {
     color: AppColors.textMuted,
-    fontStyle: 'italic',
+    fontStyle: "italic",
   },
 
   // ── Button divider
   buttonDivider: {
     height: 1,
-    backgroundColor: 'rgba(0,0,0,0.1)',
+    backgroundColor: "rgba(0,0,0,0.1)",
     marginTop: 20,
     marginBottom: 20,
   },
@@ -504,59 +529,59 @@ const styles = StyleSheet.create({
     backgroundColor: AppColors.background,
     borderRadius: 12,
     paddingVertical: 16,
-    alignItems: 'center',
+    alignItems: "center",
     marginBottom: 12,
   },
   claimButtonText: {
     fontSize: 15,
-    fontWeight: '700',
-    color: '#FFFFFF',
+    fontWeight: "700",
+    color: "#FFFFFF",
   },
   officeButton: {
     borderRadius: 12,
     paddingVertical: 15,
-    alignItems: 'center',
+    alignItems: "center",
     borderWidth: 2,
     borderColor: AppColors.background,
   },
   officeButtonText: {
     fontSize: 15,
-    fontWeight: '700',
+    fontWeight: "700",
     color: AppColors.background,
   },
 
   // ── How to Claim sheet
   sheetOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.4)',
+    backgroundColor: "rgba(0,0,0,0.4)",
   },
   sheet: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: "#FFFFFF",
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     paddingHorizontal: 24,
     paddingBottom: 40,
     paddingTop: 12,
-    maxHeight: '65%',
+    maxHeight: "65%",
   },
   sheetHandle: {
     width: 40,
     height: 4,
     borderRadius: 2,
-    backgroundColor: 'rgba(0,0,0,0.15)',
-    alignSelf: 'center',
+    backgroundColor: "rgba(0,0,0,0.15)",
+    alignSelf: "center",
     marginBottom: 16,
   },
   sheetTitle: {
     fontSize: 20,
-    fontWeight: '800',
+    fontWeight: "800",
     color: AppColors.textOnLight,
-    textAlign: 'center',
+    textAlign: "center",
     marginBottom: 20,
   },
   stepTitle: {
     fontSize: 15,
-    fontWeight: '700',
+    fontWeight: "700",
     color: AppColors.textOnLight,
     marginBottom: 6,
   },
@@ -565,18 +590,18 @@ const styles = StyleSheet.create({
     color: AppColors.textMuted,
     lineHeight: 22,
     marginBottom: 18,
-    textAlign: 'justify',
+    textAlign: "justify",
   },
 
   // ── Full image modal
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.88)',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "rgba(0,0,0,0.88)",
+    justifyContent: "center",
+    alignItems: "center",
   },
   modalImage: {
-    width: '90%',
-    height: '80%',
+    width: "90%",
+    height: "80%",
   },
 });

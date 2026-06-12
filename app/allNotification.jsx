@@ -35,6 +35,7 @@ export default function NotificationsScreen() {
           throw new Error(`HTTP error! status: ${response.status}`);
         }
 
+        console.log("Raw response from notifications API:", response);
         const data = await response.json();
         console.log("Fetched notifications data:", data);
         setNotifications(data);
@@ -63,29 +64,45 @@ export default function NotificationsScreen() {
     return `${diffDays} days ago`;
   };
 
-  const renderNotification = ({ item }) => (
-    <View style={styles.card}>
-      <View style={styles.iconContainer}>
-        {/* Using a search/magnify icon to match the design */}
-        <MaterialCommunityIcons name="magnify" size={28} color="#900014" />
-      </View>
+  const renderNotification = ({ item }) =>
+    console.log("Rendering notification item:", item) || (
+      <TouchableOpacity
+        onPress={() => {
+          router.push({
+            pathname: "/profileReportHistoryView",
+            params: {
+              match: JSON.stringify(item),
+            },
+          });
+        }}
+      >
+        <View style={styles.card}>
+          <View style={styles.iconContainer}>
+            {/* Using a search/magnify icon to match the design */}
+            <MaterialCommunityIcons name="magnify" size={28} color="#900014" />
+          </View>
 
-      <View style={styles.cardContent}>
-        <View style={styles.cardHeader}>
-          <Text style={styles.cardTitle}>{item.title || "Match Found!"}</Text>
-          <View style={styles.rightHeader}>
-            <Text style={styles.timeText}>{getTimeAgo(item.created_at)}</Text>
-            {/* The gold dot for unread status. */}
-            {item.is_read && <View style={styles.unreadDot} />}
+          <View style={styles.cardContent}>
+            <View style={styles.cardHeader}>
+              <Text style={styles.cardTitle}>
+                {item.title || "Match Found!"}
+              </Text>
+              <View style={styles.rightHeader}>
+                <Text style={styles.timeText}>
+                  {getTimeAgo(item.created_at)}
+                </Text>
+                {/* The gold dot for unread status. */}
+                {item.is_read && <View style={styles.unreadDot} />}
+              </View>
+            </View>
+
+            <Text style={styles.cardMessage} numberOfLines={1}>
+              A potential match for your {item.lost_item_name || "item"}...
+            </Text>
           </View>
         </View>
-
-        <Text style={styles.cardMessage} numberOfLines={1}>
-          A potential match for your {item.lost_item_name || "item"}...
-        </Text>
-      </View>
-    </View>
-  );
+      </TouchableOpacity>
+    );
 
   // --- NEW: Empty State Component ---
   const renderEmptyState = () => (
