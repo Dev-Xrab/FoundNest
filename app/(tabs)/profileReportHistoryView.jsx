@@ -3,13 +3,13 @@ import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
 import {
-    Image,
-    Modal,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  Image,
+  Modal,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -37,6 +37,23 @@ function formatTime(dateStr) {
 function orNA(val) {
   if (!val || String(val).trim() === '' || val === 'N/A') return null;
   return val;
+}
+
+// Handles location values that may be stored as a JSON-stringified array
+// (e.g. '["Alvarado Hall","Pimentel Hall"]') by parsing and joining them
+// into a readable comma-separated string. Plain strings pass through as-is.
+function formatLocation(val) {
+  if (!val) return null;
+  const str = String(val).trim();
+  if (str.startsWith('[') && str.endsWith(']')) {
+    try {
+      const arr = JSON.parse(str);
+      if (Array.isArray(arr)) return arr.join(', ');
+    } catch (e) {
+      // not valid JSON, fall through to raw string
+    }
+  }
+  return str;
 }
 
 // ── Image viewer modal ────────────────────────────────────────────────────────
@@ -191,23 +208,34 @@ export default function ProfileReportHistoryView() {
       >
 
         {/* ── Image Comparison ───────────────────────────────────────────── */}
-        <Text style={styles.sectionTitle}>Image Comparison</Text>
-        <View style={styles.imageRow}>
-          <CompareImage uri={match.lost_item_image} label="Your Image" />
-          <CompareImage uri={match.found_item_image} label="Potential Match" />
+        <View style={styles.sectionDividerRow}>
+          <View style={styles.sectionDividerLine} />
+          <Text style={styles.sectionTitle}>Image Comparison</Text>
+          <View style={styles.sectionDividerLine} />
+        </View>
+
+        <View style={styles.imageCard}>
+          <View style={styles.imageRow}>
+            <CompareImage uri={match.lost_item_image} label="Your Image" />
+            <CompareImage uri={match.found_item_image} label="Potential Match" />
+          </View>
         </View>
 
         {/* ── Description Comparison ─────────────────────────────────────── */}
-        <Text style={styles.sectionTitle}>Item Description Comparison</Text>
+        <View style={styles.sectionDividerRow}>
+          <View style={styles.sectionDividerLine} />
+          <Text style={styles.sectionTitle}>Item Description Comparison</Text>
+          <View style={styles.sectionDividerLine} />
+        </View>
         <View style={styles.table}>
 
           {/* Table header */}
           <View style={styles.tableHeader}>
             <View style={styles.tableLabelCell} />
-            <View style={styles.tableValueCell}>
+            <View style={[styles.tableValueCell, styles.tableHeaderRight]}>
               <Text style={styles.tableHeaderText}>Your Report</Text>
             </View>
-            <View style={[styles.tableValueCell, styles.tableValueCellRight]}>
+            <View style={[styles.tableValueCell, styles.tableValueCellRight, styles.tableHeaderRight]}>
               <Text style={styles.tableHeaderText}>Potential Match</Text>
             </View>
           </View>
@@ -244,8 +272,8 @@ export default function ProfileReportHistoryView() {
           />
           <TableRow
             label="Lost/Found At"
-            yourValue={match.location_lost}
-            matchValue={match.location_found}
+            yourValue={formatLocation(match.location_lost)}
+            matchValue={formatLocation(match.location_found)}
           />
           <TableRow
             label="Specific Location"
@@ -261,6 +289,7 @@ export default function ProfileReportHistoryView() {
         </View>
 
         {/* ── Action buttons ─────────────────────────────────────────────── */}
+        <View style={styles.buttonDivider} />
         <TouchableOpacity
           style={styles.claimButton}
           activeOpacity={0.8}
@@ -273,7 +302,10 @@ export default function ProfileReportHistoryView() {
           style={styles.officeButton}
           activeOpacity={0.8}
           onPress={() => {
-            // TODO: navigate to map with office pre-selected
+            router.push({
+              pathname: '/(tabs)/map',
+              params: { officeId: String(match.office_id) },
+            });
           }}
         >
           <Text style={styles.officeButtonText}>View Office Location</Text>
@@ -315,23 +347,45 @@ const styles = StyleSheet.create({
 
   // ── Content
   content: {
-    padding: 16,
+    paddingHorizontal: 16,
+    paddingTop: 6,
     paddingBottom: 48,
   },
+
+  // ── Section divider row (lines + title)
+  sectionDividerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: 16,
+    gap: 10,
+  },
+  sectionDividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: 'rgba(0,0,0,0.15)',
+  },
   sectionTitle: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '700',
     color: AppColors.textOnLight,
     textAlign: 'center',
-    marginBottom: 14,
-    marginTop: 8,
   },
 
-  // ── Image comparison
+  // ── Image comparison white card
+  imageCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 12,
+    marginBottom: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.06,
+    shadowRadius: 6,
+    elevation: 2,
+  },
   imageRow: {
     flexDirection: 'row',
     gap: 12,
-    marginBottom: 28,
   },
   compareImageWrapper: {
     flex: 1,
@@ -349,6 +403,8 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     overflow: 'hidden',
     backgroundColor: '#EDE0D4',
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.2)',
   },
   compareImage: {
     width: '100%',
@@ -376,11 +432,10 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     borderWidth: 1,
     borderColor: 'rgba(0,0,0,0.08)',
-    marginBottom: 24,
+    marginBottom: 8,
   },
   tableHeader: {
     flexDirection: 'row',
-    backgroundColor: '#F5F0EB',
     borderBottomWidth: 1,
     borderColor: 'rgba(0,0,0,0.08)',
   },
@@ -389,6 +444,9 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: AppColors.textOnLight,
     textAlign: 'center',
+  },
+  tableHeaderRight: {
+    backgroundColor: '#fcde7d',
   },
   tableRow: {
     flexDirection: 'row',
@@ -431,6 +489,14 @@ const styles = StyleSheet.create({
   tableValueMuted: {
     color: AppColors.textMuted,
     fontStyle: 'italic',
+  },
+
+  // ── Button divider
+  buttonDivider: {
+    height: 1,
+    backgroundColor: 'rgba(0,0,0,0.1)',
+    marginTop: 20,
+    marginBottom: 20,
   },
 
   // ── Action buttons

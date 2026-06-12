@@ -82,49 +82,59 @@ function mergeReportsAndNotifs(reportsData, notifsData) {
   }));
 }
 
-// ── Match card (shown when expanded) ─────────────────────────────────────────
-function MatchCard({ match, onPress }) {
+// ── Match card (shown when expanded) — vertical grid tile ────────────────────
+function MatchCard({ match, label, onPress }) {
   return (
-    <TouchableOpacity
-      style={styles.matchCard}
-      onPress={onPress}
-      activeOpacity={0.75}
-    >
-      {match.found_item_image ? (
-        <Image source={{ uri: match.found_item_image }} style={styles.matchImage} />
-      ) : (
-        <View style={[styles.matchImage, styles.matchImageFallback]}>
-          <MaterialCommunityIcons name="image-off-outline" size={28} color="#B0A09A" />
+    <View style={styles.matchCardWrapper}>
+      {/* "Potential Match N" label sits above the card */}
+      <Text style={styles.matchLabel}>{label}</Text>
+
+      <TouchableOpacity
+        style={styles.matchCard}
+        onPress={onPress}
+        activeOpacity={0.75}
+      >
+        {/* Square image + badge overlay */}
+        <View style={styles.matchImageContainer}>
+          {match.found_item_image ? (
+            <Image source={{ uri: match.found_item_image }} style={styles.matchImage} />
+          ) : (
+            <View style={[styles.matchImage, styles.matchImageFallback]}>
+              <MaterialCommunityIcons name="image-off-outline" size={28} color="#B0A09A" />
+            </View>
+          )}
+
+          {/* Category badge — white pill, bottom-right of image */}
+          {match.found_category_name ? (
+            <View style={styles.categoryBadge}>
+              <Text style={styles.categoryBadgeText} numberOfLines={1}>
+                {match.found_category_name}
+              </Text>
+            </View>
+          ) : null}
         </View>
-      )}
-      <View style={styles.matchInfo}>
-        {match.found_category_name ? (
-          <View style={styles.categoryBadge}>
-            <Text style={styles.categoryBadgeText}>{match.found_category_name}</Text>
-          </View>
-        ) : null}
-        <Text style={styles.matchName} numberOfLines={2}>
-          {match.found_item_name ?? '—'}
-        </Text>
-        <View style={styles.matchMeta}>
-          <Ionicons name="calendar-outline" size={13} color={AppColors.textMuted} />
-          <Text style={styles.matchMetaText}>{formatDate(match.found_date)}</Text>
-        </View>
-        <View style={styles.matchMeta}>
-          <Ionicons name="location-outline" size={13} color={AppColors.textMuted} />
-          <Text style={styles.matchMetaText} numberOfLines={1}>
-            {match.location_found ?? '—'}
+
+        {/* Text info below image */}
+        <View style={styles.matchInfo}>
+          <Text style={styles.matchName} numberOfLines={2}>
+            {match.found_item_name ?? '—'}
           </Text>
+          <View style={styles.matchDivider} />
+          <View style={styles.matchMeta}>
+            <Ionicons name="calendar-outline" size={11} color={AppColors.textMuted} />
+            <Text style={styles.matchMetaText} numberOfLines={1}>
+              {formatDate(match.found_date)}
+            </Text>
+          </View>
+          <View style={styles.matchMeta}>
+            <Ionicons name="location-outline" size={11} color={AppColors.textMuted} />
+            <Text style={styles.matchMetaText} numberOfLines={1}>
+              {match.location_found ?? '—'}
+            </Text>
+          </View>
         </View>
-      </View>
-      {/* Chevron hint */}
-      <Ionicons
-        name="chevron-forward"
-        size={18}
-        color={AppColors.textMuted}
-        style={styles.matchChevron}
-      />
-    </TouchableOpacity>
+      </TouchableOpacity>
+    </View>
   );
 }
 
@@ -166,35 +176,37 @@ function ReportCard({ report, onCancel, router }) {
         </View>
       </View>
 
-      {/* ── View Matches toggle ── */}
+      {/* ── Divider + View Matches toggle ── */}
       {hasMatches && (
-        <TouchableOpacity
-          style={styles.viewMatchesButton}
-          onPress={() => setExpanded((prev) => !prev)}
-          activeOpacity={0.8}
-        >
-          <Text style={styles.viewMatchesText}>
-            {expanded ? 'Hide Matches' : 'View Matches'}
-          </Text>
-          <Ionicons
-            name={expanded ? 'chevron-up' : 'chevron-down'}
-            size={18}
-            color={AppColors.background}
-          />
-        </TouchableOpacity>
+        <>
+          <View style={styles.matchDividerLine} />
+          <TouchableOpacity
+            style={styles.viewMatchesButton}
+            onPress={() => setExpanded((prev) => !prev)}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.viewMatchesText}>
+              {expanded ? 'Hide Matches' : 'View Matches'}
+            </Text>
+            <Ionicons
+              name={expanded ? 'chevron-up' : 'chevron-down'}
+              size={18}
+              color={AppColors.background}
+            />
+          </TouchableOpacity>
+        </>
       )}
 
-      {/* ── Match cards (expanded) ── */}
+      {/* ── Match cards (expanded) — 2-per-row grid ── */}
       {expanded && (
-        <View style={styles.matchList}>
+        <View style={styles.matchGrid}>
           {report.matches.map((match, index) => (
-            <View key={match.notification_id}>
-              <Text style={styles.matchLabel}>Potential Match {index + 1}</Text>
-              <MatchCard
-                match={match}
-                onPress={() => handleMatchPress(match)}
-              />
-            </View>
+            <MatchCard
+              key={match.notification_id}
+              match={match}
+              label={`Potential Match ${index + 1}`}
+              onPress={() => handleMatchPress(match)}
+            />
           ))}
         </View>
       )}
@@ -520,7 +532,7 @@ const styles = StyleSheet.create({
     color: AppColors.textOnLight,
   },
 
-  // ── View Matches button
+  // ── View Matches button (yellow)
   viewMatchesButton: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -530,41 +542,52 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     paddingVertical: 11,
     borderRadius: 10,
-    borderWidth: 2,
-    borderColor: AppColors.background,
-    backgroundColor: '#FFF1E0',
+    backgroundColor: '#F5C518',
   },
   viewMatchesText: {
     fontSize: 14,
     fontWeight: '700',
     color: AppColors.background,
   },
+  matchDividerLine: {
+    height: 1,
+    backgroundColor: 'rgba(0,0,0,0.07)',
+    marginHorizontal: 14,
+    marginBottom: 12,
+  },
 
-  // ── Match list
-  matchList: {
+  // ── Match grid (2 per row)
+  matchGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
     paddingHorizontal: 14,
     paddingBottom: 4,
     gap: 10,
   },
+  matchCardWrapper: {
+    width: '47%',
+  },
   matchLabel: {
-    fontSize: 13,
-    fontWeight: '700',
+    fontSize: 12,
+    fontWeight: '800',
     color: AppColors.textOnLight,
     marginBottom: 6,
   },
   matchCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
     backgroundColor: '#FAF6F2',
     borderRadius: 12,
     overflow: 'hidden',
     borderWidth: 1,
     borderColor: 'rgba(0,0,0,0.06)',
-    marginBottom: 10,
+  },
+  matchImageContainer: {
+    width: '100%',
+    aspectRatio: 1,
+    position: 'relative',
   },
   matchImage: {
-    width: 90,
-    height: 110,
+    width: '100%',
+    height: '100%',
     resizeMode: 'cover',
   },
   matchImageFallback: {
@@ -572,40 +595,46 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  matchInfo: {
-    flex: 1,
-    padding: 10,
-    justifyContent: 'center',
-    gap: 4,
-  },
-  matchChevron: {
-    marginRight: 10,
-  },
   categoryBadge: {
-    alignSelf: 'flex-start',
-    backgroundColor: AppColors.background,
+    position: 'absolute',
+    bottom: 8,
+    right: 8,
+    backgroundColor: '#FFFFFF',
     borderRadius: 20,
     paddingHorizontal: 8,
-    paddingVertical: 2,
-    marginBottom: 4,
+    paddingVertical: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.15,
+    shadowRadius: 2,
+    elevation: 2,
   },
   categoryBadgeText: {
     fontSize: 10,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: AppColors.textOnLight,
+  },
+  matchInfo: {
+    padding: 8,
+    gap: 3,
+  },
+  matchDivider: {
+    height: 1,
+    backgroundColor: 'rgba(0,0,0,0.08)',
+    marginVertical: 4,
   },
   matchName: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '700',
     color: AppColors.textOnLight,
   },
   matchMeta: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: 3,
   },
   matchMetaText: {
-    fontSize: 12,
+    fontSize: 10,
     color: AppColors.textMuted,
     flexShrink: 1,
   },
