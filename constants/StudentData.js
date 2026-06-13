@@ -1,16 +1,21 @@
-import * as SecureStore from 'expo-secure-store';
+import * as SecureStore from "expo-secure-store";
 
-const TOKEN_KEY         = 'session_token';
-const USER_KEY          = 'session_user';
-const REFRESH_TOKEN_KEY = 'session_refresh_token';
-export const EMAIL_KEY  = 'saved_email';
+const TOKEN_KEY = "session_token";
+const USER_KEY = "session_user";
+const REFRESH_TOKEN_KEY = "session_refresh_token";
+export const EMAIL_KEY = "saved_email";
 
 // In-memory fallback for when rememberMe is false
-let _token        = null;
-let _user         = null;
+let _token = null;
+let _user = null;
 let _refreshToken = null;
 
-export async function saveSession(accessToken, user, rememberMe = false, refreshToken = null) {
+export async function saveSession(
+  accessToken,
+  user,
+  rememberMe = false,
+  refreshToken = null,
+) {
   if (rememberMe) {
     await SecureStore.setItemAsync(TOKEN_KEY, accessToken);
     await SecureStore.setItemAsync(USER_KEY, JSON.stringify(user));
@@ -18,8 +23,8 @@ export async function saveSession(accessToken, user, rememberMe = false, refresh
       await SecureStore.setItemAsync(REFRESH_TOKEN_KEY, refreshToken);
     }
   } else {
-    _token        = accessToken;
-    _user         = user;
+    _token = accessToken;
+    _user = user;
     _refreshToken = refreshToken;
   }
 }
@@ -52,8 +57,8 @@ export async function updateAccessToken(newAccessToken) {
 }
 
 export async function clearSession() {
-  _token        = null;
-  _user         = null;
+  _token = null;
+  _user = null;
   _refreshToken = null;
   await SecureStore.deleteItemAsync(TOKEN_KEY);
   await SecureStore.deleteItemAsync(USER_KEY);

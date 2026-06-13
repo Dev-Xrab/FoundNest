@@ -1,6 +1,7 @@
+import { API_BASE_URL } from "@/constants/api";
 import AppColors from "@/constants/AppColors";
 import { fetchWithAuth } from "@/constants/authApi";
-import { getUser } from "@/constants/StudentData";
+import { getToken, getUser } from "@/constants/StudentData";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import React, { useEffect, useState } from "react";
@@ -20,34 +21,69 @@ export default function NotificationsScreen() {
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    const getNotifications = async () => {
-      try {
-        const user = await getUser();
-        const userId = user ? user.user_id : null;
-        console.log("Fetching notifications for user ID:", userId);
+  // Removed the global [isRead, setIsRead] state because it causes bugs inside lists.
+  const [numberOfUnreadNotifications, setNumberOfUnreadNotifications] =
+    useState(0);
+  const getNotifications = async () => {
+    try {
+      const user = await getUser();
+      const userId = user ? user.user_id : null;
 
-        const response = await fetchWithAuth(
-          `https://foundnest-backend.onrender.com/api/notifications/user/${userId}`,
-        );
+      const response = await fetchWithAuth(
+        `${API_BASE_URL}/api/notifications/user/${userId}`,
+      );
 
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-
-        console.log("Raw response from notifications API:", response);
-        const data = await response.json();
-        console.log("Fetched notifications data:", data);
-        setNotifications(data);
-      } catch (error) {
-        console.error("Failed to fetch notifications:", error);
-      } finally {
-        setLoading(false);
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
       }
-    };
 
+      const data = await response.json();
+      setNumberOfUnreadNotifications(data.filter((n) => !n.is_read).length);
+      setNotifications(data);
+    } catch (error) {
+      console.error("Failed to fetch notifications:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
     getNotifications();
   }, []);
+
+  const markAsRead = async (notificationId) => {
+    try {
+      console.log("Marking notification as read, ID:", notificationId);
+
+      const token = await getToken();
+      console.log("Using token:", token);
+      const response = await fetchWithAuth(
+        `${API_BASE_URL}/api/notifications/${notificationId}/read`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+        },
+      );
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      console.log("Notification successfully marked as read!");
+
+      // Optimistically update local UI state so the gold dot disappears instantly
+      setNotifications((prevNotifications) =>
+        prevNotifications.map((n) =>
+          n.notification_id === notificationId ? { ...n, is_read: true } : n,
+        ),
+      );
+    } catch (error) {
+      console.error("Failed to mark notification as read:", error);
+    }
+  };
 
   // Helper function to format the date
   const getTimeAgo = (dateString) => {
@@ -64,10 +100,14 @@ export default function NotificationsScreen() {
     return `${diffDays} days ago`;
   };
 
-  const renderNotification = ({ item }) =>
-    console.log("Rendering notification item:", item) || (
+  const renderNotification = ({ item }) => {
+    // Determine unread status locally for this item from its object property
+    const isItemUnread = item.is_read;
+
+    return (
       <TouchableOpacity
         onPress={() => {
+          markAsRead(item.notification_id);
           router.push({
             pathname: "/profileReportHistoryView",
             params: {
@@ -78,7 +118,6 @@ export default function NotificationsScreen() {
       >
         <View style={styles.card}>
           <View style={styles.iconContainer}>
-            {/* Using a search/magnify icon to match the design */}
             <MaterialCommunityIcons name="magnify" size={28} color="#900014" />
           </View>
 
@@ -91,8 +130,8 @@ export default function NotificationsScreen() {
                 <Text style={styles.timeText}>
                   {getTimeAgo(item.created_at)}
                 </Text>
-                {/* The gold dot for unread status. */}
-                {item.is_read && <View style={styles.unreadDot} />}
+                {/* Fixed: Conditional check uses item specific value instead of global state */}
+                {!isItemUnread && <View style={styles.unreadDot} />}
               </View>
             </View>
 
@@ -103,8 +142,8 @@ export default function NotificationsScreen() {
         </View>
       </TouchableOpacity>
     );
+  };
 
-  // --- NEW: Empty State Component ---
   const renderEmptyState = () => (
     <View style={styles.emptyContainer}>
       <Text style={styles.emptyTitle}>No notifications yet</Text>
@@ -151,7 +190,7 @@ export default function NotificationsScreen() {
                 : styles.listContainer
             }
             showsVerticalScrollIndicator={false}
-            ListEmptyComponent={renderEmptyState} // --- NEW: Attach empty state ---
+            ListEmptyComponent={renderEmptyState}
           />
         )}
       </View>
@@ -256,7 +295,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#666666",
   },
-  // --- NEW: Empty State Styles ---
   emptyContainer: {
     alignItems: "center",
     justifyContent: "center",

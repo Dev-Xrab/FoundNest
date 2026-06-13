@@ -134,29 +134,26 @@ export default function HomeScreen() {
   const [activeFindIndex, setActiveFindIndex] = useState(0);
   const [currentUser, setCurrentUser] = useState(null);
   const router = useRouter();
-  // FIX: Added the missing state variable for the push token!
   const [expoPushToken, setExpoPushToken] = useState("");
 
-  // Notifications Setup (Request Permissions & Get Token)
+  // Simulated active user report data (Replace with dynamic state/backend fetch if needed)
+  const [activeReport, setActiveReport] = useState({
+    name: "Black Umbrella",
+    hasMatch: true,
+  });
+
+  // Notifications Setup
   useEffect(() => {
     async function setupNotifications() {
-      // 1. Check the CURRENT status first without triggering a prompt
       const { status: existingStatus } =
         await Notifications.getPermissionsAsync();
-
-      // If they already permanently declined in the past, quietly stop here. No spam!
-      if (existingStatus === "denied") {
-        return;
-      }
+      if (existingStatus === "denied") return;
 
       let finalStatus = existingStatus;
-
-      // 2. If we haven't asked yet (undetermined), trigger the system permission prompt
       if (existingStatus !== "granted") {
         const { status } = await Notifications.requestPermissionsAsync();
         finalStatus = status;
 
-        // If they JUST hit "Decline" on the system prompt right now, show the alert once.
         if (finalStatus !== "granted") {
           Alert.alert(
             "Permission Needed",
@@ -166,17 +163,14 @@ export default function HomeScreen() {
         }
       }
 
-      // 3. If granted (either just now, or in the past), get the token
       if (finalStatus === "granted") {
         const token = await registerForPushNotificationsAsync();
         if (token) {
           setExpoPushToken(token);
           console.log("MY EXPO PUSH TOKEN:", token);
-          // TODO: Send this token to your Neon Backend right here via a fetch() request
         }
       }
     }
-
     setupNotifications();
   }, []);
 
@@ -192,9 +186,7 @@ export default function HomeScreen() {
         const res = await fetchWithAuth(`${API_BASE_URL}/api/found-reports`);
         const contentType = res.headers.get("content-type") ?? "";
 
-        if (!res.ok) {
-          throw new Error(`Found reports failed (${res.status})`);
-        }
+        if (!res.ok) throw new Error(`Found reports failed (${res.status})`);
         if (!contentType.includes("application/json")) {
           const body = await res.text();
           throw new Error(`Expected JSON but got: ${body.slice(0, 80)}`);
@@ -214,9 +206,7 @@ export default function HomeScreen() {
           setFoundReports([]);
         }
       } finally {
-        if (!cancelled) {
-          setLoadingFinds(false);
-        }
+        if (!cancelled) setLoadingFinds(false);
       }
     }
 
@@ -227,13 +217,14 @@ export default function HomeScreen() {
   }, []);
 
   return (
-    <ScrollView style={styles.container} nestedScrollEnabled>
+    <ScrollView style={styles.container}>
       <View>
         <Text style={styles.title}>
           Hello, {currentUser?.first_name ?? "there"}!
         </Text>
         <Text style={styles.title}>Searching for something?</Text>
         <View style={styles.separator} />
+
         <View style={styles.searchSection}>
           <Ionicons
             style={styles.searchIcon}
@@ -249,18 +240,14 @@ export default function HomeScreen() {
           />
         </View>
 
-        <Text style={styles.subtitle} paddingBottom={10}>
-          How can the Nest help you today?
-        </Text>
+        <Text style={styles.subtitle}>How can the Nest help you today?</Text>
 
-        {/* 3 layers choice */}
+        {/* Action Options Cards */}
         <View style={styles.choiceContainer}>
           <TouchableOpacity
             style={styles.card}
             activeOpacity={0.7}
-            onPress={() => {
-              router.push("/(tabs)/report");
-            }}
+            onPress={() => router.push("/(tabs)/report")}
           >
             <View style={styles.iconContainer}>
               <Ionicons
@@ -289,9 +276,7 @@ export default function HomeScreen() {
           <TouchableOpacity
             style={styles.card}
             activeOpacity={0.7}
-            onPress={() => {
-              router.push("/(tabs)/find");
-            }}
+            onPress={() => router.push("/(tabs)/find")}
           >
             <View style={styles.iconContainer}>
               <Ionicons name="search" size={55} color={AppColors.background} />
@@ -316,9 +301,7 @@ export default function HomeScreen() {
           <TouchableOpacity
             style={styles.card}
             activeOpacity={0.7}
-            onPress={() => {
-              router.push("/(tabs)/map");
-            }}
+            onPress={() => router.push("/(tabs)/map")}
           >
             <View style={styles.iconContainer}>
               <Ionicons
@@ -343,6 +326,60 @@ export default function HomeScreen() {
           </TouchableOpacity>
         </View>
 
+        {/* NEW ADDITION: Lost Item Report Section */}
+        {activeReport && (
+          <View style={styles.lostReportSection}>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>Lost Item Report</Text>
+              <TouchableOpacity
+                activeOpacity={0.7}
+                onPress={() => router.push("/profileReportHistory")}
+              >
+                <Text style={styles.sectionLinkYellow}>
+                  Go to My Reports &gt;
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.reportCard}>
+              <View style={styles.reportCardTop}>
+                <View>
+                  <Text style={styles.reportLabel}>Lost Item Name:</Text>
+                  <Text style={styles.reportItemName}>{activeReport.name}</Text>
+                </View>
+                {activeReport.hasMatch && (
+                  <View style={styles.matchBadge}>
+                    <Text style={styles.matchBadgeText}>
+                      Potential Match Found!
+                    </Text>
+                  </View>
+                )}
+              </View>
+
+              <View style={styles.reportCardDivider} />
+
+              <View style={styles.reportCardBottom}>
+                <TouchableOpacity
+                  style={styles.reportActionBtn}
+                  onPress={() => console.log("Edit report pressed")}
+                >
+                  <Ionicons name="create-outline" size={16} color="#900000" />
+                  <Text style={styles.reportActionText}>Edit Report</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.reportActionBtn}
+                  onPress={() => router.push("/matches")}
+                >
+                  <Text style={styles.reportActionText}>View Matches</Text>
+                  <Ionicons name="arrow-forward" size={16} color="#900000" />
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        )}
+
+        {/* Recent Finds Section */}
         <View style={styles.recentFindsSection}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Recent Finds</Text>
@@ -350,7 +387,9 @@ export default function HomeScreen() {
               activeOpacity={0.7}
               onPress={() => router.push("/(tabs)/find")}
             >
-              <Text style={styles.sectionLink}>Go to Found Items &gt;</Text>
+              <Text style={styles.sectionLinkYellow}>
+                Go to Found Items &gt;
+              </Text>
             </TouchableOpacity>
           </View>
 
@@ -460,9 +499,9 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
-  recentFindsSection: {
+  /* Styles for the new Lost Item Report Card module */
+  lostReportSection: {
     marginTop: 28,
-    paddingBottom: 24,
   },
   sectionHeader: {
     flexDirection: "row",
@@ -475,10 +514,73 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: "700",
   },
-  sectionLink: {
+  sectionLinkYellow: {
     color: "#F5D76E",
     fontSize: 14,
     fontWeight: "600",
+  },
+  reportCard: {
+    backgroundColor: "#ffffff",
+    borderRadius: 16,
+    paddingTop: 16,
+    paddingBottom: 12,
+    paddingHorizontal: 16,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  reportCardTop: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+  },
+  reportLabel: {
+    fontSize: 12,
+    color: "#7a7a7a",
+    fontWeight: "500",
+  },
+  reportItemName: {
+    fontSize: 18,
+    fontWeight: "bold",
+    color: "#900000",
+    marginTop: 2,
+  },
+  matchBadge: {
+    backgroundColor: "#FFD700",
+    borderRadius: 20,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+  },
+  matchBadgeText: {
+    fontSize: 11,
+    fontWeight: "bold",
+    color: "#900000",
+  },
+  reportCardDivider: {
+    height: 1,
+    backgroundColor: "#EBEBEB",
+    marginVertical: 14,
+  },
+  reportCardBottom: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  reportActionBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  reportActionText: {
+    color: "#900000",
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  recentFindsSection: {
+    marginTop: 28,
+    paddingBottom: 24,
   },
   findsLoader: {
     marginVertical: 40,
@@ -494,6 +596,7 @@ const styles = StyleSheet.create({
 const carouselStyles = StyleSheet.create({
   wrapper: {
     marginHorizontal: -CARD_HORIZONTAL_PADDING,
+    marginBottom: 45,
   },
   scroll: {
     height: CARD_HEIGHT,

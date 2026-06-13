@@ -8,8 +8,8 @@ import {
   NativeUserLocation,
 } from "@maplibre/maplibre-react-native";
 import * as Location from "expo-location";
-import { useLocalSearchParams } from "expo-router";
-import { useEffect, useState } from "react";
+import { useLocalSearchParams, useNavigation } from "expo-router"; // <-- Added useNavigation
+import { useEffect, useRef, useState } from "react"; // <-- Added useRef
 import {
   ActivityIndicator,
   Alert,
@@ -47,6 +47,7 @@ const highDetailHybridStyle = {
 };
 
 export default function MapScreen() {
+  const navigation = useNavigation(); // <-- Handle screen focus events
   const [hasPermission, setHasPermission] = useState(false);
   const [isWakingGPS, setIsWakingGPS] = useState(true);
   const [isDataLoading, setIsDataLoading] = useState(true);
@@ -59,8 +60,11 @@ export default function MapScreen() {
   const [filteredColleges, setFilteredColleges] = useState([]);
   const [isDropdownVisible, setIsDropdownVisible] = useState(false);
 
-  // --- Incoming params (for "View Office Location" deep link) ---
+  // --- Incoming params ---
   const { officeId } = useLocalSearchParams();
+
+  // Track the last processed ID to reset properly if needed
+  const lastProcessedIdRef = useRef(null);
 
   const [cameraConfig, setCameraConfig] = useState({
     center: BULSU_CENTER,
@@ -117,43 +121,48 @@ export default function MapScreen() {
     loadColleges();
   }, []);
 
-  // 3. Handle incoming "View Office Location" param reliably
+  // 3. FIXED: Handle incoming parameter checking both on load AND on navigation focus
   useEffect(() => {
-    // We log this to watch our variables synchronize
-    console.log(
-      "Auto-open synchronization check -> officeId:",
-      officeId,
-      "Colleges count:",
-      colleges.length,
-    );
-
-    if (!officeId || !Array.isArray(colleges) || colleges.length === 0) {
-      return; // Wait patiently until BOTH values are fully ready
-    }
-
-    // Find target using clean string comparisons
-    const target = colleges.find(
-      (college) => college?.office_id?.toString() === officeId.toString(),
-    );
-
-    if (target) {
-      const lng = parseFloat(target.longitude);
-      const lat = parseFloat(target.latitude);
-
-      if (!isNaN(lng) && !isNaN(lat)) {
-        setCameraConfig({
-          center: [lng, lat],
-          zoom: 19,
-          animationDuration: 1500,
-        });
+    function processIncomingOffice() {
+      if (!officeId || !Array.isArray(colleges) || colleges.length === 0) {
+        return;
       }
 
-      setSelectedOffice(target);
-      setModalVisible(true);
-    } else {
-      console.warn(`Could not find a college office matching ID: ${officeId}`);
+      const target = colleges.find(
+        (college) => college?.office_id?.toString() === officeId.toString(),
+      );
+
+      if (target) {
+        const lng = parseFloat(target.longitude);
+        const lat = parseFloat(target.latitude);
+
+        if (!isNaN(lng) && !isNaN(lat)) {
+          setCameraConfig({
+            center: [lng, lat],
+            zoom: 19,
+            animationDuration: 1500,
+          });
+        }
+
+        setSelectedOffice(target);
+        setModalVisible(true);
+      } else {
+        console.warn(
+          `Could not find a college office matching ID: ${officeId}`,
+        );
+      }
     }
-  }, [officeId, colleges]); // Re-evaluates safely when the API finishes loading
+
+    // Process immediately if variables change
+    processIncomingOffice();
+
+    // ALSO process whenever this tab/screen re-gains focus in the app navigation stack
+    const unsubscribe = navigation.addListener("focus", () => {
+      processIncomingOffice();
+    });
+
+    return unsubscribe;
+  }, [officeId, colleges, navigation]);
 
   // --- Search Functions ---
   function handleSearch(text) {
@@ -170,7 +179,6 @@ export default function MapScreen() {
     }
   }
 
-  // Handle explicitly clicking the dropdown arrow icon
   function toggleDropdown() {
     if (isDropdownVisible) {
       setIsDropdownVisible(false);
@@ -211,6 +219,8 @@ export default function MapScreen() {
   function handleCloseModal() {
     setModalVisible(false);
     setSelectedOffice(null);
+    // Optional: Clear route params completely on close so it doesn't auto-popup on stray re-renders
+    navigation.setParams({ officeId: undefined });
   }
 
   return (

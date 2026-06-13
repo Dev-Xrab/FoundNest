@@ -8,7 +8,7 @@ import {
   submitLostReport,
   validateReportPage2,
 } from "@/utils/lostReport";
-import { MaterialIcons } from "@expo/vector-icons";
+import { Feather, MaterialIcons } from "@expo/vector-icons"; // Added Feather for the clean info icon
 import { useRouter } from "expo-router";
 import React, { useEffect, useRef, useState } from "react";
 import {
@@ -38,84 +38,34 @@ const CustomCheckbox = ({ label, value, onValueChange }) => (
   <TouchableOpacity
     style={styles.checkboxContainer}
     onPress={() => onValueChange(!value)}
+    activeOpacity={0.7}
   >
     <MaterialIcons
       name={value ? "check-box" : "check-box-outline-blank"}
-      size={24}
-      color={AppColors.background}
+      size={22}
+      color={value ? AppColors.background : "#757575"}
     />
     <Text style={styles.checkboxLabel}>{label}</Text>
   </TouchableOpacity>
 );
 
-const ExpandableDropdown = ({
-  title,
-  data,
-  selectedItems = [],
-  onSelectionChange,
-  disabled = false,
-}) => {
-  const rotation = useSharedValue(0);
-  const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{ rotate: `${rotation.value}deg` }],
-  }));
-
-  const formattedData = Array.isArray(data)
-    ? data.map((item) =>
-        typeof item === "object" && item !== null && item.name
-          ? item.name
-          : item,
-      )
-    : [];
-
-  const [isOpen, setIsOpen] = useState(false);
-
-  const handlePress = () => {
-    const nextState = !isOpen;
-    setIsOpen(nextState);
-    rotation.value = withTiming(nextState ? 180 : 0, { duration: 300 });
-  };
-
-  const toggleCheckbox = (item) => {
-    if (disabled) return;
-
-    let newSelection = [...selectedItems];
-    if (newSelection.includes(item)) {
-      newSelection = newSelection.filter((i) => i !== item);
-    } else {
-      newSelection.push(item);
-    }
-    onSelectionChange?.(newSelection);
-  };
-
+const NestedDropdownHeader = ({ title, isOpen, disabled, onPress }) => {
   return (
-    <View style={[styles.dropdownWrapper, disabled && styles.dropdownDisabled]}>
-      <TouchableOpacity onPress={handlePress} disabled={disabled}>
-        <View style={styles.dataPickerButton}>
-          <Text style={disabled && styles.disabledText}>{title}</Text>
-          <Animated.View style={animatedStyle}>
-            <MaterialIcons
-              name="keyboard-arrow-down"
-              size={24}
-              color={disabled ? "#aaa" : AppColors.background}
-            />
-          </Animated.View>
-        </View>
-      </TouchableOpacity>
-
-      {isOpen && formattedData.length > 0 && (
-        <View style={styles.dropdownList}>
-          {formattedData.map((item, index) => (
-            <CustomCheckbox
-              key={`${title}-${index}`}
-              label={item}
-              value={!disabled && selectedItems.includes(item)}
-              onValueChange={() => toggleCheckbox(item)}
-            />
-          ))}
-        </View>
-      )}
-    </View>
+    <TouchableOpacity
+      onPress={onPress}
+      disabled={disabled}
+      style={[styles.nestedHeader, disabled && styles.nestedHeaderDisabled]}
+      activeOpacity={0.7}
+    >
+      <Text style={[styles.nestedHeaderTitle, disabled && styles.disabledText]}>
+        {title}
+      </Text>
+      <MaterialIcons
+        name={isOpen ? "keyboard-arrow-down" : "keyboard-arrow-right"}
+        size={22}
+        color="#900014"
+      />
+    </TouchableOpacity>
   );
 };
 
@@ -135,6 +85,8 @@ export default function ReportNextPage() {
   const [showLocation, setShowLocation] = useState(false);
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const [openSubSection, setOpenSubSection] = useState(null);
 
   const mainRotation = useSharedValue(0);
   const mainAnimatedStyle = useAnimatedStyle(() => ({
@@ -163,28 +115,46 @@ export default function ReportNextPage() {
     }
   };
 
+  const toggleSubSection = (section) => {
+    if (cantRemember) return;
+    setOpenSubSection(openSubSection === section ? null : section);
+  };
+
   const clearLocationError = () => {
     if (errors.location) {
       setErrors((prev) => ({ ...prev, location: undefined }));
     }
   };
 
-  const handleCantRememberChange = (value) => {
-    setCantRemember(value);
-    if (value) {
+  const handleCantRememberChange = () => {
+    const nextVal = !cantRemember;
+    setCantRemember(nextVal);
+    if (nextVal) {
       setSelectedColleges([]);
       setSelectedSpaces([]);
       setSelectedGates([]);
+      setOpenSubSection(null);
     }
     clearLocationError();
   };
 
-  const handleLocationSelectionChange = (setter) => (items) => {
-    setter(items);
-    if (items.length > 0) {
+  const handleLocationSelectionChange =
+    (currentSelection, setter) => (item) => {
+      let newSelection = [...currentSelection];
+      if (newSelection.includes(item)) {
+        newSelection = newSelection.filter((i) => i !== item);
+      } else {
+        newSelection.push(item);
+      }
+      setter(newSelection);
       setCantRemember(false);
-    }
-    clearLocationError();
+      clearLocationError();
+    };
+
+  const formatDataList = (sourceData) => {
+    return Array.isArray(sourceData)
+      ? sourceData.map((item) => (item && item.name ? item.name : item))
+      : [];
   };
 
   const handleSubmit = async () => {
@@ -242,12 +212,7 @@ export default function ReportNextPage() {
       Alert.alert(
         "Report submitted",
         "Your lost item report was sent successfully.",
-        [
-          {
-            text: "OK",
-            onPress: () => router.replace("/(tabs)/"),
-          },
-        ],
+        [{ text: "OK", onPress: () => router.replace("/(tabs)/") }],
       );
     } catch (error) {
       console.error("Submit lost report:", error);
@@ -313,9 +278,14 @@ export default function ReportNextPage() {
         <Text style={styles.subTitle}>When & Where</Text>
 
         <Text style={styles.sectionTitle}>Date Lost</Text>
-        <TouchableOpacity onPress={() => setOpenCalendar(true)}>
+        <TouchableOpacity
+          onPress={() => setOpenCalendar(true)}
+          activeOpacity={0.8}
+        >
           <View style={styles.dataPickerButton}>
-            <Text>{date.toLocaleDateString()}</Text>
+            <Text style={styles.pickerValueText}>
+              {date.toLocaleDateString()}
+            </Text>
             <MaterialIcons
               name="calendar-month"
               size={24}
@@ -325,9 +295,12 @@ export default function ReportNextPage() {
         </TouchableOpacity>
 
         <Text style={styles.sectionTitle}>Time Lost</Text>
-        <TouchableOpacity onPress={() => setOpenClock(true)}>
+        <TouchableOpacity
+          onPress={() => setOpenClock(true)}
+          activeOpacity={0.8}
+        >
           <View style={styles.dataPickerButton}>
-            <Text>
+            <Text style={styles.pickerValueText}>
               {time.toLocaleTimeString([], {
                 hour: "2-digit",
                 minute: "2-digit",
@@ -344,68 +317,141 @@ export default function ReportNextPage() {
 
         <Text style={styles.sectionTitle}>Select Location</Text>
 
-        <TouchableOpacity
-          onPress={handleMainLocationPress}
-          style={styles.dropdownWrapper}
-        >
-          <View
-            style={[
-              styles.dataPickerButton,
-              showLocation && styles.dataPickerButtonActive,
-              errors.location && !showLocation && styles.inputErrorBorder,
-            ]}
+        <View style={styles.dropdownMainContainer}>
+          <TouchableOpacity
+            onPress={handleMainLocationPress}
+            activeOpacity={0.9}
           >
-            <Text style={styles.selectLocationLabel}>Select Location</Text>
-            <Animated.View style={mainAnimatedStyle}>
-              <MaterialIcons
-                name="keyboard-arrow-down"
-                size={24}
-                color={AppColors.background}
+            <View
+              style={[
+                styles.dataPickerButton,
+                styles.locationMainSelector,
+                showLocation && styles.dataPickerButtonActive,
+                errors.location && !showLocation && styles.inputErrorBorder,
+              ]}
+            >
+              <Text style={styles.selectLocationLabel}>Select Location</Text>
+              <Animated.View style={mainAnimatedStyle}>
+                <MaterialIcons
+                  name="keyboard-arrow-down"
+                  size={24}
+                  color={showLocation ? "#900014" : AppColors.background}
+                />
+              </Animated.View>
+            </View>
+          </TouchableOpacity>
+
+          {showLocation && (
+            <View style={styles.integratedMenuBlock}>
+              <NestedDropdownHeader
+                title="College Buildings"
+                isOpen={openSubSection === "colleges"}
+                disabled={cantRemember}
+                onPress={() => toggleSubSection("colleges")}
               />
-            </Animated.View>
-          </View>
-        </TouchableOpacity>
-
-        {showLocation && (
-          <View style={styles.nestedLocations}>
-            <ExpandableDropdown
-              title="College Buildings"
-              data={bulsuColleges}
-              selectedItems={selectedColleges}
-              disabled={cantRemember}
-              onSelectionChange={handleLocationSelectionChange(
-                setSelectedColleges,
+              {openSubSection === "colleges" && (
+                <View style={styles.nestedCheckboxList}>
+                  {formatDataList(bulsuColleges).map((item, idx) => (
+                    <CustomCheckbox
+                      key={`college-${idx}`}
+                      label={item}
+                      value={selectedColleges.includes(item)}
+                      onValueChange={() =>
+                        handleLocationSelectionChange(
+                          selectedColleges,
+                          setSelectedColleges,
+                        )(item)
+                      }
+                    />
+                  ))}
+                </View>
               )}
-            />
 
-            <ExpandableDropdown
-              title="Shared Student Space"
-              data={sharedStudentSpaces}
-              selectedItems={selectedSpaces}
-              disabled={cantRemember}
-              onSelectionChange={handleLocationSelectionChange(
-                setSelectedSpaces,
+              <NestedDropdownHeader
+                title="Shared Student Spaces"
+                isOpen={openSubSection === "spaces"}
+                disabled={cantRemember}
+                onPress={() => toggleSubSection("spaces")}
+              />
+              {openSubSection === "spaces" && (
+                <View style={styles.nestedCheckboxList}>
+                  {formatDataList(sharedStudentSpaces).map((item, idx) => (
+                    <CustomCheckbox
+                      key={`space-${idx}`}
+                      label={item}
+                      value={selectedSpaces.includes(item)}
+                      onValueChange={() =>
+                        handleLocationSelectionChange(
+                          selectedSpaces,
+                          setSelectedSpaces,
+                        )(item)
+                      }
+                    />
+                  ))}
+                </View>
               )}
-            />
 
-            <ExpandableDropdown
-              title="Gates"
-              data={gates}
-              selectedItems={selectedGates}
-              disabled={cantRemember}
-              onSelectionChange={handleLocationSelectionChange(
-                setSelectedGates,
+              <NestedDropdownHeader
+                title="Gates"
+                isOpen={openSubSection === "gates"}
+                disabled={cantRemember}
+                onPress={() => toggleSubSection("gates")}
+              />
+              {openSubSection === "gates" && (
+                <View style={styles.nestedCheckboxList}>
+                  {formatDataList(gates).map((item, idx) => (
+                    <CustomCheckbox
+                      key={`gate-${idx}`}
+                      label={item}
+                      value={selectedGates.includes(item)}
+                      onValueChange={() =>
+                        handleLocationSelectionChange(
+                          selectedGates,
+                          setSelectedGates,
+                        )(item)
+                      }
+                    />
+                  ))}
+                </View>
               )}
-            />
 
-            <CustomCheckbox
-              label="Can't Remember Location"
-              value={cantRemember}
-              onValueChange={handleCantRememberChange}
-            />
-          </View>
-        )}
+              <TouchableOpacity
+                style={[styles.nestedHeader, styles.cantRememberRow]}
+                onPress={handleCantRememberChange}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.nestedHeaderTitle}>Can't Remember</Text>
+                <MaterialIcons
+                  name={
+                    cantRemember
+                      ? "radio-button-checked"
+                      : "radio-button-unchecked"
+                  }
+                  size={22}
+                  color="#900014"
+                />
+              </TouchableOpacity>
+            </View>
+          )}
+        </View>
         <FieldError message={errors.location} />
+
+        {/* --- ADDED: "What happens next?" info card element right above the actions line --- */}
+        <View style={styles.infoCard}>
+          <View style={styles.infoTitleRow}>
+            <Feather
+              name="info"
+              size={20}
+              color="#000000"
+              style={styles.infoIcon}
+            />
+            <Text style={styles.infoTitle}>What happens next?</Text>
+          </View>
+          <Text style={styles.infoBody}>
+            We’ll check for matching found items and notify you if we find a
+            potential match. You’ll receive updates via the notification bell.
+          </Text>
+        </View>
 
         <View style={styles.nextSection}>
           <Text style={styles.pageIndicator}>Page 2 out of 2</Text>
@@ -415,7 +461,7 @@ export default function ReportNextPage() {
               disabled={isSubmitting}
               onPress={() => router.back()}
             >
-              <Text style={styles.buttonText}>Back</Text>
+              <Text style={styles.backButtonText}>Back</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -429,7 +475,7 @@ export default function ReportNextPage() {
               {isSubmitting ? (
                 <ActivityIndicator color={AppColors.surface} />
               ) : (
-                <Text style={styles.buttonText}>Submit</Text>
+                <Text style={styles.submitButtonText}>Submit</Text>
               )}
             </TouchableOpacity>
           </View>
@@ -478,21 +524,24 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     marginHorizontal: 20,
     marginTop: 20,
-    paddingVertical: 30,
+    paddingVertical: 24,
     borderTopWidth: 1,
-    borderColor: "rgba(0, 0, 0, 0.24)",
+    borderColor: "rgba(0, 0, 0, 0.15)", // Lighter line matching layout rules
     alignItems: "center",
     flexWrap: "wrap",
     gap: 12,
   },
   pageIndicator: {
-    fontWeight: "bold",
+    fontSize: 15,
+    fontWeight: "500",
+    color: "#212121",
   },
+  // Substantial updates to action buttons style layouts to mirror image_0b7cfd.png buttons completely
   submitButton: {
-    padding: 10,
-    paddingHorizontal: 30,
-    backgroundColor: AppColors.background,
-    borderRadius: 10,
+    paddingVertical: 12,
+    paddingHorizontal: 26,
+    backgroundColor: "#D37570", // Shaded muted-red style color fill representation from design
+    borderRadius: 14,
     minWidth: 100,
     alignItems: "center",
   },
@@ -500,16 +549,25 @@ const styles = StyleSheet.create({
     opacity: 0.7,
   },
   cancelButton: {
-    padding: 10,
-    paddingHorizontal: 30,
-    backgroundColor: AppColors.background,
-    borderRadius: 10,
+    paddingVertical: 12,
+    paddingHorizontal: 28,
+    backgroundColor: "transparent",
+    borderRadius: 14,
+    borderWidth: 1.5,
+    borderColor: "#900014", // Crimson bordered structure
   },
-  buttonText: {
-    color: AppColors.surface,
+  submitButtonText: {
+    color: "#FFFFFF",
+    fontSize: 15,
+    fontWeight: "500",
+  },
+  backButtonText: {
+    color: "#900014", // Colored interior text properties
+    fontSize: 15,
+    fontWeight: "500",
   },
   buttonSection: {
-    gap: 8,
+    gap: 10,
     flexDirection: "row",
   },
   sectionTitle: {
@@ -526,58 +584,126 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     marginHorizontal: 20,
     marginBottom: 10,
-    padding: 12,
+    padding: 14,
     backgroundColor: "#fff",
-    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#E0E0E0",
+    borderRadius: 6,
+  },
+  pickerValueText: {
+    fontSize: 15,
+    color: "#333",
+  },
+  locationMainSelector: {
+    marginHorizontal: 0,
+    marginBottom: 0,
   },
   dataPickerButtonActive: {
-    backgroundColor: "#c7c7c7",
+    backgroundColor: "#FFFFFF",
+    borderBottomLeftRadius: 0,
+    borderBottomRightRadius: 0,
+    borderBottomWidth: 0,
   },
   selectLocationLabel: {
     fontWeight: "600",
+    fontSize: 15,
+    color: "#A2938A",
   },
   inputErrorBorder: {
     borderWidth: 1,
     borderColor: "#C62828",
   },
-  nestedLocations: {
-    marginTop: 5,
+  dropdownMainContainer: {
+    marginHorizontal: 20,
+    boxShadow: "0px 2px 4px rgba(0,0,0,0.06)",
+  },
+  integratedMenuBlock: {
+    backgroundColor: "#FFFFFF",
+    borderLeftWidth: 1,
+    borderRightWidth: 1,
+    borderBottomWidth: 1,
+    borderColor: "#E0E0E0",
+    borderBottomLeftRadius: 6,
+    borderBottomRightRadius: 6,
+    marginTop: 0,
+  },
+  nestedHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderTopWidth: 1,
+    borderColor: "#EEEEEE",
+    backgroundColor: "#FFFFFF",
+  },
+  nestedHeaderDisabled: {
+    opacity: 0.5,
+  },
+  nestedHeaderTitle: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: "#212121",
+  },
+  cantRememberRow: {
+    borderBottomLeftRadius: 6,
+    borderBottomRightRadius: 6,
+  },
+  nestedCheckboxList: {
+    backgroundColor: "#F9F9F9",
+    paddingVertical: 6,
+    borderTopWidth: 1,
+    borderColor: "#EEEEEE",
   },
   checkboxContainer: {
     flexDirection: "row",
     alignItems: "center",
-    marginHorizontal: 20,
-    marginBottom: 15,
-    marginTop: 5,
-    paddingRight: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 24,
   },
   checkboxLabel: {
-    marginLeft: 10,
-    fontSize: 16,
-    color: AppColors.textOnLight,
-  },
-  dropdownWrapper: {
-    marginBottom: 10,
-  },
-  dropdownDisabled: {
-    opacity: 0.55,
+    marginLeft: 12,
+    fontSize: 15,
+    color: "#212121",
   },
   disabledText: {
-    color: "#8C7A70",
-  },
-  dropdownList: {
-    backgroundColor: "#fff",
-    marginHorizontal: 20,
-    paddingTop: 10,
-    borderBottomLeftRadius: 8,
-    borderBottomRightRadius: 8,
-    marginTop: -15,
-    paddingBottom: 10,
+    color: "#A0A0A0",
   },
   fieldError: {
     color: "#C62828",
     fontSize: 13,
     marginHorizontal: 20,
+    marginTop: 4,
     marginBottom: 8,
+  },
+
+  infoCard: {
+    backgroundColor: "#E3D5CA",
+    borderRadius: 8,
+    padding: 16,
+    marginHorizontal: 20,
+    marginTop: 28,
+    marginBottom: 12,
+    boxShadow: "0px 1px 3px rgba(0,0,0,0.05)",
+  },
+  infoTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 10,
+  },
+  infoIcon: {
+    marginRight: 8,
+  },
+  infoTitle: {
+    fontSize: 16,
+    fontWeight: "bold",
+    color: "#000000",
+  },
+  infoBody: {
+    fontSize: 14,
+    color: AppColors.activeIcon,
+    lineHeight: 20,
+    fontWeight: "400",
+    paddingLeft: 28,
   },
 });
