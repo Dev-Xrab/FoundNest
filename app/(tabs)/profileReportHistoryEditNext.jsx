@@ -1,14 +1,18 @@
-import { API_BASE_URL } from '@/constants/api';
-import AppColors from '@/constants/AppColors';
-import { fetchBulsuColleges } from '@/constants/centerLocation';
-import { gates } from '@/constants/Gates';
-import { clearReportDraft, getReportDraft, setReportDraft } from '@/constants/reportDraft';
-import { sharedStudentSpaces } from '@/constants/SharedStudentSpaces';
-import { getToken } from '@/constants/StudentData';
-import { buildLocationLost, validateReportPage2 } from '@/utils/lostReport';
-import { MaterialIcons } from '@expo/vector-icons';
-import { useFocusEffect, useRouter } from 'expo-router';
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { API_BASE_URL } from "@/constants/api";
+import AppColors from "@/constants/AppColors";
+import fetchBulsuColleges from "@/constants/CollegeBuildings"; // Left unchanged per your instructions
+import fetchGates from "@/constants/Gates";
+import {
+  clearReportDraft,
+  getReportDraft,
+  setReportDraft,
+} from "@/constants/reportDraft";
+import fetchSharedStudentSpaces from "@/constants/SharedStudentSpaces";
+import { getToken } from "@/constants/StudentData";
+import { buildLocationLost, validateReportPage2 } from "@/utils/lostReport";
+import { Feather, MaterialIcons } from "@expo/vector-icons";
+import { useFocusEffect, useRouter } from "expo-router";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -19,9 +23,13 @@ import {
   Text,
   TouchableOpacity,
   View,
-} from 'react-native';
-import DatePicker from 'react-native-date-picker';
-import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
+} from "react-native";
+import DatePicker from "react-native-date-picker";
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from "react-native-reanimated";
 
 function FieldError({ message }) {
   if (!message) return null;
@@ -29,99 +37,110 @@ function FieldError({ message }) {
 }
 
 const CustomCheckbox = ({ label, value, onValueChange }) => (
-  <TouchableOpacity style={styles.checkboxContainer} onPress={() => onValueChange(!value)}>
+  <TouchableOpacity
+    style={styles.checkboxContainer}
+    onPress={() => onValueChange(!value)}
+    activeOpacity={0.7}
+  >
     <MaterialIcons
-      name={value ? 'check-box' : 'check-box-outline-blank'}
-      size={24}
-      color={AppColors.background}
+      name={value ? "check-box" : "check-box-outline-blank"}
+      size={22}
+      color={value ? AppColors.background : "#757575"}
     />
     <Text style={styles.checkboxLabel}>{label}</Text>
   </TouchableOpacity>
 );
 
-const ExpandableDropdown = ({ title, data, selectedItems = [], onSelectionChange, disabled = false }) => {
-  const rotation = useSharedValue(0);
-  const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{ rotate: `${rotation.value}deg` }],
-  }));
-
-  const formattedData = Array.isArray(data)
-    ? data.map((item) => (typeof item === 'object' && item !== null && item.name ? item.name : item))
-    : [];
-
-  const [isOpen, setIsOpen] = useState(false);
-
-  const handlePress = () => {
-    const nextState = !isOpen;
-    setIsOpen(nextState);
-    rotation.value = withTiming(nextState ? 180 : 0, { duration: 300 });
-  };
-
-  const toggleCheckbox = (item) => {
-    if (disabled) return;
-    let newSelection = [...selectedItems];
-    if (newSelection.includes(item)) {
-      newSelection = newSelection.filter((i) => i !== item);
-    } else {
-      newSelection.push(item);
-    }
-    onSelectionChange?.(newSelection);
-  };
-
+const NestedDropdownHeader = ({ title, isOpen, disabled, onPress }) => {
   return (
-    <View style={[styles.dropdownWrapper, disabled && styles.dropdownDisabled]}>
-      <TouchableOpacity onPress={handlePress} disabled={disabled}>
-        <View style={styles.dataPickerButton}>
-          <Text style={disabled && styles.disabledText}>{title}</Text>
-          <Animated.View style={animatedStyle}>
-            <MaterialIcons name="keyboard-arrow-down" size={24} color={disabled ? '#aaa' : AppColors.background} />
-          </Animated.View>
-        </View>
-      </TouchableOpacity>
-
-      {isOpen && formattedData.length > 0 && (
-        <View style={styles.dropdownList}>
-          {formattedData.map((item, index) => (
-            <CustomCheckbox
-              key={`${title}-${index}`}
-              label={item}
-              value={!disabled && selectedItems.includes(item)}
-              onValueChange={() => toggleCheckbox(item)}
-            />
-          ))}
-        </View>
-      )}
-    </View>
+    <TouchableOpacity
+      onPress={onPress}
+      disabled={disabled}
+      style={[styles.nestedHeader, disabled && styles.nestedHeaderDisabled]}
+      activeOpacity={0.7}
+    >
+      <Text style={[styles.nestedHeaderTitle, disabled && styles.disabledText]}>
+        {title}
+      </Text>
+      <MaterialIcons
+        name={isOpen ? "keyboard-arrow-down" : "keyboard-arrow-right"}
+        size={22}
+        color="#900014"
+      />
+    </TouchableOpacity>
   );
 };
 
-// ── Parse location_lost back into arrays for pre-fill ────────────────────────
-function parseLocationLost(locationLost, collegesList = []) {
-  if (!locationLost) return { colleges: [], spaces: [], gates: [], cantRemember: false };
+function parseLocationLost(
+  locationLost,
+  collegesList = [],
+  spacesList = [],
+  gatesList = [],
+) {
+  if (!locationLost)
+    return { colleges: [], spaces: [], gates: [], cantRemember: false };
 
-  let locations = [];
-  try {
-    const parsed = JSON.parse(locationLost);
-    if (Array.isArray(parsed)) locations = parsed;
-  } catch {
-    locations = [locationLost];
+  let rawLocations = [];
+
+  if (typeof locationLost === "string") {
+    try {
+      const parsed = JSON.parse(locationLost);
+      if (Array.isArray(parsed)) rawLocations = parsed;
+      else rawLocations = [parsed];
+    } catch {
+      if (locationLost.includes(",")) {
+        rawLocations = locationLost.split(",").map((item) => item.trim());
+      } else {
+        rawLocations = [locationLost.trim()];
+      }
+    }
+  } else if (Array.isArray(locationLost)) {
+    rawLocations = locationLost;
   }
 
+  const locations = rawLocations
+    .map((l) => {
+      if (!l) return "";
+      if (typeof l === "object") {
+        return (
+          l.college_name ||
+          l.shared_space_name ||
+          l.gate_name ||
+          l.name ||
+          ""
+        )
+          .trim()
+          .toLowerCase();
+      }
+      return String(l).trim().toLowerCase();
+    })
+    .filter(Boolean);
+
   const cantRememberMatch = locations.some(
-    (l) => l.toLowerCase() === "can't remember"
+    (l) => l === "can't remember" || l === "cant remember",
   );
   if (cantRememberMatch || locations.length === 0) {
     return { colleges: [], spaces: [], gates: [], cantRemember: true };
   }
 
-  const collegeNames = collegesList.map((c) => (typeof c === 'object' ? c.name : c));
-  const spaceNames = sharedStudentSpaces;
-  const gateNames = gates;
+  const safeColleges = Array.isArray(collegesList) ? collegesList : [];
+  const safeSpaces = Array.isArray(spacesList) ? spacesList : [];
+  const safeGates = Array.isArray(gatesList) ? gatesList : [];
+
+  const systemColleges = safeColleges.map((c) => String(c || ""));
+  const systemSpaces = safeSpaces.map((s) => String(s || ""));
+  const systemGates = safeGates.map((g) => String(g || ""));
 
   return {
-    colleges:     locations.filter((l) => collegeNames.includes(l)),
-    spaces:       locations.filter((l) => spaceNames.includes(l)),
-    gates:        locations.filter((l) => gateNames.includes(l)),
+    colleges: systemColleges.filter((item) =>
+      locations.includes(item.trim().toLowerCase()),
+    ),
+    spaces: systemSpaces.filter((item) =>
+      locations.includes(item.trim().toLowerCase()),
+    ),
+    gates: systemGates.filter((item) =>
+      locations.includes(item.trim().toLowerCase()),
+    ),
     cantRemember: false,
   };
 }
@@ -131,10 +150,13 @@ export default function ProfileReportHistoryEditNext() {
   const scrollRef = useRef(null);
   const [draft, setDraft] = useState(null);
 
+  const [collegesList, setCollegesList] = useState([]);
+  const [spacesList, setSpacesList] = useState([]);
+  const [gatesList, setGatesList] = useState([]);
+  const [isLoadingData, setIsLoadingData] = useState(true);
+
   const [date, setDate] = useState(new Date());
   const [time, setTime] = useState(new Date());
-  const [openCalendar, setOpenCalendar] = useState(false);
-  const [openClock, setOpenClock] = useState(false);
   const [cantRemember, setCantRemember] = useState(false);
   const [selectedColleges, setSelectedColleges] = useState([]);
   const [selectedSpaces, setSelectedSpaces] = useState([]);
@@ -142,7 +164,10 @@ export default function ProfileReportHistoryEditNext() {
   const [showLocation, setShowLocation] = useState(false);
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [bulsuColleges, setBulsuColleges] = useState([]);
+
+  const [openCalendar, setOpenCalendar] = useState(false);
+  const [openClock, setOpenClock] = useState(false);
+  const [openSubSection, setOpenSubSection] = useState(null);
 
   const mainRotation = useSharedValue(0);
   const mainAnimatedStyle = useAnimatedStyle(() => ({
@@ -150,17 +175,36 @@ export default function ProfileReportHistoryEditNext() {
   }));
 
   useEffect(() => {
-    fetchBulsuColleges().then((colleges) => setBulsuColleges(colleges));
+    const loadDropdownData = async () => {
+      try {
+        const [collegesData, spacesData, gatesData] = await Promise.all([
+          fetchBulsuColleges(),
+          fetchSharedStudentSpaces(),
+          fetchGates(),
+        ]);
+
+        setCollegesList(collegesData);
+        setSpacesList(spacesData);
+        setGatesList(gatesData);
+      } catch (error) {
+        console.error("Failed to load location dropdown records:", error);
+      } finally {
+        setIsLoadingData(false);
+      }
+    };
+
+    loadDropdownData();
   }, []);
 
-  // Re-read draft every time this screen gains focus (handles both fresh
-  // navigate and re-focus after coming back from a deeper screen).
   useFocusEffect(
     useCallback(() => {
       const saved = getReportDraft();
       if (!saved) {
-        Alert.alert('Incomplete form', 'Please start from page 1.', [
-          { text: 'OK', onPress: () => router.replace('/(tabs)/profileReportHistory') },
+        Alert.alert("Incomplete form", "Please start from page 1.", [
+          {
+            text: "OK",
+            onPress: () => router.replace("/(tabs)/profileReportHistory"),
+          },
         ]);
         return;
       }
@@ -168,9 +212,32 @@ export default function ProfileReportHistoryEditNext() {
       setDraft(saved);
 
       if (saved.lostDate) {
-        const raw = saved.lostDate.replace(/\+\d{2}(:\d{2})?$/, '').trim();
-        const withT = raw.includes('T') ? raw : raw.replace(' ', 'T');
-        const d = new Date(withT);
+        const rawClean = saved.lostDate
+          .replace(/\+\d{2}(:\d{2})?$/, "")
+          .replace(/\+00$/, "")
+          .replace("T", " ")
+          .trim();
+        const parts = rawClean.split(" ");
+        const dateParts = parts[0].split("-");
+        const timeParts = parts[1] ? parts[1].split(":") : ["00", "00", "00"];
+
+        const d = new Date(
+          parseInt(dateParts[0], 10),
+          parseInt(dateParts[1], 10) - 1,
+          parseInt(dateParts[2], 10),
+          parseInt(timeParts[0], 10),
+          parseInt(timeParts[1], 10),
+          parseInt(timeParts[2], 10) || 0,
+        );
+
+        console.log("=== DATE PICKER PARSE CONTEXT ===");
+        console.log("- Source local timestamp value:", saved.lostDate);
+        console.log(
+          "- Successfully initialized Date context object:",
+          d.toString(),
+        );
+        console.log("=================================");
+
         if (!isNaN(d.getTime())) {
           setDate(d);
           setTime(d);
@@ -178,53 +245,124 @@ export default function ProfileReportHistoryEditNext() {
       }
 
       setErrors({});
-    }, [])
+    }, [router]),
   );
 
-  // Pre-fill location once BOTH draft and colleges are loaded
   useEffect(() => {
-    if (!draft || bulsuColleges.length === 0) return;
-    const parsed = parseLocationLost(draft.locationLost, bulsuColleges);
+    if (!draft || isLoadingData) return;
+
+    const rawLocationField = draft.locationLost || draft.location_lost || "";
+
+    // ─── ADDED: EXPLICIT LOG PRINTING FOR THE WHOLE ITEM DATA ───
+    console.log("===========================================================");
+    console.log(
+      "👉 WHOLE ITEM DRAFT DATA CONTEXT:",
+      JSON.stringify(draft, null, 2),
+    );
+    console.log("===========================================================");
+
+    console.log("=============== FOUNDNEST EDIT PAGE 2 DEBUG ===============");
+    console.log(
+      "1. DISCOVERED LOCATIONlost DATABASE FIELD VALUE:",
+      rawLocationField,
+    );
+    console.log("2. AVAILABLE COGNIZANT LISTS FROM BACKEND HELPERS:");
+    console.log("   - collegesList Array:", collegesList);
+    console.log("   - spacesList Array:", spacesList);
+    console.log("   - gatesList Array:", gatesList);
+
+    const parsed = parseLocationLost(
+      rawLocationField,
+      collegesList,
+      spacesList,
+      gatesList,
+    );
+
+    console.log("3. FINAL EVALUATED CHECKBOX CROSS-REFERENCES RECOVERED:");
+    console.log("   - Match Check colleges Result:", parsed.colleges);
+    console.log("   - Match Check spaces Result:", parsed.spaces);
+    console.log("   - Match Check gates Result:", parsed.gates);
+    console.log("===========================================================");
+
     setSelectedColleges(parsed.colleges);
     setSelectedSpaces(parsed.spaces);
     setSelectedGates(parsed.gates);
     setCantRemember(parsed.cantRemember);
-  }, [draft, bulsuColleges]);
+
+    if (
+      parsed.colleges.length > 0 ||
+      parsed.spaces.length > 0 ||
+      parsed.gates.length > 0
+    ) {
+      setShowLocation(true);
+      mainRotation.value = 180;
+    }
+  }, [draft, collegesList, spacesList, gatesList, isLoadingData]);
 
   const handleMainLocationPress = () => {
     const nextState = !showLocation;
     setShowLocation(nextState);
     mainRotation.value = withTiming(nextState ? 180 : 0, { duration: 300 });
-    if (nextState && errors.location) setErrors((prev) => ({ ...prev, location: undefined }));
+    if (nextState && errors.location) {
+      setErrors((prev) => ({ ...prev, location: undefined }));
+    }
+  };
+
+  const toggleSubSection = (section) => {
+    if (cantRemember) return;
+    setOpenSubSection(openSubSection === section ? null : section);
   };
 
   const clearLocationError = () => {
-    if (errors.location) setErrors((prev) => ({ ...prev, location: undefined }));
+    if (errors.location) {
+      setErrors((prev) => ({ ...prev, location: undefined }));
+    }
   };
 
-  const handleCantRememberChange = (value) => {
-    setCantRemember(value);
-    if (value) {
+  const handleCantRememberChange = () => {
+    const nextVal = !cantRemember;
+    setCantRemember(nextVal);
+    if (nextVal) {
       setSelectedColleges([]);
       setSelectedSpaces([]);
       setSelectedGates([]);
+      setOpenSubSection(null);
     }
     clearLocationError();
   };
 
-  const handleLocationSelectionChange = (setter) => (items) => {
-    setter(items);
-    if (items.length > 0) setCantRemember(false);
-    clearLocationError();
+  const handleLocationSelectionChange =
+    (currentSelection, setter) => (item) => {
+      let newSelection = [...currentSelection];
+      if (newSelection.includes(item)) {
+        newSelection = newSelection.filter((i) => i !== item);
+      } else {
+        newSelection.push(item);
+      }
+      setter(newSelection);
+      setCantRemember(false);
+      clearLocationError();
+    };
+
+  const formatDataList = (sourceData) => {
+    return Array.isArray(sourceData)
+      ? sourceData.map((item) =>
+          item && typeof item === "object"
+            ? item.college_name ||
+              item.shared_space_name ||
+              item.gate_name ||
+              item.name
+            : item,
+        )
+      : [];
   };
 
   const handleBack = () => {
     const saved = getReportDraft();
 
-    // Persist current page 2 state so it survives the round-trip
     const combined = new Date(date);
     combined.setHours(time.getHours(), time.getMinutes(), 0, 0);
-    const pad = (n) => String(n).padStart(2, '0');
+    const pad = (n) => String(n).padStart(2, "0");
     const localISO =
       `${combined.getFullYear()}-${pad(combined.getMonth() + 1)}-${pad(combined.getDate())}` +
       `T${pad(combined.getHours())}:${pad(combined.getMinutes())}:00`;
@@ -241,18 +379,18 @@ export default function ProfileReportHistoryEditNext() {
     });
 
     router.navigate({
-      pathname: '/(tabs)/profileReportHistoryEdit',
+      pathname: "/(tabs)/profileReportHistoryEdit",
       params: {
-        report:      saved?.reportParam ?? '',
-        editSession: saved?.editSession ?? '',
-        fromBack:    'true',
+        report: saved?.reportParam ?? "",
+        editSession: saved?.editSession ?? "",
+        fromBack: "true",
       },
     });
   };
 
   const handleSubmit = async () => {
     if (!draft) {
-      router.replace('/(tabs)/profileReportHistory');
+      router.replace("/(tabs)/profileReportHistory");
       return;
     }
 
@@ -271,7 +409,10 @@ export default function ProfileReportHistoryEditNext() {
         setShowLocation(true);
         mainRotation.value = withTiming(180, { duration: 300 });
       }
-      Alert.alert('Missing information', Object.values(validation.errors).join('\n'));
+      Alert.alert(
+        "Missing information",
+        Object.values(validation.errors).join("\n"),
+      );
       scrollRef.current?.scrollToEnd({ animated: true });
       return;
     }
@@ -287,56 +428,65 @@ export default function ProfileReportHistoryEditNext() {
         gates: selectedGates,
       });
 
-      // Combine date + time into one local datetime string (no UTC conversion)
       const combined = new Date(date);
       combined.setHours(time.getHours(), time.getMinutes(), 0, 0);
 
-      const pad = (n) => String(n).padStart(2, '0');
+      const pad = (n) => String(n).padStart(2, "0");
       const localISO =
         `${combined.getFullYear()}-${pad(combined.getMonth() + 1)}-${pad(combined.getDate())}` +
         `T${pad(combined.getHours())}:${pad(combined.getMinutes())}:00`;
 
       const formData = new FormData();
-      formData.append('item_name', draft.itemName);
-      formData.append('description', draft.description);
-      formData.append('contents', draft.contents);
-      formData.append('category_id', draft.categoryId);
-      formData.append('location_lost', locationLost);
-      formData.append('lost_date', localISO);  // local time, not UTC
+      formData.append("item_name", draft.itemName);
+      formData.append("description", draft.description);
+      formData.append("contents", draft.contents);
+      formData.append("category_id", draft.categoryId);
+      formData.append("location_lost", locationLost);
+      formData.append("lost_date", localISO);
 
       if (draft.imageUri) {
-        const fileName = draft.imageUri.split('/').pop();
-        const ext = fileName?.split('.').pop()?.toLowerCase();
-        const mimeType = ext === 'png' ? 'image/png' : 'image/jpeg';
-        formData.append('image', { uri: draft.imageUri, name: fileName, type: mimeType });
+        const fileName = draft.imageUri.split("/").pop();
+        const ext = fileName?.split(".").pop()?.toLowerCase();
+        const mimeType = ext === "png" ? "image/png" : "image/jpeg";
+        formData.append("image", {
+          uri: draft.imageUri,
+          name: fileName,
+          type: mimeType,
+        });
       }
 
       const token = await getToken();
       const res = await fetch(
         `${API_BASE_URL}/api/lost-reports/${draft.reportId}`,
         {
-          method: 'PUT',
+          method: "PUT",
           headers: { Authorization: `Bearer ${token}` },
           body: formData,
-        }
+        },
       );
 
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        throw new Error(data.error ?? 'Failed to update report.');
+        throw new Error(data.error ?? "Failed to update report.");
       }
 
       clearReportDraft();
-      router.replace({ pathname: '/(tabs)/reportSuccess', params: { source: 'edit' } });
+      router.replace({
+        pathname: "/(tabs)/reportSuccess",
+        params: { source: "edit" },
+      });
     } catch (error) {
-      console.error('Update lost report error:', error);
-      Alert.alert('Update failed', error?.message ?? 'Could not update your report. Please try again.');
+      console.error("Update lost report error:", error);
+      Alert.alert(
+        "Update failed",
+        error?.message ?? "Could not update your report. Please try again.",
+      );
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  if (!draft) {
+  if (!draft || isLoadingData) {
     return (
       <View style={styles.loadingScreen}>
         <ActivityIndicator size="large" color={AppColors.background} />
@@ -346,115 +496,247 @@ export default function ProfileReportHistoryEditNext() {
 
   return (
     <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
       style={styles.container}
     >
       <DatePicker
-        modal open={openCalendar} date={date} mode="date"
+        modal
+        open={openCalendar}
+        date={date}
+        mode="date"
         maximumDate={new Date()}
-        onConfirm={(d) => {
-          setOpenCalendar(false); setDate(d);
-          if (errors.dateTime) setErrors((prev) => ({ ...prev, dateTime: undefined }));
+        onConfirm={(selectedDate) => {
+          setOpenCalendar(false);
+          setDate(selectedDate);
+          if (errors.dateTime)
+            setErrors((prev) => ({ ...prev, dateTime: undefined }));
         }}
         onCancel={() => setOpenCalendar(false)}
       />
+
       <DatePicker
-        modal open={openClock} date={time} mode="time"
-        onConfirm={(t) => {
-          setOpenClock(false); setTime(t);
-          if (errors.dateTime) setErrors((prev) => ({ ...prev, dateTime: undefined }));
+        modal
+        open={openClock}
+        mode="time"
+        date={time}
+        onConfirm={(selectedTime) => {
+          setOpenClock(false);
+          setTime(selectedTime);
+          if (errors.dateTime)
+            setErrors((prev) => ({ ...prev, dateTime: undefined }));
         }}
         onCancel={() => setOpenClock(false)}
       />
 
-      <ScrollView ref={scrollRef} keyboardShouldPersistTaps="handled" contentContainerStyle={styles.scrollContent}>
+      <ScrollView
+        ref={scrollRef}
+        keyboardShouldPersistTaps="handled"
+        contentContainerStyle={styles.scrollContent}
+      >
         <Text style={styles.title}>Edit Lost Item Report</Text>
         <Text style={styles.subTitle}>When & Where</Text>
 
         <Text style={styles.sectionTitle}>Date Lost</Text>
-        <TouchableOpacity onPress={() => setOpenCalendar(true)}>
+        <TouchableOpacity
+          onPress={() => setOpenCalendar(true)}
+          activeOpacity={0.8}
+        >
           <View style={styles.dataPickerButton}>
-            <Text>{date.toLocaleDateString()}</Text>
-            <MaterialIcons name="calendar-month" size={24} color={AppColors.background} />
+            <Text style={styles.pickerValueText}>
+              {date.toLocaleDateString()}
+            </Text>
+            <MaterialIcons
+              name="calendar-month"
+              size={24}
+              color={AppColors.background}
+            />
           </View>
         </TouchableOpacity>
 
         <Text style={styles.sectionTitle}>Time Lost</Text>
-        <TouchableOpacity onPress={() => setOpenClock(true)}>
+        <TouchableOpacity
+          onPress={() => setOpenClock(true)}
+          activeOpacity={0.8}
+        >
           <View style={styles.dataPickerButton}>
-            <Text>{time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</Text>
-            <MaterialIcons name="access-time" size={24} color={AppColors.background} />
+            <Text style={styles.pickerValueText}>
+              {time.toLocaleTimeString([], {
+                hour: "2-digit",
+                minute: "2-digit",
+              })}
+            </Text>
+            <MaterialIcons
+              name="access-time"
+              size={24}
+              color={AppColors.background}
+            />
           </View>
         </TouchableOpacity>
         <FieldError message={errors.dateTime} />
 
         <Text style={styles.sectionTitle}>Select Location</Text>
-        <TouchableOpacity onPress={handleMainLocationPress} style={styles.dropdownWrapper}>
-          <View style={[
-            styles.dataPickerButton,
-            showLocation && styles.dataPickerButtonActive,
-            errors.location && !showLocation && styles.inputErrorBorder,
-          ]}>
-            <Text style={styles.selectLocationLabel}>Select Location</Text>
-            <Animated.View style={mainAnimatedStyle}>
-              <MaterialIcons name="keyboard-arrow-down" size={24} color={AppColors.background} />
-            </Animated.View>
-          </View>
-        </TouchableOpacity>
 
-        {showLocation && (
-          <View style={styles.nestedLocations}>
-            <ExpandableDropdown
-              title="College Buildings"
-              data={bulsuColleges}
-              selectedItems={selectedColleges}
-              disabled={cantRemember}
-              onSelectionChange={handleLocationSelectionChange(setSelectedColleges)}
-            />
-            <ExpandableDropdown
-              title="Shared Student Space"
-              data={sharedStudentSpaces}
-              selectedItems={selectedSpaces}
-              disabled={cantRemember}
-              onSelectionChange={handleLocationSelectionChange(setSelectedSpaces)}
-            />
-            <ExpandableDropdown
-              title="Gates"
-              data={gates}
-              selectedItems={selectedGates}
-              disabled={cantRemember}
-              onSelectionChange={handleLocationSelectionChange(setSelectedGates)}
-            />
-            <CustomCheckbox
-              label="Can't Remember Location"
-              value={cantRemember}
-              onValueChange={handleCantRememberChange}
-            />
-          </View>
-        )}
+        <View style={styles.dropdownMainContainer}>
+          <TouchableOpacity
+            onPress={handleMainLocationPress}
+            activeOpacity={0.9}
+          >
+            <View
+              style={[
+                styles.dataPickerButton,
+                styles.locationMainSelector,
+                showLocation && styles.dataPickerButtonActive,
+                errors.location && !showLocation && styles.inputErrorBorder,
+              ]}
+            >
+              <Text style={styles.selectLocationLabel}>Select Location</Text>
+              <Animated.View style={mainAnimatedStyle}>
+                <MaterialIcons
+                  name="keyboard-arrow-down"
+                  size={24}
+                  color={showLocation ? "#900014" : AppColors.background}
+                />
+              </Animated.View>
+            </View>
+          </TouchableOpacity>
+
+          {showLocation && (
+            <View style={styles.integratedMenuBlock}>
+              <NestedDropdownHeader
+                title="College Buildings"
+                isOpen={openSubSection === "colleges"}
+                disabled={cantRemember}
+                onPress={() => toggleSubSection("colleges")}
+              />
+              {openSubSection === "colleges" && (
+                <View style={styles.nestedCheckboxList}>
+                  {formatDataList(collegesList).map((item, idx) => (
+                    <CustomCheckbox
+                      key={`college-${idx}`}
+                      label={item}
+                      value={selectedColleges.includes(item)}
+                      onValueChange={() =>
+                        handleLocationSelectionChange(
+                          selectedColleges,
+                          setSelectedColleges,
+                        )(item)
+                      }
+                    />
+                  ))}
+                </View>
+              )}
+
+              <NestedDropdownHeader
+                title="Shared Student Spaces"
+                isOpen={openSubSection === "spaces"}
+                disabled={cantRemember}
+                onPress={() => toggleSubSection("spaces")}
+              />
+              {openSubSection === "spaces" && (
+                <View style={styles.nestedCheckboxList}>
+                  {formatDataList(spacesList).map((item, idx) => (
+                    <CustomCheckbox
+                      key={`space-${idx}`}
+                      label={item}
+                      value={selectedSpaces.includes(item)}
+                      onValueChange={() =>
+                        handleLocationSelectionChange(
+                          selectedSpaces,
+                          setSelectedSpaces,
+                        )(item)
+                      }
+                    />
+                  ))}
+                </View>
+              )}
+
+              <NestedDropdownHeader
+                title="Gates"
+                isOpen={openSubSection === "gates"}
+                disabled={cantRemember}
+                onPress={() => toggleSubSection("gates")}
+              />
+              {openSubSection === "gates" && (
+                <View style={styles.nestedCheckboxList}>
+                  {formatDataList(gatesList).map((item, idx) => (
+                    <CustomCheckbox
+                      key={`gate-${idx}`}
+                      label={item}
+                      value={selectedGates.includes(item)}
+                      onValueChange={() =>
+                        handleLocationSelectionChange(
+                          selectedGates,
+                          setSelectedGates,
+                        )(item)
+                      }
+                    />
+                  ))}
+                </View>
+              )}
+
+              <TouchableOpacity
+                style={[styles.nestedHeader, styles.cantRememberRow]}
+                onPress={handleCantRememberChange}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.nestedHeaderTitle}>Can't Remember</Text>
+                <MaterialIcons
+                  name={
+                    cantRemember
+                      ? "radio-button-checked"
+                      : "radio-button-unchecked"
+                  }
+                  size={22}
+                  color="#900014"
+                />
+              </TouchableOpacity>
+            </View>
+          )}
+        </View>
         <FieldError message={errors.location} />
 
+        <View style={styles.infoCard}>
+          <View style={styles.infoTitleRow}>
+            <Feather
+              name="info"
+              size={20}
+              color="#000000"
+              style={styles.infoIcon}
+            />
+            <Text style={styles.infoTitle}>What happens next?</Text>
+          </View>
+          <Text style={styles.infoBody}>
+            We’ll check for matching found items and notify you if we find a
+            potential match. You’ll receive updates via the notification bell.
+          </Text>
+        </View>
+
         <View style={styles.nextSection}>
-            <Text style={styles.pageIndicator}>Page 2 out of 2</Text>
-            <View style={styles.buttonSection}>
-                <TouchableOpacity
-                  style={styles.outlinedButton}
-                  disabled={isSubmitting}
-                  onPress={handleBack}
-                >
-                  <Text style={styles.outlinedButtonText}>Back</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.submitButton, isSubmitting && styles.submitButtonDisabled]}
-                  onPress={handleSubmit}
-                  disabled={isSubmitting}
-                >
-                  {isSubmitting
-                    ? <ActivityIndicator color={AppColors.surface} />
-                    : <Text style={styles.buttonText}>Confirm</Text>
-                  }
-                </TouchableOpacity>
-            </View>
+          <Text style={styles.pageIndicator}>Page 2 out of 2</Text>
+          <View style={styles.buttonSection}>
+            <TouchableOpacity
+              style={styles.cancelButton}
+              disabled={isSubmitting}
+              onPress={handleBack}
+            >
+              <Text style={styles.backButtonText}>Back</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[
+                styles.submitButton,
+                isSubmitting && styles.submitButtonDisabled,
+              ]}
+              onPress={handleSubmit}
+              disabled={isSubmitting}
+            >
+              {isSubmitting ? (
+                <ActivityIndicator color={AppColors.surface} />
+              ) : (
+                <Text style={styles.submitButtonText}>Confirm</Text>
+              )}
+            </TouchableOpacity>
+          </View>
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -462,148 +744,165 @@ export default function ProfileReportHistoryEditNext() {
 }
 
 const styles = StyleSheet.create({
-    container: { 
-        flex: 1, 
-        backgroundColor: '#FFF1E0' 
-    },
-    loadingScreen: { 
-        flex: 1,
-        justifyContent: 'center', 
-        alignItems: 'center', 
-        backgroundColor: '#FFF1E0' 
-    },
-    scrollContent: { 
-        flexGrow: 1, 
-        paddingBottom: 48 
-    },
-    title: { 
-        backgroundColor: AppColors.background, 
-        fontSize: 22, 
-        fontWeight: '700', 
-        color: AppColors.surface, 
-        padding: 20 
-    },
-    subTitle: {
-        borderBottomWidth: 1, 
-        borderColor: '#000000',
-        fontSize: 17, 
-        fontWeight: '900', 
-        color: AppColors.textOnLight,
-        padding: 20, 
-        paddingLeft: 10, 
-        paddingBottom: 15,
-        marginHorizontal: 10, 
-        marginBottom: 20,
-    },
-    sectionTitle: { 
-        fontSize: 17, 
-        fontWeight: '800', 
-        color: AppColors.textOnLight, 
-        paddingLeft: 20, 
-        marginTop: 20, 
-        marginBottom: 8 
-    },
-    dataPickerButton: {
-        justifyContent: 'space-between', 
-        alignItems: 'center', 
-        flexDirection: 'row',
-        marginHorizontal: 20, 
-        marginBottom: 10, 
-        padding: 12,
-        backgroundColor: '#fff', 
-        borderRadius: 8,
-    },
-    dataPickerButtonActive: { 
-        backgroundColor: '#c7c7c7' 
-    },
-    selectLocationLabel: { 
-        fontWeight: '600' 
-    },
-    inputErrorBorder: { 
-        borderWidth: 1, 
-        borderColor: '#C62828' 
-    },
-    nestedLocations: { 
-        marginTop: 5 
-    },
-    checkboxContainer: { 
-        flexDirection: 'row', 
-        alignItems: 'center', 
-        marginHorizontal: 20, 
-        marginBottom: 15, 
-        marginTop: 5, 
-        paddingRight: 10 
-    },
-    checkboxLabel: { 
-        marginLeft: 10, 
-        fontSize: 16, 
-        color: AppColors.textOnLight 
-    },
-    dropdownWrapper: { 
-        marginBottom: 10 
-    },
-    dropdownDisabled: { 
-        opacity: 0.55 
-    },
-    disabledText: { 
-        color: '#8C7A70' 
-    },
-    dropdownList: { 
-        backgroundColor: '#fff', 
-        marginHorizontal: 20, 
-        paddingTop: 10, 
-        borderBottomLeftRadius: 8, 
-        borderBottomRightRadius: 8, 
-        marginTop: -15, 
-        paddingBottom: 10 
-    },
-    fieldError: { 
-        color: '#C62828', 
-        fontSize: 13, 
-        marginHorizontal: 20, 
-        marginBottom: 8 
-    },
-    nextSection: {
-        flexDirection: 'row', 
-        justifyContent: 'space-between',
-        marginHorizontal: 20, 
-        marginTop: 20, 
-        paddingVertical: 30,
-        borderTopWidth: 1, 
-        borderColor: 'rgba(0,0,0,0.24)',
-        alignItems: 'center', 
-        flexWrap: 'wrap', 
-        gap: 12,
-    },
-    pageIndicator: { 
-        fontWeight: 'bold' 
-    },
-    buttonSection: { 
-        gap: 8, 
-        flexDirection: 'row' 
-    },
-    outlinedButton: {
-        padding: 10,
-        paddingHorizontal: 30,
-        borderRadius: 10,
-        borderWidth: 1.5,
-        borderColor: AppColors.background,
-    },
-    outlinedButtonText: {
-        color: AppColors.background,
-    },
-    submitButton: { 
-        padding: 10, 
-        paddingHorizontal: 30, 
-        backgroundColor: AppColors.background, 
-        borderRadius: 10, 
-        minWidth: 100, 
-        alignItems: 'center' 
-    },
-    submitButtonDisabled: { 
-        opacity: 0.7 
-    },
-    buttonText: { 
-        color: AppColors.surface 
-    },
+  container: { flex: 1, backgroundColor: "#FFF1E0" },
+  loadingScreen: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#FFF1E0",
+  },
+  scrollContent: { flexGrow: 1, paddingBottom: 48 },
+  title: {
+    backgroundColor: AppColors.background,
+    fontSize: 22,
+    fontWeight: "700",
+    color: AppColors.surface,
+    padding: 20,
+  },
+  subTitle: {
+    borderBottomWidth: 1,
+    borderColor: "#000000",
+    fontSize: 17,
+    fontWeight: "900",
+    color: AppColors.textOnLight,
+    padding: 20,
+    paddingLeft: 10,
+    paddingBottom: 15,
+    marginHorizontal: 10,
+    marginBottom: 20,
+  },
+  nextSection: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginHorizontal: 20,
+    marginTop: 20,
+    paddingVertical: 24,
+    borderTopWidth: 1,
+    borderColor: "rgba(0, 0, 0, 0.15)",
+    alignItems: "center",
+    flexWrap: "wrap",
+    gap: 12,
+  },
+  pageIndicator: { fontSize: 15, fontWeight: "500", color: "#212121" },
+  submitButton: {
+    paddingVertical: 12,
+    paddingHorizontal: 26,
+    backgroundColor: "#D37570",
+    borderRadius: 14,
+    minWidth: 100,
+    alignItems: "center",
+  },
+  submitButtonDisabled: { opacity: 0.7 },
+  cancelButton: {
+    paddingVertical: 12,
+    paddingHorizontal: 28,
+    backgroundColor: "transparent",
+    borderRadius: 14,
+    borderWidth: 1.5,
+    borderColor: "#900014",
+  },
+  submitButtonText: { color: "#FFFFFF", fontSize: 15, fontWeight: "500" },
+  backButtonText: { color: "#900014", fontSize: 15, fontWeight: "500" },
+  buttonSection: { gap: 10, flexDirection: "row" },
+  sectionTitle: {
+    fontSize: 17,
+    fontWeight: "800",
+    color: AppColors.textOnLight,
+    paddingLeft: 20,
+    marginTop: 20,
+    marginBottom: 8,
+  },
+  dataPickerButton: {
+    justifyContent: "space-between",
+    alignItems: "center",
+    flexDirection: "row",
+    marginHorizontal: 20,
+    marginBottom: 10,
+    padding: 14,
+    backgroundColor: "#fff",
+    borderWidth: 1,
+    borderColor: "#E0E0E0",
+    borderRadius: 6,
+  },
+  pickerValueText: { fontSize: 15, color: "#333" },
+  locationMainSelector: { marginHorizontal: 0, marginBottom: 0 },
+  dataPickerButtonActive: {
+    backgroundColor: "#FFFFFF",
+    borderBottomLeftRadius: 0,
+    borderBottomRightRadius: 0,
+    borderBottomWidth: 0,
+  },
+  selectLocationLabel: { fontWeight: "600", fontSize: 15, color: "#A2938A" },
+  inputErrorBorder: { borderWidth: 1, borderColor: "#C62828" },
+  dropdownMainContainer: {
+    marginHorizontal: 20,
+    boxShadow: "0px 2px 4px rgba(0,0,0,0.06)",
+  },
+  integratedMenuBlock: {
+    backgroundColor: "#FFFFFF",
+    borderLeftWidth: 1,
+    borderRightWidth: 1,
+    borderBottomWidth: 1,
+    borderColor: "#E0E0E0",
+    borderBottomLeftRadius: 6,
+    borderBottomRightRadius: 6,
+    marginTop: 0,
+  },
+  nestedHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderTopWidth: 1,
+    borderColor: "#EEEEEE",
+    backgroundColor: "#FFFFFF",
+  },
+  nestedHeaderDisabled: { opacity: 0.5 },
+  nestedHeaderTitle: { fontSize: 15, fontWeight: "600", color: "#212121" },
+  cantRememberRow: { borderBottomLeftRadius: 6, borderBottomRightRadius: 6 },
+  nestedCheckboxList: {
+    backgroundColor: "#F9F9F9",
+    paddingVertical: 6,
+    borderTopWidth: 1,
+    borderColor: "#EEEEEE",
+  },
+  checkboxContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 10,
+    paddingHorizontal: 24,
+  },
+  checkboxLabel: { marginLeft: 12, fontSize: 15, color: "#212121" },
+  disabledText: { color: "#A0A0A0" },
+  fieldError: {
+    color: "#C62828",
+    fontSize: 13,
+    marginHorizontal: 20,
+    marginTop: 4,
+    marginBottom: 8,
+  },
+  infoCard: {
+    backgroundColor: "#E3D5CA",
+    borderRadius: 8,
+    padding: 16,
+    marginHorizontal: 20,
+    marginTop: 28,
+    marginBottom: 12,
+    boxShadow: "0px 1px 3px rgba(0,0,0,0.05)",
+  },
+  infoTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 10,
+  },
+  infoIcon: { marginRight: 8 },
+  infoTitle: { fontSize: 16, fontWeight: "bold", color: "#000000" },
+  infoBody: {
+    fontSize: 14,
+    color: AppColors.activeIcon,
+    lineHeight: 20,
+    fontWeight: "400",
+    paddingLeft: 28,
+  },
 });

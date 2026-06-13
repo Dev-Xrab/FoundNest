@@ -1,4 +1,5 @@
 // centerLocation.js
+
 const fetchBulsuColleges = async () => {
   try {
     const response = await fetch(
