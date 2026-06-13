@@ -1,14 +1,21 @@
+// centerLocation.js
 const fetchBulsuColleges = async () => {
   try {
     const response = await fetch(
       "https://foundnest-backend.onrender.com/api/colleges",
     );
-    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
 
     const data = await response.json();
+
+    // Extract only the college_name from each object
     return data.map((college) => college.college_name);
   } catch (error) {
     console.error("Error fetching BulSU colleges:", error);
+    // Fallback array so the UI stays stable if the API fails
     return ["College of Information and Communications Technology"];
   }
 };

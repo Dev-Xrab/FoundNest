@@ -1,14 +1,14 @@
 import AppColors from "@/constants/AppColors";
-import { bulsuColleges } from "@/constants/centerLocation";
-import { gates } from "@/constants/Gates";
+import fetchBulsuColleges from "@/constants/CollegeBuildings";
+import fetchGates from "@/constants/Gates";
 import { clearReportDraft, getReportDraft } from "@/constants/reportDraft";
-import { sharedStudentSpaces } from "@/constants/SharedStudentSpaces";
+import fetchSharedStudentSpaces from "@/constants/SharedStudentSpaces";
 import {
   buildLocationLost,
   submitLostReport,
   validateReportPage2,
 } from "@/utils/lostReport";
-import { Feather, MaterialIcons } from "@expo/vector-icons"; // Added Feather for the clean info icon
+import { Feather, MaterialIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import React, { useEffect, useRef, useState } from "react";
 import {
@@ -74,6 +74,12 @@ export default function ReportNextPage() {
   const scrollRef = useRef(null);
   const [draft, setDraft] = useState(null);
 
+  // --- DYNAMIC LIST STATES FOR ALL 3 APIS ---
+  const [collegesList, setCollegesList] = useState([]);
+  const [spacesList, setSpacesList] = useState([]);
+  const [gatesList, setGatesList] = useState([]);
+  const [isLoadingData, setIsLoadingData] = useState(true);
+
   const [time, setTime] = useState(new Date());
   const [date, setDate] = useState(new Date());
   const [openCalendar, setOpenCalendar] = useState(false);
@@ -93,6 +99,7 @@ export default function ReportNextPage() {
     transform: [{ rotate: `${mainRotation.value}deg` }],
   }));
 
+  // Effect hook to check draft validity and fetch dropdown menus parallelly
   useEffect(() => {
     const saved = getReportDraft();
     if (!saved) {
@@ -104,6 +111,27 @@ export default function ReportNextPage() {
       return;
     }
     setDraft(saved);
+
+    // Fetching from all 3 APIs at the same time using Promise.all
+    const loadDropdownData = async () => {
+      try {
+        const [collegesData, spacesData, gatesData] = await Promise.all([
+          fetchBulsuColleges(),
+          fetchSharedStudentSpaces(),
+          fetchGates(),
+        ]);
+
+        setCollegesList(collegesData);
+        setSpacesList(spacesData);
+        setGatesList(gatesData);
+      } catch (error) {
+        console.error("Failed to load location dropdown records:", error);
+      } finally {
+        setIsLoadingData(false);
+      }
+    };
+
+    loadDropdownData();
   }, [router]);
 
   const handleMainLocationPress = () => {
@@ -225,7 +253,8 @@ export default function ReportNextPage() {
     }
   };
 
-  if (!draft) {
+  // Upgraded checking condition to halt display processing until dynamic array populations conclude
+  if (!draft || isLoadingData) {
     return (
       <View style={styles.loadingScreen}>
         <ActivityIndicator size="large" color={AppColors.background} />
@@ -351,7 +380,8 @@ export default function ReportNextPage() {
               />
               {openSubSection === "colleges" && (
                 <View style={styles.nestedCheckboxList}>
-                  {formatDataList(bulsuColleges).map((item, idx) => (
+                  {/* --- NOW RENDERING FROM DYNAMIC collegesList --- */}
+                  {formatDataList(collegesList).map((item, idx) => (
                     <CustomCheckbox
                       key={`college-${idx}`}
                       label={item}
@@ -375,7 +405,8 @@ export default function ReportNextPage() {
               />
               {openSubSection === "spaces" && (
                 <View style={styles.nestedCheckboxList}>
-                  {formatDataList(sharedStudentSpaces).map((item, idx) => (
+                  {/* --- NOW RENDERING FROM DYNAMIC spacesList --- */}
+                  {formatDataList(spacesList).map((item, idx) => (
                     <CustomCheckbox
                       key={`space-${idx}`}
                       label={item}
@@ -399,7 +430,8 @@ export default function ReportNextPage() {
               />
               {openSubSection === "gates" && (
                 <View style={styles.nestedCheckboxList}>
-                  {formatDataList(gates).map((item, idx) => (
+                  {/* --- NOW RENDERING FROM DYNAMIC gatesList --- */}
+                  {formatDataList(gatesList).map((item, idx) => (
                     <CustomCheckbox
                       key={`gate-${idx}`}
                       label={item}
@@ -436,7 +468,6 @@ export default function ReportNextPage() {
         </View>
         <FieldError message={errors.location} />
 
-        {/* --- ADDED: "What happens next?" info card element right above the actions line --- */}
         <View style={styles.infoCard}>
           <View style={styles.infoTitleRow}>
             <Feather
@@ -526,7 +557,7 @@ const styles = StyleSheet.create({
     marginTop: 20,
     paddingVertical: 24,
     borderTopWidth: 1,
-    borderColor: "rgba(0, 0, 0, 0.15)", // Lighter line matching layout rules
+    borderColor: "rgba(0, 0, 0, 0.15)",
     alignItems: "center",
     flexWrap: "wrap",
     gap: 12,
@@ -536,11 +567,10 @@ const styles = StyleSheet.create({
     fontWeight: "500",
     color: "#212121",
   },
-  // Substantial updates to action buttons style layouts to mirror image_0b7cfd.png buttons completely
   submitButton: {
     paddingVertical: 12,
     paddingHorizontal: 26,
-    backgroundColor: "#D37570", // Shaded muted-red style color fill representation from design
+    backgroundColor: "#D37570",
     borderRadius: 14,
     minWidth: 100,
     alignItems: "center",
@@ -554,7 +584,7 @@ const styles = StyleSheet.create({
     backgroundColor: "transparent",
     borderRadius: 14,
     borderWidth: 1.5,
-    borderColor: "#900014", // Crimson bordered structure
+    borderColor: "#900014",
   },
   submitButtonText: {
     color: "#FFFFFF",
@@ -562,7 +592,7 @@ const styles = StyleSheet.create({
     fontWeight: "500",
   },
   backButtonText: {
-    color: "#900014", // Colored interior text properties
+    color: "#900014",
     fontSize: 15,
     fontWeight: "500",
   },
@@ -676,7 +706,6 @@ const styles = StyleSheet.create({
     marginTop: 4,
     marginBottom: 8,
   },
-
   infoCard: {
     backgroundColor: "#E3D5CA",
     borderRadius: 8,

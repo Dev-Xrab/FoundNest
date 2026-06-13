@@ -105,7 +105,6 @@ export default function Report() {
 
           if (!result.canceled) {
             const uri = result.assets[0].uri;
-            console.log("Captured image URI:", uri);
             setSelectedImage(uri);
             analyzeImage(uri);
           }
@@ -169,6 +168,14 @@ export default function Report() {
     router.push("/(tabs)/reportNextPage");
   };
 
+  const renderDropdownItem = (item) => {
+    return (
+      <View style={styles.categoryItemRow}>
+        <Text style={styles.categoryItemText}>{item.label}</Text>
+      </View>
+    );
+  };
+
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === "ios" ? "padding" : "height"}
@@ -221,6 +228,7 @@ export default function Report() {
         </View>
 
         <Text style={styles.sectionTitle}>Category</Text>
+
         <Dropdown
           style={[
             styles.categoryDropdown,
@@ -229,8 +237,6 @@ export default function Report() {
           placeholderStyle={styles.categoryPlaceholder}
           selectedTextStyle={styles.categorySelectedText}
           containerStyle={styles.categoryDropdownContainer}
-          itemTextStyle={styles.categoryItemText}
-          activeColor="rgba(139, 0, 0, 0.1)"
           data={categoryDropdownData}
           maxHeight={280}
           labelField="label"
@@ -238,7 +244,7 @@ export default function Report() {
           placeholder={
             categoryDropdownData.length === 0
               ? "Loading categories..."
-              : "Select a category..."
+              : "Select Category"
           }
           disable={categoryDropdownData.length === 0}
           value={selectedCategoryId || null}
@@ -248,6 +254,9 @@ export default function Report() {
               setErrors((prev) => ({ ...prev, category: undefined }));
             }
           }}
+          renderItem={renderDropdownItem}
+          dropdownPosition="bottom"
+          autoScroll={false}
           renderRightIcon={() => (
             <MaterialIcons
               name="keyboard-arrow-down"
@@ -411,6 +420,8 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     paddingHorizontal: 12,
     height: 50,
+    borderWidth: 1,
+    borderColor: "rgba(0,0,0,0.08)",
   },
   categoryPlaceholder: {
     fontSize: 16,
@@ -420,11 +431,26 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: AppColors.textOnLight,
   },
+
+  // --- BEGINNER SIMPLIFIED CONTAINER STYLE ---
+  // We remove left/right/width variables and let the internal layout mirror your marginHorizontal: 20
   categoryDropdownContainer: {
-    marginHorizontal: 20,
+    backgroundColor: "#FFFFFF",
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: "rgba(0,0,0,0.08)",
+    borderColor: "rgba(0,0,0,0.12)",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  categoryItemRow: {
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    backgroundColor: "#FFFFFF",
+    borderBottomWidth: 0.5,
+    borderColor: "#ECECEC",
   },
   categoryItemText: {
     fontSize: 16,
@@ -438,6 +464,8 @@ const styles = StyleSheet.create({
     height: 50,
     justifyContent: "center",
     fontSize: 16,
+    borderWidth: 1,
+    borderColor: "rgba(0,0,0,0.08)",
   },
   multilineInput: {
     height: 140,

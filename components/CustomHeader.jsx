@@ -17,8 +17,8 @@ export default function CustomHeader({ title }) {
 
   const [numberOfUnreadNotifications, setNumberOfUnreadNotifications] =
     useState(0);
-  const [notifications, setNotifications] = useState([]); // Fixed: added missing state
-  const [loading, setLoading] = useState(true); // Fixed: added missing state
+  const [notifications, setNotifications] = useState([]);
+  const [loading, setLoading] = useState(true);
 
   function openNotifications() {
     router.push("/allNotification");
