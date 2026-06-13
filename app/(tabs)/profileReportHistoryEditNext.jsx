@@ -1,9 +1,9 @@
 import { API_BASE_URL } from '@/constants/api';
 import AppColors from '@/constants/AppColors';
 import { fetchBulsuColleges } from '@/constants/centerLocation';
-import { gates } from '@/constants/Gates';
+import fetchGates from '@/constants/Gates';
 import { clearReportDraft, getReportDraft, setReportDraft } from '@/constants/reportDraft';
-import { sharedStudentSpaces } from '@/constants/SharedStudentSpaces';
+import fetchSharedStudentSpaces from '@/constants/SharedStudentSpaces';
 import { getToken } from '@/constants/StudentData';
 import { buildLocationLost, validateReportPage2 } from '@/utils/lostReport';
 import { MaterialIcons } from '@expo/vector-icons';
@@ -46,7 +46,7 @@ const ExpandableDropdown = ({ title, data, selectedItems = [], onSelectionChange
   }));
 
   const formattedData = Array.isArray(data)
-    ? data.map((item) => (typeof item === 'object' && item !== null && item.name ? item.name : item))
+    ? data.map((item) => (typeof item === 'object' && item !== null ? (item.name ?? item.office_name) : item))
     : [];
 
   const [isOpen, setIsOpen] = useState(false);
@@ -96,15 +96,15 @@ const ExpandableDropdown = ({ title, data, selectedItems = [], onSelectionChange
 };
 
 // ── Parse location_lost back into arrays for pre-fill ────────────────────────
-function parseLocationLost(locationLost, collegesList = []) {
+function parseLocationLost(locationLost, collegesList = [], spacesList = [], gatesList = []) {
   if (!locationLost) return { colleges: [], spaces: [], gates: [], cantRemember: false };
 
   let locations = [];
   try {
     const parsed = JSON.parse(locationLost);
-    if (Array.isArray(parsed)) locations = parsed;
+    locations = Array.isArray(parsed) ? parsed : [String(parsed)];
   } catch {
-    locations = [locationLost];
+    locations = locationLost.split(',').map((s) => s.trim()).filter(Boolean);
   }
 
   const cantRememberMatch = locations.some(
@@ -114,9 +114,9 @@ function parseLocationLost(locationLost, collegesList = []) {
     return { colleges: [], spaces: [], gates: [], cantRemember: true };
   }
 
-  const collegeNames = collegesList.map((c) => (typeof c === 'object' ? c.name : c));
-  const spaceNames = sharedStudentSpaces;
-  const gateNames = gates;
+  const collegeNames = collegesList.map((c) => (typeof c === 'object' && c !== null ? (c.name ?? c.office_name) : c));
+  const spaceNames   = spacesList.map((s) => (typeof s === 'object' && s !== null ? (s.name ?? s.shared_space_name) : s));
+  const gateNames    = gatesList.map((g) => (typeof g === 'object' && g !== null ? (g.name ?? g.gate_name) : g));
 
   return {
     colleges:     locations.filter((l) => collegeNames.includes(l)),
@@ -143,6 +143,8 @@ export default function ProfileReportHistoryEditNext() {
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [bulsuColleges, setBulsuColleges] = useState([]);
+  const [spacesList, setSpacesList] = useState([]);
+  const [gatesList, setGatesList] = useState([]);
 
   const mainRotation = useSharedValue(0);
   const mainAnimatedStyle = useAnimatedStyle(() => ({
@@ -150,7 +152,15 @@ export default function ProfileReportHistoryEditNext() {
   }));
 
   useEffect(() => {
-    fetchBulsuColleges().then((colleges) => setBulsuColleges(colleges));
+    Promise.all([
+      fetchBulsuColleges(),
+      fetchSharedStudentSpaces(),
+      fetchGates(),
+    ]).then(([colleges, spaces, gates]) => {
+      setBulsuColleges(colleges);
+      setSpacesList(spaces);
+      setGatesList(gates);
+    });
   }, []);
 
   // Re-read draft every time this screen gains focus (handles both fresh
@@ -181,15 +191,15 @@ export default function ProfileReportHistoryEditNext() {
     }, [])
   );
 
-  // Pre-fill location once BOTH draft and colleges are loaded
+  // Pre-fill location once BOTH draft and all location lists are loaded
   useEffect(() => {
     if (!draft || bulsuColleges.length === 0) return;
-    const parsed = parseLocationLost(draft.locationLost, bulsuColleges);
+    const parsed = parseLocationLost(draft.locationLost, bulsuColleges, spacesList, gatesList);
     setSelectedColleges(parsed.colleges);
     setSelectedSpaces(parsed.spaces);
     setSelectedGates(parsed.gates);
     setCantRemember(parsed.cantRemember);
-  }, [draft, bulsuColleges]);
+  }, [draft, bulsuColleges, spacesList, gatesList]);
 
   const handleMainLocationPress = () => {
     const nextState = !showLocation;
@@ -413,14 +423,14 @@ export default function ProfileReportHistoryEditNext() {
             />
             <ExpandableDropdown
               title="Shared Student Space"
-              data={sharedStudentSpaces}
+              data={spacesList}
               selectedItems={selectedSpaces}
               disabled={cantRemember}
               onSelectionChange={handleLocationSelectionChange(setSelectedSpaces)}
             />
             <ExpandableDropdown
               title="Gates"
-              data={gates}
+              data={gatesList}
               selectedItems={selectedGates}
               disabled={cantRemember}
               onSelectionChange={handleLocationSelectionChange(setSelectedGates)}
