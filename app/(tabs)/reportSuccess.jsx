@@ -1,4 +1,5 @@
 import AppColors from '@/constants/AppColors';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React from 'react';
 import {
@@ -80,16 +81,20 @@ export default function ReportSuccess() {
         {/* ── Action buttons inside the card ── */}
         <View style={styles.actions}>
           <TouchableOpacity
-            style={styles.editButton}
-            activeOpacity={0.7}
+            activeOpacity={0.4}
             onPress={handleEditPress}
+            style={styles.editButton}
           >
-            <Text style={styles.editButtonText}>✎  Edit Report</Text>
+            <MaterialCommunityIcons
+              name="pencil-outline"
+              size={14}
+              color={AppColors.primary ?? AppColors.background}
+            />
+            <Text style={styles.editButtonText}>  Edit Report</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={styles.historyButton}
-            activeOpacity={0.7}
+            activeOpacity={0.4}
             onPress={() => router.replace('/(tabs)/profileReportHistory')}
           >
             <Text style={styles.historyButtonText}>Report History  →</Text>
@@ -167,37 +172,25 @@ const styles = StyleSheet.create({
   },
 
   // ── Actions (inside card)
-  actions: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 16,
-    gap: 10,
-  },
   actionSeparator: {
     height: 1,
     backgroundColor: 'rgba(0,0,0,0.08)',
     marginTop: 8,
   },
+  actions: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 16,
+    paddingHorizontal: 4,
+  },
   editButton: {
-    flex: 1,
-    borderWidth: 1.5,
-    borderColor: AppColors.primary ?? AppColors.background,
-    borderRadius: 8,
-    paddingVertical: 10,
+    flexDirection: 'row',
     alignItems: 'center',
   },
   editButtonText: {
     fontSize: 13,
     fontWeight: '600',
     color: AppColors.primary ?? AppColors.background,
-  },
-  historyButton: {
-    flex: 1,
-    borderWidth: 1.5,
-    borderColor: AppColors.primary ?? AppColors.background,
-    borderRadius: 8,
-    paddingVertical: 10,
-    alignItems: 'center',
   },
   historyButtonText: {
     fontSize: 13,

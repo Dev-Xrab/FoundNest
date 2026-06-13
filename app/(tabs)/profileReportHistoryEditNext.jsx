@@ -1,6 +1,6 @@
 import { API_BASE_URL } from '@/constants/api';
 import AppColors from '@/constants/AppColors';
-import fetchBulsuColleges from '@/constants/centerLocation';
+import { fetchBulsuColleges } from '@/constants/centerLocation';
 import { gates } from '@/constants/Gates';
 import { clearReportDraft, getReportDraft, setReportDraft } from '@/constants/reportDraft';
 import { sharedStudentSpaces } from '@/constants/SharedStudentSpaces';
