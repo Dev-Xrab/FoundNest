@@ -17,9 +17,9 @@ import {
 import Icon from "react-native-vector-icons/Ionicons";
 
 import { fetchWithAuth } from "@/constants/authApi";
-import { bulsuColleges } from "@/constants/centerLocation";
-import { gates } from "@/constants/Gates";
-import { sharedStudentSpaces } from "@/constants/SharedStudentSpaces";
+import fetchBulsuColleges from "@/constants/CollegeBuildings";
+import fetchGates from "@/constants/Gates";
+import fetchSharedStudentSpaces from "@/constants/SharedStudentSpaces";
 
 // --- FILTER CHIP COMPONENT ---
 const FilterChip = ({
@@ -38,7 +38,7 @@ const FilterChip = ({
   );
 };
 
-// --- DATE FORMATTER --- since the backend returns a raw datetime string, we need to format it for display BOOM BOOM
+// --- DATE FORMATTER ---
 const formatDateTime = (dateString) => {
   if (!dateString) return "N/A";
   const date = new Date(dateString);
@@ -58,51 +58,83 @@ const formatDateTime = (dateString) => {
 
 // --- MAIN COMPONENT ---
 const Find = () => {
-  const [searchQuery, setSearchQuery] = useState(""); // For the search bar input
-  const [items, setItems] = useState([]); // All found items fetched from the backend
-  const [loading, setLoading] = useState(true); // Loading state while fetching data, to make sure the user sees a loader instead of an empty screen. Set to false once data is fetched.
+  const [searchQuery, setSearchQuery] = useState("");
+  const [items, setItems] = useState([]);
+  const [loading, setLoading] = useState(true);
 
   const [categories, setCategories] = useState([]);
+
+  // --- DYNAMIC STATE FOR SYSTEM BACKEND DATA ---
+  const [bulsuColleges, setBulsuColleges] = useState([]);
+  const [sharedStudentSpaces, setSharedStudentSpaces] = useState([]);
+  const [gates, setGates] = useState([]);
 
   // -- FILTER STATES --
   const [selectedCategories, setSelectedCategories] = useState([]);
   const [selectedLocations, setSelectedLocations] = useState([]);
+  const [filterClaimed, setFilterClaimed] = useState(false);
 
   // Tracks which main dropdown is open
-  const [activeMenu, setActiveMenu] = useState(null); // null, 'categories', or 'locations'
+  const [activeMenu, setActiveMenu] = useState(null);
   // Tracks which nested location folder-tab is open
-  const [activeLocationGroup, setActiveLocationGroup] = useState(null); // sub categories for locations: 'college', 'shared', 'gates'
+  const [activeLocationGroup, setActiveLocationGroup] = useState(null);
 
   // -- FORMATTED LOCATION GROUPS --
-  const collegeBuildings = bulsuColleges
-    ? bulsuColleges.map((c) => c.building)
-    : [];
   const locationGroups = [
     {
       id: "college",
       title: "College Buildings",
-      items: ["All College Buildings", ...collegeBuildings],
+      // FIXED: Maps full database object structures to clean office_name string elements safely
+      items: bulsuColleges
+        .map((c) => (c && typeof c === "object" ? c.office_name : c))
+        .filter(Boolean),
     },
     {
       id: "shared",
       title: "Shared Student Spaces",
-      items: sharedStudentSpaces || [],
+      items: sharedStudentSpaces.map((s) => String(s || "")).filter(Boolean),
     },
     {
       id: "gates",
       title: "Gates",
-      items: gates || [],
+      items: gates.map((g) => String(g || "")).filter(Boolean),
     },
   ];
 
-  // Fetch Categories
+  // Fetch Dropdown List Options concurrently
   useEffect(() => {
-    const fetchCategories = async () => {
-      const data = await getCategories();
-      const formattedCategories = data.map((cat) => cat.category_name || cat);
-      setCategories(formattedCategories);
+    const loadDropdownData = async () => {
+      try {
+        const [categoriesData, collegesData, spacesData, gatesData] =
+          await Promise.all([
+            getCategories(),
+            fetchBulsuColleges(),
+            fetchSharedStudentSpaces(),
+            fetchGates(),
+          ]);
+
+        const formattedCategories = categoriesData.map(
+          (cat) => cat.category_name || cat,
+        );
+        setCategories(formattedCategories);
+        setBulsuColleges(collegesData || []);
+        setSharedStudentSpaces(spacesData || []);
+        setGates(gatesData || []);
+
+        console.log("=== 📥 FOUNDNEST ACCORDION DROPDOWN SETUP DATA ===");
+        console.log("- Categories Loaded:", formattedCategories);
+        console.log("- Colleges Loaded:", collegesData);
+        console.log("- Student Spaces Loaded:", spacesData);
+        console.log("- Gates Loaded:", gatesData);
+        console.log("==================================================");
+      } catch (error) {
+        console.error(
+          "Failed to load backend layout context configurations:",
+          error,
+        );
+      }
     };
-    fetchCategories();
+    loadDropdownData();
   }, []);
 
   // Fetch Reports
@@ -113,7 +145,10 @@ const Find = () => {
           "https://foundnest-backend.onrender.com/api/found-reports",
         );
         const json = await response.json();
-        console.log("Raw fetched data:", json); // Debug log to check raw data from backend
+
+        console.log("=== 🛰️ RAW FETCHED FOUND-REPORTS API DATALOAD ===");
+        console.log(JSON.stringify(json, null, 2));
+        console.log("==================================================");
 
         const formattedData = json.map((item) => ({
           id: item.found_report_id.toString(),
@@ -179,10 +214,39 @@ const Find = () => {
     const matchesLocation =
       selectedLocations.length === 0 ||
       selectedLocations.includes(item.location);
-    return matchesSearch && matchesCategory && matchesLocation;
+
+    // FIXED: Claimed filtering routine evaluates status field updates independently
+    const matchesClaimedStatus = !filterClaimed
+      ? item.status?.toLowerCase() !== "claimed"
+      : item.status?.toLowerCase() === "claimed";
+
+    return (
+      matchesSearch &&
+      matchesCategory &&
+      matchesLocation &&
+      matchesClaimedStatus
+    );
   });
 
-  // DISPLAY TEXT labels for the filter triggers
+  // Track filter state mutations inside console windows
+  useEffect(() => {
+    if (items.length === 0) return;
+    console.log("=== ⚙️ FIND SCREEN FILTER EXECUTION MATRIX ===");
+    console.log("- Search Query Target:", searchQuery || "(None)");
+    console.log("- Checked Category Arrays:", selectedCategories);
+    console.log("- Checked Location Arrays:", selectedLocations);
+    console.log("- Claimed Status Toggle Enabled:", filterClaimed);
+    console.log("- Output Results Array Length count:", filteredItems.length);
+    console.log("==============================================");
+  }, [
+    searchQuery,
+    selectedCategories,
+    selectedLocations,
+    filterClaimed,
+    items,
+  ]);
+
+  // Trigger button label calculations
   let categoryDisplayText = "All Categories";
   if (selectedCategories.length === 1)
     categoryDisplayText = selectedCategories[0];
@@ -195,10 +259,6 @@ const Find = () => {
   else if (selectedLocations.length > 1)
     locationDisplayText = `${selectedLocations.length} Selected`;
 
-  let claimedDisplayText = "Claimed";
-  if (selectedCategories.includes("Claimed")) claimedDisplayText = "Claimed";
-
-  // Helper Component for the Nested Folder Tabs
   const LocationTab = ({ group }) => {
     const isActive = activeLocationGroup === group.id;
     return (
@@ -220,13 +280,10 @@ const Find = () => {
     );
   };
 
-  const renderItem = (
-    { item }, // Debug log to check item data before rendering
-  ) => (
+  const renderItem = ({ item }) => (
     <TouchableOpacity
       style={styles.card}
       onPress={() => {
-        console.log("Rendering item:", item);
         router.push({
           pathname: "/FoundItemDetails",
           params: { itemString: JSON.stringify(item) },
@@ -289,7 +346,7 @@ const Find = () => {
             ]}
             onPress={() => {
               setActiveMenu(activeMenu === "categories" ? null : "categories");
-              setActiveLocationGroup(null); // Reset sub-menu
+              setActiveLocationGroup(null);
             }}
           >
             <Text
@@ -317,7 +374,7 @@ const Find = () => {
             ]}
             onPress={() => {
               setActiveMenu(activeMenu === "locations" ? null : "locations");
-              setActiveLocationGroup("college"); // Auto-open the first tab when opening locations
+              setActiveLocationGroup("college");
             }}
           >
             <Text
@@ -341,20 +398,22 @@ const Find = () => {
           <TouchableOpacity
             style={[
               styles.filterChipTrigger,
-              activeMenu === "claimed" && styles.activeTriggerBg,
+              filterClaimed && styles.activeTriggerBg,
             ]}
             onPress={() => {
-              setActiveMenu(activeMenu === "claimed" ? null : "claimed");
+              setFilterClaimed(!filterClaimed);
+              setActiveMenu(null);
+              setActiveLocationGroup(null);
             }}
           >
             <Text
               style={[
                 styles.filterText,
-                activeMenu === "claimed" && styles.activeTriggerText,
+                filterClaimed && styles.activeTriggerText,
               ]}
               numberOfLines={1}
             >
-              {claimedDisplayText}
+              Claimed
             </Text>
           </TouchableOpacity>
         </View>
@@ -383,20 +442,37 @@ const Find = () => {
         {/* Dynamic Nested Location Folders */}
         {activeMenu === "locations" && (
           <View style={styles.dropdownWhiteCard}>
-            {" "}
-            // Container ng lahat
             <ScrollView
               style={styles.scrollableFilterContainer}
               showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
             >
-              {/* ROW 1: College & Shared Tabs */} // Div na may dalawang tabs
-              sa itaas para sa College at Shared spaces. Gates tab is alone sa
-              row 2 sa ibaba
+              {/* FIXED: Placed All Locations option globally outside folder structure tabs */}
+              <View
+                style={[
+                  styles.filterItemsContainer,
+                  {
+                    marginBottom: 12,
+                    borderBottomWidth: 1,
+                    borderColor: "#eee",
+                    paddingBottom: 10,
+                  },
+                ]}
+              >
+                <FilterChip
+                  label="All Locations"
+                  isActive={selectedLocations.length === 0}
+                  onPress={() => toggleLocation("All Locations")}
+                />
+              </View>
+
+              {/* ROW 1: College & Shared Tabs */}
               <View style={styles.locTabsRow}>
                 <LocationTab group={locationGroups[0]} />
                 <LocationTab group={locationGroups[1]} />
               </View>
-              has its own separate box sa row 2.
+
+              {/* College & Shared Content Area */}
               {(activeLocationGroup === "college" ||
                 activeLocationGroup === "shared") && (
                 <View
@@ -421,11 +497,13 @@ const Find = () => {
                   </View>
                 </View>
               )}
+
               {/* ROW 2: Gates Tab */}
               <View style={[styles.locTabsRow, { marginTop: 10 }]}>
                 <LocationTab group={locationGroups[2]} />
               </View>
-              {/* ROW 2 CONTENT BOX */}
+
+              {/* ROW 2 CONTENT BOX - Gates content container */}
               {activeLocationGroup === "gates" && (
                 <View style={[styles.locationContentBox, styles.flatTopLeft]}>
                   <View style={styles.filterItemsContainer}>
@@ -474,10 +552,7 @@ const Find = () => {
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#FAF5F0",
-  },
+  container: { flex: 1, backgroundColor: "#FAF5F0" },
   title: {
     backgroundColor: AppColors.background,
     fontSize: 22,
@@ -496,13 +571,8 @@ const styles = StyleSheet.create({
     borderColor: "#ddd",
     height: 45,
   },
-  searchIcon: {
-    marginRight: 10,
-  },
-  searchInput: {
-    flex: 1,
-    fontSize: 16,
-  },
+  searchIcon: { marginRight: 10 },
+  searchInput: { flex: 1, fontSize: 16 },
   filters: {
     marginBottom: 10,
     backgroundColor: AppColors.surface,
@@ -529,20 +599,9 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#ddd",
   },
-  activeTriggerBg: {
-    borderColor: "#A31D1D",
-  },
-  filterText: {
-    fontSize: 12,
-    color: "#333",
-    marginRight: 5,
-  },
-  activeTriggerText: {
-    color: "#A31D1D",
-    fontWeight: "bold",
-  },
-
-  // --- NESTED DROPDOWN FOLDER STYLES ---
+  activeTriggerBg: { borderColor: "#A31D1D" },
+  filterText: { fontSize: 12, color: "#333", marginRight: 5 },
+  activeTriggerText: { color: "#A31D1D", fontWeight: "bold" },
   dropdownWhiteCard: {
     backgroundColor: "#fff",
     marginTop: 12,
@@ -552,12 +611,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#eee",
   },
-
-  locTabsRow: {
-    flexDirection: "row",
-    gap: 8,
-    zIndex: 2,
-  },
+  locTabsRow: { flexDirection: "row", gap: 8, zIndex: 2 },
   locTab: {
     flexDirection: "row",
     alignItems: "center",
@@ -568,14 +622,14 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   locTabActive: {
-    backgroundColor: "#F3F3F3", // Matches content box
+    backgroundColor: "#F3F3F3",
     borderWidth: 1,
     borderColor: "#ddd",
-    borderBottomWidth: 0, // Erase bottom border to merge with box
+    borderBottomWidth: 0,
     borderBottomLeftRadius: 0,
     borderBottomRightRadius: 0,
     paddingBottom: 20,
-    marginBottom: 0, // Pulls the active tab down by 1px to hide the gap between it and the content box
+    marginBottom: 0,
   },
   locTabText: {
     fontSize: 13,
@@ -584,12 +638,7 @@ const styles = StyleSheet.create({
     maxWidth: 101,
     width: "auto",
   },
-  locTabTextActive: {
-    color: "#000",
-    fontWeight: "700",
-    wrapContent: "wrap",
-    overflow: "scroll",
-  },
+  locTabTextActive: { color: "#000", fontWeight: "700" },
   locationContentBox: {
     backgroundColor: "#F3F3F3",
     borderWidth: 1,
@@ -600,14 +649,8 @@ const styles = StyleSheet.create({
     marginTop: -1,
     zIndex: 1,
   },
-  flatTopLeft: {
-    borderTopLeftRadius: 0,
-  },
-  flatTopRight: {
-    borderTopRightRadius: 0,
-  },
-
-  // --- GENERAL CHIP STYLES ---
+  flatTopLeft: { borderTopLeftRadius: 0 },
+  flatTopRight: { borderTopRightRadius: 0 },
   filterItemsContainer: {
     flexDirection: "row",
     flexWrap: "wrap",
@@ -631,24 +674,10 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#A31D1D",
   },
-  text: {
-    color: "#333333",
-    fontSize: 13,
-    fontWeight: "600",
-  },
-  activeText: {
-    color: "#A31D1D",
-    fontWeight: "700",
-  },
-
-  // --- CARD & LIST STYLES ---
-  listContainer: {
-    paddingHorizontal: 10,
-    paddingBottom: 80,
-  },
-  row: {
-    justifyContent: "space-between",
-  },
+  text: { color: "#333333", fontSize: 13, fontWeight: "600" },
+  activeText: { color: "#A31D1D", fontWeight: "700" },
+  listContainer: { paddingHorizontal: 10, paddingBottom: 80 },
+  row: { justifyContent: "space-between" },
   card: {
     backgroundColor: "#fff",
     borderRadius: 15,
@@ -661,11 +690,7 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 3,
   },
-  cardImage: {
-    width: "100%",
-    height: 120,
-    backgroundColor: "#ccc",
-  },
+  cardImage: { width: "100%", height: 120, backgroundColor: "#ccc" },
   categoryTag: {
     position: "absolute",
     top: 90,
@@ -677,41 +702,24 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#ddd",
   },
-  categoryText: {
-    fontSize: 10,
-    fontWeight: "bold",
-    color: "#333",
-  },
-  cardContent: {
-    padding: 10,
-  },
+  categoryText: { fontSize: 10, fontWeight: "bold", color: "#333" },
+  cardContent: { padding: 10 },
   cardTitle: {
     fontSize: 14,
     fontWeight: "bold",
     marginBottom: 5,
     color: "#333",
   },
-  cardRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 3,
-  },
-  cardDetail: {
-    fontSize: 11,
-    color: "#666",
-    marginLeft: 5,
-  },
-  loaderContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-  },
+  cardRow: { flexDirection: "row", alignItems: "center", marginBottom: 3 },
+  cardDetail: { fontSize: 11, color: "#666", marginLeft: 5 },
+  loaderContainer: { flex: 1, justifyContent: "center", alignItems: "center" },
   emptyText: {
     textAlign: "center",
     marginTop: 20,
     color: "#666",
     fontSize: 16,
   },
+  scrollableFilterContainer: { maxHeight: 320 },
 });
 
 export default Find;
