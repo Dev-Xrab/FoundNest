@@ -1,14 +1,17 @@
+import ChangePhotoModal from '@/components/ChangePhotoModal';
 import ConfirmDiscardModal from '@/components/ConfirmDiscardModal';
 import Toast from '@/components/Toast';
 import { API_BASE_URL } from '@/constants/api';
 import AppColors from '@/constants/AppColors';
 import { fetchWithAuth } from '@/constants/authApi';
-import { getUser } from '@/constants/StudentData';
+import { getToken, getUser, updateUser } from '@/constants/StudentData';
 import { Ionicons } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   Image,
   ScrollView,
   StyleSheet,
@@ -30,6 +33,9 @@ export default function ProfileAccountDetails() {
   const [contactError, setContactError]     = useState('');
   const [discardVisible, setDiscardVisible] = useState(false);
   const [toast, setToast]                   = useState({ visible: false, type: 'success', message: '' });
+
+  const [photoModalVisible, setPhotoModalVisible] = useState(false);
+  const [isUploadingPhoto, setIsUploadingPhoto]   = useState(false);
 
   useEffect(() => {
     async function loadProfile() {
@@ -113,7 +119,9 @@ export default function ProfileAccountDetails() {
         return;
       }
 
-      setUser((prev) => ({ ...prev, contact_number: contactNumber.trim() }));
+      const trimmedContact = contactNumber.trim();
+      setUser((prev) => ({ ...prev, contact_number: trimmedContact }));
+      await updateUser({ contact_number: trimmedContact });
       setIsEditing(false);
       showToast('success', 'Changes saved successfully.');
     } catch (err) {
@@ -122,6 +130,132 @@ export default function ProfileAccountDetails() {
     } finally {
       setIsSaving(false);
     }
+  };
+
+  // ---- PROFILE PICTURE HANDLERS ----
+
+  const uploadProfileImage = async (asset) => {
+    setIsUploadingPhoto(true);
+    try {
+      const token = await getToken();
+
+      const filename = asset.uri.split('/').pop();
+      const match = /\.(\w+)$/.exec(filename ?? '');
+      const ext = match ? match[1] : 'jpg';
+
+      const formData = new FormData();
+      formData.append('profile_image', {
+        uri: asset.uri,
+        name: filename || `profile.${ext}`,
+        type: `image/${ext}`,
+      });
+
+      const res = await fetch(
+        `${API_BASE_URL}/api/profile/${user.user_id}/picture`,
+        {
+          method: 'PUT',
+          headers: {
+            Authorization: `Bearer ${token}`,
+            // Do NOT set Content-Type — let fetch set the multipart boundary
+          },
+          body: formData,
+        }
+      );
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        showToast('error', data.message || 'Failed to update profile picture.');
+        return;
+      }
+
+      setUser((prev) => ({ ...prev, profile_image_url: data.profile_image_url }));
+      await updateUser({ profile_image_url: data.profile_image_url });
+      showToast('success', 'Profile picture updated.');
+    } catch (err) {
+      console.error('Upload profile image error:', err);
+      showToast('error', 'Could not connect to server.');
+    } finally {
+      setIsUploadingPhoto(false);
+    }
+  };
+
+  const removeProfileImage = async () => {
+    setIsUploadingPhoto(true);
+    try {
+      const res = await fetchWithAuth(
+        `${API_BASE_URL}/api/profile/${user.user_id}/picture`,
+        { method: 'DELETE' }
+      );
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        showToast('error', data.message || 'Failed to remove profile picture.');
+        return;
+      }
+
+      setUser((prev) => ({ ...prev, profile_image_url: null }));
+      await updateUser({ profile_image_url: null });
+      showToast('success', 'Profile picture removed.');
+    } catch (err) {
+      console.error('Remove profile image error:', err);
+      showToast('error', 'Could not connect to server.');
+    } finally {
+      setIsUploadingPhoto(false);
+    }
+  };
+
+  const handleTakePhoto = async () => {
+    setPhotoModalVisible(false);
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    if (status !== 'granted') {
+      showToast('error', 'Camera permission is required.');
+      return;
+    }
+
+    const result = await ImagePicker.launchCameraAsync({
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.7,
+    });
+
+    if (!result.canceled) {
+      await uploadProfileImage(result.assets[0]);
+    }
+  };
+
+  const handleChooseFromLibrary = async () => {
+    setPhotoModalVisible(false);
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      showToast('error', 'Photo library permission is required.');
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.7,
+    });
+
+    if (!result.canceled) {
+      await uploadProfileImage(result.assets[0]);
+    }
+  };
+
+  const handleRemovePhoto = () => {
+    setPhotoModalVisible(false);
+    Alert.alert(
+      'Remove Profile Picture',
+      'Are you sure you want to remove your profile picture?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Remove', style: 'destructive', onPress: removeProfileImage },
+      ]
+    );
   };
 
   if (!user) {
@@ -138,6 +272,15 @@ export default function ProfileAccountDetails() {
         visible={discardVisible}
         onKeepEditing={() => setDiscardVisible(false)}
         onDiscard={handleDiscard}
+      />
+
+      <ChangePhotoModal
+        visible={photoModalVisible}
+        hasPhoto={!!user.profile_image_url}
+        onTakePhoto={handleTakePhoto}
+        onChooseFromLibrary={handleChooseFromLibrary}
+        onRemovePhoto={handleRemovePhoto}
+        onClose={() => setPhotoModalVisible(false)}
       />
 
       <View style={[styles.redHeader, { paddingTop: insets.top }]}>
@@ -168,7 +311,19 @@ export default function ProfileAccountDetails() {
                 <Ionicons name="person" size={46} color="#A8A8A8" />
               </View>
             )}
-            <TouchableOpacity style={styles.editAvatarBadge} activeOpacity={0.7}>
+
+            {isUploadingPhoto && (
+              <View style={styles.avatarOverlay}>
+                <ActivityIndicator size="small" color="#FFFFFF" />
+              </View>
+            )}
+
+            <TouchableOpacity
+              style={styles.editAvatarBadge}
+              activeOpacity={0.7}
+              onPress={() => setPhotoModalVisible(true)}
+              disabled={isUploadingPhoto}
+            >
               <Ionicons name="create-outline" size={16} color={AppColors.background} />
             </TouchableOpacity>
           </View>
@@ -331,6 +486,17 @@ const styles = StyleSheet.create({
     height: 100,
     borderRadius: 50,
     backgroundColor: '#E0E0E0',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  avatarOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    borderRadius: 50,
+    backgroundColor: 'rgba(0,0,0,0.35)',
     justifyContent: 'center',
     alignItems: 'center',
   },

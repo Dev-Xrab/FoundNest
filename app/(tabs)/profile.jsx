@@ -1,11 +1,15 @@
 import ConfirmDiscardModal from '@/components/ConfirmDiscardModal';
+import { API_BASE_URL } from '@/constants/api';
 import AppColors from '@/constants/AppColors';
+import { fetchWithAuth } from '@/constants/authApi';
 import { clearSession, getUser } from '@/constants/StudentData';
 import { Ionicons } from '@expo/vector-icons';
+import { useFocusEffect } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useCallback, useState } from 'react';
 import {
   Alert,
+  Image,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -47,9 +51,41 @@ export default function ProfileScreen() {
   const [logoutVisible, setLogoutVisible] = useState(false);
   const [user, setUser] = useState(null);
 
-  useEffect(() => {
-    getUser().then(setUser);
-  }, []);
+  useFocusEffect(
+    useCallback(() => {
+      let isActive = true;
+
+      async function loadProfile() {
+        try {
+          const sessionUser = await getUser();
+          if (!sessionUser) return;
+
+          // Show cached data immediately while we fetch the latest
+          if (isActive) setUser(sessionUser);
+
+          const res = await fetchWithAuth(
+            `${API_BASE_URL}/api/profile/${sessionUser.user_id}`
+          );
+          const data = await res.json();
+
+          if (!res.ok) {
+            console.error('Failed to load profile:', data.message);
+            return;
+          }
+
+          if (isActive) setUser(data);
+        } catch (err) {
+          console.error('Load profile error:', err);
+        }
+      }
+
+      loadProfile();
+
+      return () => {
+        isActive = false;
+      };
+    }, [])
+  );
 
   const handleLogout = () => setLogoutVisible(true);
 
@@ -99,9 +135,13 @@ export default function ProfileScreen() {
       {/* ── User card ─────────────────────────────────────────────────── */}
       <View style={styles.userCard}>
         <View style={styles.avatarWrapper}>
-          <View style={styles.avatarFallback}>
-            <Ionicons name="person" size={40} color="#AAAAAA" />
-          </View>
+          {user?.profile_image_url ? (
+            <Image source={{ uri: user.profile_image_url }} style={styles.avatar} />
+          ) : (
+            <View style={styles.avatarFallback}>
+              <Ionicons name="person" size={40} color="#AAAAAA" />
+            </View>
+          )}
         </View>
 
         <View style={styles.userInfo}>
@@ -166,6 +206,11 @@ const styles = StyleSheet.create({
   },
   avatarWrapper: {
     marginRight: 16,
+  },
+  avatar: {
+    width: 70,
+    height: 70,
+    borderRadius: 35,
   },
   avatarFallback: {
     width: 70,
