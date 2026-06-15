@@ -82,3 +82,20 @@ export async function getSavedEmail() {
 export async function clearSavedEmail() {
   await SecureStore.deleteItemAsync(EMAIL_KEY);
 }
+
+export async function updateUser(updates) {
+  const current = await getUser();
+  if (!current) return null;
+
+  const updated = { ...current, ...updates };
+
+  if (_user) {
+    // was in-memory (rememberMe was false)
+    _user = updated;
+  } else {
+    // was in SecureStore (rememberMe was true)
+    await SecureStore.setItemAsync(USER_KEY, JSON.stringify(updated));
+  }
+
+  return updated;
+}
