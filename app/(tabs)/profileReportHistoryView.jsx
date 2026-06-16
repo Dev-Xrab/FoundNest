@@ -14,6 +14,16 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
+function formatReportId(id) {
+  if (id === null || id === undefined) return "—";
+  return `RPT-${String(id).padStart(5, "0")}`;
+}
+
+function formatFoundId(id) {
+  if (id === null || id === undefined) return "—";
+  return `SI-${String(id).padStart(5, "0")}`;
+}
+
 function formatDate(dateStr) {
   if (!dateStr) return "Not specified";
   const d = new Date(dateStr);
@@ -217,7 +227,9 @@ export default function ProfileReportHistoryView() {
           >
             <Ionicons name="arrow-back" size={28} color="#FFFFFF" />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>View Potential Match</Text>
+          <Text style={styles.headerTitle}>
+            Potential Match ({formatFoundId(match.found_report_id)})
+          </Text>
         </View>
       </View>
 
@@ -266,6 +278,11 @@ export default function ProfileReportHistoryView() {
             </View>
           </View>
 
+          <TableRow
+            label="ID"
+            yourValue={formatReportId(match.lost_report_id)}
+            matchValue={formatFoundId(match.found_report_id)}
+          />
           <TableRow
             label="Category"
             yourValue={match.lost_category_name}
