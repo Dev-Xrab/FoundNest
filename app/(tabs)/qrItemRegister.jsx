@@ -763,13 +763,12 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     borderWidth: 1,
-    borderColor: "#D48B8B",
-    backgroundColor: "#FFFFFF",
+    borderColor: AppColors.background,
   },
   cancelText: {
     fontSize: 16,
     fontWeight: "600",
-    color: AppColors.textOnLight,
+    color: AppColors.background,
   },
   registerButton: {
     flex: 1,

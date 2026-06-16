@@ -401,21 +401,20 @@ const styles = StyleSheet.create({
     color: AppColors.surface,
   },
   cancelButton: {
-    backgroundColor: AppColors.surface,
     borderRadius: 12,
     height: 52,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#D48B8B',
+    borderColor: AppColors.background,
   },
   cancelButtonText: {
     fontSize: 16,
     fontWeight: '600',
-    color: AppColors.textOnLight,
+    color: AppColors.background,
   },
   cancelTextDisabled: {
-    color: 'rgba(0,0,0,0.3)',
+    color: 'rgba(139, 0, 0, 0.3)',
   },
   buttonDisabled: {
     opacity: 0.45,

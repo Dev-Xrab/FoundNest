@@ -19,8 +19,8 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Dropdown } from 'react-native-element-dropdown';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 function FieldError({ message }) {
   if (!message) return null;
@@ -691,13 +691,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#D48B8B',
-    backgroundColor: '#FFFFFF',
+    borderColor: AppColors.background,
   },
   cancelText: {
     fontSize: 16,
     fontWeight: '600',
-    color: AppColors.textOnLight,
+    color: AppColors.background,
   },
   saveButton: {
     flex: 1,
