@@ -1,6 +1,6 @@
 import AppColors from "@/constants/AppColors";
 import { getCategories } from "@/constants/category";
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router"; // Added useLocalSearchParams
 import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
@@ -58,6 +58,7 @@ const formatDateTime = (dateString) => {
 
 // --- MAIN COMPONENT ---
 const Find = () => {
+  const { initialQuery } = useLocalSearchParams(); // Extract initial search string from global route params
   const [searchQuery, setSearchQuery] = useState("");
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -84,7 +85,6 @@ const Find = () => {
     {
       id: "college",
       title: "College Buildings",
-      // FIXED: Maps full database object structures to clean office_name string elements safely
       items: bulsuColleges
         .map((c) => (c && typeof c === "object" ? c.office_name : c))
         .filter(Boolean),
@@ -100,6 +100,13 @@ const Find = () => {
       items: gates.map((g) => String(g || "")).filter(Boolean),
     },
   ];
+
+  // Set search query if initialQuery param exists on navigation mount
+  useEffect(() => {
+    if (initialQuery) {
+      setSearchQuery(initialQuery);
+    }
+  }, [initialQuery]);
 
   // Fetch Dropdown List Options concurrently
   useEffect(() => {
@@ -168,7 +175,7 @@ const Find = () => {
       } catch (error) {
         console.error("Error fetching data:", error);
       } finally {
-        setLoading(false);
+        if (loading) setLoading(false);
       }
     };
 
@@ -215,7 +222,6 @@ const Find = () => {
       selectedLocations.length === 0 ||
       selectedLocations.includes(item.location);
 
-    // FIXED: Claimed filtering routine evaluates status field updates independently
     const matchesClaimedStatus = !filterClaimed
       ? item.status?.toLowerCase() !== "claimed"
       : item.status?.toLowerCase() === "claimed";
@@ -447,7 +453,6 @@ const Find = () => {
               showsVerticalScrollIndicator={false}
               keyboardShouldPersistTaps="handled"
             >
-              {/* FIXED: Placed All Locations option globally outside folder structure tabs */}
               <View
                 style={[
                   styles.filterItemsContainer,

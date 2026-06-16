@@ -43,6 +43,36 @@ function formatFoundDate(iso) {
   return `${datePart} | ${timePart}`;
 }
 
+/**
+ * Merges lost reports with notification rows (matches).
+ * Replicated from history file to perfectly parse reports for editing.
+ */
+function mergeReportsAndNotifs(reportsData, notifsData) {
+  const notifMap = new Map();
+  for (const n of notifsData) {
+    if (!n.found_report_id) continue;
+    if (!notifMap.has(n.lost_report_id)) {
+      notifMap.set(n.lost_report_id, []);
+    }
+    notifMap.get(n.lost_report_id).push(n);
+  }
+
+  return reportsData.map((r) => ({
+    lost_report_id: r.lost_report_id,
+    lost_item_name: r.item_name,
+    lost_item_image: r.image_url,
+    lost_date: r.date_reported,
+    actual_lost_date: r.lost_date,
+    location_lost: r.location_lost,
+    status: r.status,
+    item_name: r.item_name,
+    description: r.description,
+    contents: r.contents,
+    category_id: r.category_id,
+    matches: notifMap.get(r.lost_report_id) ?? [],
+  }));
+}
+
 function RecentFindsCarousel({ items, activeIndex, onIndexChange }) {
   const handleScroll = useCallback(
     (event) => {
@@ -136,13 +166,11 @@ export default function HomeScreen() {
   const router = useRouter();
   const [expoPushToken, setExpoPushToken] = useState("");
 
-  // Simulated active user report data (Replace with dynamic state/backend fetch if needed)
-  const [activeReport, setActiveReport] = useState({
-    name: "Black Umbrella",
-    hasMatch: true,
-  });
+  // Targets the report item determined by priority logic rules
+  const [displayReport, setDisplayReport] = useState(null);
+  const [loadingReport, setLoadingReport] = useState(true);
 
-  // Notifications Setup
+  // Push Notifications Setup
   useEffect(() => {
     async function setupNotifications() {
       const { status: existingStatus } =
@@ -174,10 +202,74 @@ export default function HomeScreen() {
     setupNotifications();
   }, []);
 
+  // Fetch Current Session User
   useEffect(() => {
     getUser().then(setCurrentUser);
   }, []);
 
+  // Priority layout management selection 
+  useEffect(() => {
+    if (!currentUser?.user_id) return;
+    let cancelled = false;
+
+    async function determineActiveDisplayCard() {
+      try {
+        const [reportsRes, notifsRes] = await Promise.all([
+          fetchWithAuth(`${API_BASE_URL}/api/lost-reports/user/${currentUser.user_id}`),
+          fetchWithAuth(`${API_BASE_URL}/api/notifications/user/${currentUser.user_id}`),
+        ]);
+
+        if (!reportsRes.ok || !notifsRes.ok) throw new Error("Sync failure checking profiles");
+
+        const [reportsData, notifsData] = await Promise.all([
+          reportsRes.json(),
+          notifsRes.json(),
+        ]);
+
+        if (cancelled) return;
+
+        const mergedReports = mergeReportsAndNotifs(reportsData, notifsData);
+
+        if (mergedReports.length === 0) {
+          setDisplayReport(null);
+          return;
+        }
+
+        // 1. Check if any reports have associated match notifications
+        const reportsWithMatches = mergedReports.filter(r => r.matches.length > 0);
+
+        if (reportsWithMatches.length > 0) {
+          // Find the single report that holds the absolute newest notification alert
+          const targetedReport = reportsWithMatches.sort((a, b) => {
+            const newestNotifA = new Date(Math.max(...a.matches.map(m => new Date(m.created_at))));
+            const newestNotifB = new Date(Math.max(...b.matches.map(m => new Date(m.created_at))));
+            return newestNotifB - newestNotifA;
+          })[0];
+
+          setDisplayReport(targetedReport);
+        } else {
+          // 2. Fallback rule: Grab the absolute latest reported item context
+          const latestReportFallback = mergedReports.sort(
+            (a, b) => new Date(b.lost_date) - new Date(a.lost_date)
+          )[0];
+
+          setDisplayReport(latestReportFallback);
+        }
+      } catch (err) {
+        console.error("Error setting focus layout data cards:", err);
+        setDisplayReport(null);
+      } finally {
+        if (!cancelled) setLoadingReport(false);
+      }
+    }
+
+    determineActiveDisplayCard();
+    return () => {
+      cancelled = true;
+    };
+  }, [currentUser?.user_id]);
+
+  // Fetch Recent Finds Carousel entries
   useEffect(() => {
     let cancelled = false;
 
@@ -234,9 +326,20 @@ export default function HomeScreen() {
           />
           <TextInput
             style={styles.input}
-            onChangeText={setSearch}
+            onChangeText={setSearch} // Uses your existing state setter
             value={search}
             placeholder="Search the Nest (e.g, Wallet, Bag, etc...)"
+            placeholderTextColor={"#9e9e9e"}
+            returnKeyType="search"
+            onSubmitEditing={() => {
+              if (search.trim()) {
+                router.push({
+                  pathname: "/(tabs)/find",
+                  params: { initialQuery: search.trim() },
+                });
+              }
+              setSearch("");
+            }}
           />
         </View>
 
@@ -326,32 +429,34 @@ export default function HomeScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* NEW ADDITION: Lost Item Report Section */}
-        {activeReport && (
-          <View style={styles.lostReportSection}>
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>Lost Item Report</Text>
-              <TouchableOpacity
-                activeOpacity={0.7}
-                onPress={() => router.push("/profileReportHistory")}
-              >
-                <Text style={styles.sectionLinkYellow}>
-                  Go to My Reports &gt;
-                </Text>
-              </TouchableOpacity>
-            </View>
+        {/* ── Match layout block based on image_3c661a.png ── */}
+        <View style={styles.lostReportSection}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Lost Item Report</Text>
+            <TouchableOpacity
+              activeOpacity={0.7}
+              onPress={() => router.push("/profileReportHistory")}
+            >
+              <Text style={styles.sectionLinkYellow}>
+                Go to My Reports &gt;
+              </Text>
+            </TouchableOpacity>
+          </View>
 
+          {loadingReport ? (
+            <ActivityIndicator color={AppColors.surface} style={{ marginVertical: 20 }} />
+          ) : displayReport ? (
             <View style={styles.reportCard}>
               <View style={styles.reportCardTop}>
-                <View>
+                <View style={{ flex: 1 }}>
                   <Text style={styles.reportLabel}>Lost Item Name:</Text>
-                  <Text style={styles.reportItemName}>{activeReport.name}</Text>
+                  <Text style={styles.reportItemName}>
+                    {displayReport.lost_item_name ?? "—"}
+                  </Text>
                 </View>
-                {activeReport.hasMatch && (
+                {displayReport.matches.length > 0 && (
                   <View style={styles.matchBadge}>
-                    <Text style={styles.matchBadgeText}>
-                      Potential Match Found!
-                    </Text>
+                    <Text style={styles.matchBadgeText}>Potential Match Found!</Text>
                   </View>
                 )}
               </View>
@@ -361,23 +466,39 @@ export default function HomeScreen() {
               <View style={styles.reportCardBottom}>
                 <TouchableOpacity
                   style={styles.reportActionBtn}
-                  onPress={() => console.log("Edit report pressed")}
+                  activeOpacity={0.7}
+                  onPress={() =>
+                    router.push({
+                      pathname: "/(tabs)/profileReportHistoryEdit",
+                      params: {
+                        report: JSON.stringify(displayReport),
+                        editSession: Date.now(),
+                      },
+                    })
+                  }
                 >
                   <Ionicons name="create-outline" size={16} color="#900000" />
                   <Text style={styles.reportActionText}>Edit Report</Text>
                 </TouchableOpacity>
 
-                <TouchableOpacity
-                  style={styles.reportActionBtn}
-                  onPress={() => router.push("/matches")}
-                >
-                  <Text style={styles.reportActionText}>View Matches</Text>
-                  <Ionicons name="arrow-forward" size={16} color="#900000" />
-                </TouchableOpacity>
+                {displayReport.matches.length > 0 && (
+                  <TouchableOpacity
+                    style={styles.reportActionBtn}
+                    activeOpacity={0.7}
+                    onPress={() => router.push("/profileReportHistory")}
+                  >
+                    <Text style={styles.reportActionText}>View Matches</Text>
+                    <Ionicons name="arrow-forward" size={16} color="#900000" />
+                  </TouchableOpacity>
+                )}
               </View>
             </View>
-          </View>
-        )}
+          ) : (
+            <View style={styles.noneContainer}>
+              <Text style={styles.noneText}>None</Text>
+            </View>
+          )}
+        </View>
 
         {/* Recent Finds Section */}
         <View style={styles.recentFindsSection}>
@@ -499,7 +620,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
-  /* Styles for the new Lost Item Report Card module */
   lostReportSection: {
     marginTop: 28,
   },
@@ -534,7 +654,7 @@ const styles = StyleSheet.create({
   reportCardTop: {
     flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "flex-start",
+    alignItems: "center",
   },
   reportLabel: {
     fontSize: 12,
@@ -577,6 +697,16 @@ const styles = StyleSheet.create({
     color: "#900000",
     fontSize: 14,
     fontWeight: "600",
+  },
+  noneContainer: {
+    paddingVertical: 30,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  noneText: {
+    color: "rgba(255,255,255,0.6)",
+    fontSize: 16,
+    fontWeight: "bold",
   },
   recentFindsSection: {
     marginTop: 28,
