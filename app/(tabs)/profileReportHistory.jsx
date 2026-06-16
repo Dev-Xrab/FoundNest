@@ -3,6 +3,7 @@ import Toast from "@/components/Toast";
 import { API_BASE_URL } from "@/constants/api";
 import AppColors from "@/constants/AppColors";
 import { fetchWithAuth } from "@/constants/authApi";
+import { getCategories } from "@/constants/category";
 import { getToken, getUser } from "@/constants/StudentData";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
@@ -13,6 +14,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
@@ -37,7 +39,22 @@ function EmptyNestIllustration() {
   );
 }
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
+// ── Filter chip ───────────────────────────────────────────────────────────────
+function FilterChip({ label, isActive, onPress }) {
+  return (
+    <TouchableOpacity
+      style={[styles.filterChip, isActive && styles.filterChipActive]}
+      onPress={onPress}
+      activeOpacity={0.7}
+    >
+      <Text style={[styles.filterChipText, isActive && styles.filterChipTextActive]}>
+        {label}
+      </Text>
+    </TouchableOpacity>
+  );
+}
+
+
 function formatDate(dateStr) {
   if (!dateStr) return "—";
   const d = new Date(dateStr);
@@ -46,6 +63,17 @@ function formatDate(dateStr) {
     month: "long",
     day: "numeric",
   });
+}
+
+// Formats a numeric lost_report_id into a display code, e.g. 46 → "RPT-00046"
+function formatReportId(id) {
+  if (id === null || id === undefined) return "—";
+  return `RPT-${String(id).padStart(5, "0")}`;
+}
+
+function formatFoundId(id) {
+  if (id === null || id === undefined) return "—";
+  return `SI-${String(id).padStart(5, "0")}`;
 }
 
 /**
@@ -73,7 +101,8 @@ function mergeReportsAndNotifs(reportsData, notifsData) {
     actual_lost_date: r.lost_date,
     location_lost: r.location_lost,
     status: r.status,
-    // Fields needed to pre-fill the edit form
+    cancel_reason: r.cancel_reason ?? null,
+    category_name: r.category_name,
     item_name: r.item_name,
     description: r.description,
     contents: r.contents,
@@ -123,6 +152,9 @@ function MatchCard({ match, label, onPress }) {
 
         {/* Text info below image */}
         <View style={styles.matchInfo}>
+          <Text style={styles.foundIdText}>
+            {formatFoundId(match.found_report_id)}
+          </Text>
           <Text style={styles.matchName} numberOfLines={2}>
             {match.found_item_name ?? "—"}
           </Text>
@@ -157,6 +189,7 @@ function MatchCard({ match, label, onPress }) {
 function ReportCard({ report, onCancel, router }) {
   const [expanded, setExpanded] = useState(false);
   const hasMatches = report.matches.length > 0;
+  const isCancelled = report.status === "cancelled";
 
   const handleMatchPress = (match) => {
     console.log("Match pressed:", match);
@@ -166,10 +199,25 @@ function ReportCard({ report, onCancel, router }) {
     });
   };
 
+  const handleViewReport = () => {
+    router.push({
+      pathname: "/(tabs)/profileReportHistoryEdit",
+      params: {
+        report: JSON.stringify(report),
+        editSession: Date.now(),
+        viewOnly: "true",
+      },
+    });
+  };
+
   return (
     <View style={styles.reportCard}>
-      {/* ── Top section: image + info + badge ── */}
-      <View style={styles.reportTop}>
+      {/* ── Top section: image + info + badge (pressable → view details) ── */}
+      <TouchableOpacity
+        activeOpacity={0.8}
+        onPress={handleViewReport}
+        style={styles.reportTop}
+      >
         {report.lost_item_image ? (
           <Image
             source={{ uri: report.lost_item_image }}
@@ -186,11 +234,25 @@ function ReportCard({ report, onCancel, router }) {
         )}
 
         <View style={styles.reportMeta}>
-          {hasMatches && (
-            <View style={styles.matchBadge}>
-              <Text style={styles.matchBadgeText}>Potential Match Found!</Text>
-            </View>
-          )}
+          {isCancelled ? (
+              <View style={styles.cancelledBadge}>
+                <Text style={styles.cancelledBadgeText}>Cancelled</Text>
+              </View>
+            ) : report.status === "resolved" ? (
+              <View style={styles.resolvedBadge}>
+                <Text style={styles.resolvedBadgeText}>Resolved</Text>
+              </View>
+            ) : (
+              hasMatches && (
+                <View style={styles.matchBadge}>
+                  <Text style={styles.matchBadgeText}>Potential Match Found!</Text>
+                </View>
+              )
+            )}
+          <Text style={styles.reportLabel}>Report ID:</Text>
+          <Text style={styles.reportIdText}>
+            {formatReportId(report.lost_report_id)}
+          </Text>
           <Text style={styles.reportLabel}>Lost Item Name:</Text>
           <Text style={styles.reportItemName}>
             {report.lost_item_name ?? "—"}
@@ -198,7 +260,7 @@ function ReportCard({ report, onCancel, router }) {
           <Text style={styles.reportLabel}>Date Reported:</Text>
           <Text style={styles.reportDate}>{formatDate(report.lost_date)}</Text>
         </View>
-      </View>
+      </TouchableOpacity>
 
       {/* ── Divider + View Matches toggle ── */}
       {hasMatches && (
@@ -235,41 +297,43 @@ function ReportCard({ report, onCancel, router }) {
         </View>
       )}
 
-      {/* ── Action buttons ── */}
-      <View style={styles.cardActions}>
-        <TouchableOpacity
-          style={styles.editButton}
-          activeOpacity={0.7}
-          onPress={() =>
-            router.push({
-              pathname: "/(tabs)/profileReportHistoryEdit",
-              params: {
-                report: JSON.stringify(report),
-                editSession: Date.now(),
-              },
-            })
-          }
-        >
-          <MaterialCommunityIcons
-            name="pencil-outline"
-            size={16}
-            color={AppColors.background}
-          />
-          <Text style={styles.editButtonText}>Edit Report</Text>
-        </TouchableOpacity>
-        {report.status !== "resolved" && (
-          <>
-            <View style={styles.actionDivider} />
-            <TouchableOpacity
-              style={styles.cancelButton}
-              activeOpacity={0.7}
-              onPress={onCancel}
-            >
-              <Text style={styles.cancelButtonText}>Cancel Report</Text>
-            </TouchableOpacity>
-          </>
-        )}
-      </View>
+      {/* ── Action buttons (hidden once cancelled) ── */}
+      {!isCancelled && report.status !== "resolved" && (
+        <View style={styles.cardActions}>
+          <TouchableOpacity
+            style={styles.editButton}
+            activeOpacity={0.7}
+            onPress={() =>
+              router.push({
+                pathname: "/(tabs)/profileReportHistoryEdit",
+                params: {
+                  report: JSON.stringify(report),
+                  editSession: Date.now(),
+                },
+              })
+            }
+          >
+            <MaterialCommunityIcons
+              name="pencil-outline"
+              size={16}
+              color={AppColors.background}
+            />
+            <Text style={styles.editButtonText}>Edit Report</Text>
+          </TouchableOpacity>
+          {report.status === "open" && (
+            <>
+              <View style={styles.actionDivider} />
+              <TouchableOpacity
+                style={styles.cancelButton}
+                activeOpacity={0.7}
+                onPress={onCancel}
+              >
+                <Text style={styles.cancelButtonText}>Cancel Report</Text>
+              </TouchableOpacity>
+            </>
+          )}
+        </View>
+      )}
     </View>
   );
 }
@@ -287,6 +351,21 @@ export default function ProfileReportHistory() {
   const [toastVisible, setToastVisible] = useState(false);
   const [toastMessage, setToastMessage] = useState("");
 
+  // ── Filter state
+  const [searchQuery, setSearchQuery] = useState("");
+  const [categories, setCategories] = useState([]);
+  const [selectedCategory, setSelectedCategory] = useState(null);
+  const [selectedStatus, setSelectedStatus] = useState(null);
+  const [activeMenu, setActiveMenu] = useState(null); // 'category' | 'status' | null
+
+  const STATUS_OPTIONS = ["open", "cancelled", "resolved"];
+
+  useEffect(() => {
+    getCategories()
+      .then((data) => setCategories(data.map((c) => c.category_name || c)))
+      .catch((err) => console.error("Failed to load categories:", err));
+  }, []);
+
   // Show toast if navigated back from Edit with cancel param
   useEffect(() => {
     if (toastParam === "editCancelled") {
@@ -298,6 +377,12 @@ export default function ProfileReportHistory() {
   useFocusEffect(
     useCallback(() => {
       loadReports();
+      return () => {
+        setSearchQuery("");
+        setSelectedCategory(null);
+        setSelectedStatus(null);
+        setActiveMenu(null);
+      };
     }, []),
   );
 
@@ -353,12 +438,19 @@ export default function ProfileReportHistory() {
     try {
       const res = await fetchWithAuth(
         `${API_BASE_URL}/api/lost-reports/${reportToCancel.lost_report_id}/cancel`,
-        { method: "PUT" },
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ reason }),
+        },
       );
       if (res.ok) {
+        // Keep the report visible — just mark it cancelled in place
         setReports((prev) =>
-          prev.filter(
-            (r) => r.lost_report_id !== reportToCancel.lost_report_id,
+          prev.map((r) =>
+            r.lost_report_id === reportToCancel.lost_report_id
+              ? { ...r, status: "cancelled", cancel_reason: reason }
+              : r,
           ),
         );
         setToastMessage("Report Cancelled. Thank you for your feedback!");
@@ -373,6 +465,22 @@ export default function ProfileReportHistory() {
       setReportToCancel(null);
     }
   };
+
+  // ── Derived filtered list
+  const filteredReports = reports.filter((r) => {
+    const matchesSearch = !searchQuery.trim() ||
+      (r.lost_item_name ?? "").toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesCategory = !selectedCategory ||
+      (r.category_name ?? "").toLowerCase() === selectedCategory.toLowerCase();
+    const matchesStatus = !selectedStatus || r.status === selectedStatus;
+    return matchesSearch && matchesCategory && matchesStatus;
+  });
+
+  const categoryDisplayText = selectedCategory ?? "Category";
+  const statusDisplayText = selectedStatus
+    ? selectedStatus.charAt(0).toUpperCase() + selectedStatus.slice(1)
+    : "Status";
+  const hasActiveFilters = !!searchQuery || !!selectedCategory || !!selectedStatus;
 
   return (
     <View style={styles.screen}>
@@ -406,6 +514,124 @@ export default function ProfileReportHistory() {
         </View>
       </View>
 
+      {/* ── Search bar ─────────────────────────────────────────────────── */}
+      <View style={styles.searchContainer}>
+        <Ionicons name="search-outline" size={20} color={AppColors.background} style={styles.searchIcon} />
+        <TextInput
+          style={styles.searchInput}
+          placeholder="Search Item"
+          placeholderTextColor="#999"
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+        />
+        {searchQuery.length > 0 && (
+          <TouchableOpacity onPress={() => setSearchQuery("")} activeOpacity={0.7}>
+            <Ionicons name="close-circle" size={18} color="#B0A09A" />
+          </TouchableOpacity>
+        )}
+      </View>
+
+      {/* ── Filter trigger bar ──────────────────────────────────────────── */}
+      <View style={styles.filterBar}>
+        <View style={styles.filterContainer}>
+          {/* Category trigger */}
+          <TouchableOpacity
+            style={[styles.filterTrigger, (!!selectedCategory || activeMenu === "category") && styles.filterTriggerActive]}
+            onPress={() => setActiveMenu(activeMenu === "category" ? null : "category")}
+            activeOpacity={0.7}
+          >
+            <Text
+              style={[styles.filterTriggerText, !!selectedCategory && styles.filterTriggerTextActive]}
+              numberOfLines={1}
+            >
+              {categoryDisplayText}
+            </Text>
+            <Ionicons
+              name={activeMenu === "category" ? "chevron-up" : "chevron-down"}
+              size={13}
+              color={selectedCategory ? AppColors.background : AppColors.background}
+            />
+          </TouchableOpacity>
+
+          {/* Status trigger */}
+          <TouchableOpacity
+            style={[styles.filterTrigger, (!!selectedStatus || activeMenu === "status") && styles.filterTriggerActive]}
+            onPress={() => setActiveMenu(activeMenu === "status" ? null : "status")}
+            activeOpacity={0.7}
+          >
+            <Text
+              style={[styles.filterTriggerText, !!selectedStatus && styles.filterTriggerTextActive]}
+              numberOfLines={1}
+            >
+              {statusDisplayText}
+            </Text>
+            <Ionicons
+              name={activeMenu === "status" ? "chevron-up" : "chevron-down"}
+              size={13}
+              color={selectedStatus ? AppColors.background : AppColors.background}
+            />
+          </TouchableOpacity>
+
+          {/* Clear all filters — always occupies its own fixed slot */}
+          {hasActiveFilters && (
+            <TouchableOpacity
+              style={styles.clearButton}
+              onPress={() => {
+                setSearchQuery("");
+                setSelectedCategory(null);
+                setSelectedStatus(null);
+                setActiveMenu(null);
+              }}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="close" size={14} color={AppColors.background} />
+              <Text style={styles.clearButtonText}>Clear</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+      </View>
+
+      {/* ── Filter dropdowns ────────────────────────────────────────────── */}
+      {activeMenu === "category" && (
+        <View style={styles.dropdownCard}>
+          <View style={styles.chipRow}>
+            <FilterChip
+              label="All"
+              isActive={!selectedCategory}
+              onPress={() => { setSelectedCategory(null); setActiveMenu(null); }}
+            />
+            {categories.map((cat, i) => (
+              <FilterChip
+                key={`cat-${i}`}
+                label={cat}
+                isActive={selectedCategory === cat}
+                onPress={() => { setSelectedCategory(cat); setActiveMenu(null); }}
+              />
+            ))}
+          </View>
+        </View>
+      )}
+
+      {activeMenu === "status" && (
+        <View style={styles.dropdownCard}>
+          <View style={styles.chipRow}>
+            <FilterChip
+              label="All"
+              isActive={!selectedStatus}
+              onPress={() => { setSelectedStatus(null); setActiveMenu(null); }}
+            />
+            {STATUS_OPTIONS.map((s) => (
+              <FilterChip
+                key={s}
+                label={s.charAt(0).toUpperCase() + s.slice(1)}
+                isActive={selectedStatus === s}
+                onPress={() => { setSelectedStatus(s); setActiveMenu(null); }}
+              />
+            ))}
+          </View>
+        </View>
+      )}
+
       {/* ── Body ───────────────────────────────────────────────────────── */}
       {isLoading ? (
         <View style={styles.centered}>
@@ -420,12 +646,18 @@ export default function ProfileReportHistory() {
             will appear here.
           </Text>
         </View>
+      ) : filteredReports.length === 0 ? (
+        <View style={styles.centered}>
+          <Ionicons name="search-outline" size={48} color="#C5AFA7" />
+          <Text style={styles.emptyTitle}>No reports found</Text>
+          <Text style={styles.emptySubtitle}>Try adjusting your filters.</Text>
+        </View>
       ) : (
         <ScrollView
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
         >
-          {reports.map((report) => (
+          {filteredReports.map((report) => (
             <ReportCard
               key={report.lost_report_id}
               report={report}
@@ -502,6 +734,134 @@ const styles = StyleSheet.create({
     gap: 16,
   },
 
+  // ── Search bar
+  searchContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#FFFFFF",
+    marginHorizontal: 15,
+    marginTop: 14,
+    marginBottom: 10,
+    paddingHorizontal: 15,
+    borderRadius: 25,
+    borderWidth: 1,
+    borderColor: "#ddd",
+    height: 45,
+  },
+  searchIcon: {
+    marginRight: 10,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 16,
+    color: "#333",
+  },
+
+  // ── Filter bar — wraps triggers in a surface card like find.jsx
+  filterBar: {
+    marginBottom: 10,
+    backgroundColor: AppColors.surface,
+    paddingVertical: 10,
+    marginHorizontal: 10,
+    borderRadius: 15,
+  },
+  filterContainer: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    paddingHorizontal: 10,
+  },
+  filterTrigger: {
+    flex: 1,
+    marginHorizontal: 4,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#FFFFFF",
+    paddingHorizontal: 8,
+    paddingVertical: 8,
+    borderRadius: 15,
+    borderWidth: 1,
+    borderColor: "#ddd",
+    // Prevents long text from pushing Clear off-screen
+    minWidth: 0,
+  },
+  filterTriggerActive: {
+    borderColor: AppColors.background,
+  },
+  filterTriggerText: {
+    fontSize: 12,
+    color: "#333",
+    marginRight: 5,
+    flexShrink: 1,
+  },
+  filterTriggerTextActive: {
+    color: AppColors.background,
+    fontWeight: "700",
+  },
+  clearButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 3,
+    marginHorizontal: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 8,
+    borderRadius: 15,
+    borderWidth: 1,
+    borderColor: "#ddd",
+    // Fixed width so it never gets pushed off
+    flexShrink: 0,
+  },
+  clearButtonText: {
+    fontSize: 12,
+    color: AppColors.background,
+    fontWeight: "600",
+  },
+
+  // ── Filter dropdown card — matches find.jsx dropdownWhiteCard
+  dropdownCard: {
+    backgroundColor: "#FFFFFF",
+    marginTop: 0,
+    marginHorizontal: 10,
+    marginBottom: 10,
+    borderRadius: 12,
+    padding: 15,
+    borderWidth: 1,
+    borderColor: "#eee",
+  },
+  chipRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "flex-start",
+  },
+  filterChip: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    alignItems: "center",
+    justifyContent: "center",
+    alignSelf: "flex-start",
+    marginHorizontal: 5,
+    marginVertical: 5,
+    borderWidth: 1,
+    borderColor: "#eee",
+  },
+  filterChipActive: {
+    backgroundColor: "#FFFFFF",
+    borderWidth: 1,
+    borderColor: AppColors.background,
+  },
+  filterChipText: {
+    fontSize: 13,
+    color: "#333333",
+    fontWeight: "600",
+  },
+  filterChipTextActive: {
+    color: AppColors.background,
+    fontWeight: "700",
+  },
+
   // ── Report card
   reportCard: {
     backgroundColor: "#FFFFFF",
@@ -546,13 +906,45 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: "#1a1a1a",
   },
+  cancelledBadge: {
+    alignSelf: "flex-start",
+    backgroundColor: "#D9D2CC",
+    borderRadius: 20,
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    marginBottom: 8,
+  },
+  cancelledBadgeText: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: "#5C5048",
+  },
+  resolvedBadge: {
+    alignSelf: "flex-start",
+    backgroundColor: "#C8E6C9",
+    borderRadius: 20,
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    marginBottom: 8,
+  },
+  resolvedBadgeText: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: "#2E7D32",
+  },
   reportLabel: {
     fontSize: 12,
     color: AppColors.textMuted,
     marginTop: 2,
   },
+  reportIdText: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: AppColors.textOnLight,
+    marginBottom: 4,
+  },
   reportItemName: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: "700",
     color: AppColors.textOnLight,
     marginBottom: 4,
@@ -658,6 +1050,12 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "700",
     color: AppColors.textOnLight,
+  },
+  foundIdText: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: AppColors.background,
+    marginBottom: 2,
   },
   matchMeta: {
     flexDirection: "row",
