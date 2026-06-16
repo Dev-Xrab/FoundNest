@@ -1,6 +1,6 @@
 import { API_BASE_URL } from "@/constants/api";
 import AppColors from "@/constants/AppColors";
-import fetchBulsuColleges from "@/constants/CollegeBuildings"; // Left unchanged per your instructions
+import fetchBulsuColleges from "@/constants/CollegeBuildings";
 import fetchGates from "@/constants/Gates";
 import {
   clearReportDraft,
@@ -11,7 +11,7 @@ import fetchSharedStudentSpaces from "@/constants/SharedStudentSpaces";
 import { getToken } from "@/constants/StudentData";
 import { buildLocationLost, validateReportPage2 } from "@/utils/lostReport";
 import { Feather, MaterialIcons } from "@expo/vector-icons";
-import { useFocusEffect, useRouter } from "expo-router";
+import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -36,18 +36,21 @@ function FieldError({ message }) {
   return <Text style={styles.fieldError}>{message}</Text>;
 }
 
-const CustomCheckbox = ({ label, value, onValueChange }) => (
+const CustomCheckbox = ({ label, value, onValueChange, disabled }) => (
   <TouchableOpacity
     style={styles.checkboxContainer}
-    onPress={() => onValueChange(!value)}
-    activeOpacity={0.7}
+    onPress={() => !disabled && onValueChange(!value)}
+    activeOpacity={disabled ? 1 : 0.7}
+    disabled={disabled}
   >
     <MaterialIcons
       name={value ? "check-box" : "check-box-outline-blank"}
       size={22}
       color={value ? AppColors.background : "#757575"}
     />
-    <Text style={styles.checkboxLabel}>{label}</Text>
+    <Text style={[styles.checkboxLabel, disabled && styles.disabledText]}>
+      {label}
+    </Text>
   </TouchableOpacity>
 );
 
@@ -145,8 +148,37 @@ function parseLocationLost(
   };
 }
 
+// Parses a stored lost_date string (with or without a timezone offset) into a
+// local-time Date object for the date/time pickers. Returns null if invalid.
+function parseLostDateToDate(lostDate) {
+  if (!lostDate) return null;
+
+  const rawClean = String(lostDate)
+    .replace(/\+\d{2}(:\d{2})?$/, "")
+    .replace(/\+00$/, "")
+    .replace("T", " ")
+    .trim();
+
+  const parts = rawClean.split(" ");
+  const dateParts = parts[0].split("-");
+  const timeParts = parts[1] ? parts[1].split(":") : ["00", "00", "00"];
+
+  const d = new Date(
+    parseInt(dateParts[0], 10),
+    parseInt(dateParts[1], 10) - 1,
+    parseInt(dateParts[2], 10),
+    parseInt(timeParts[0], 10),
+    parseInt(timeParts[1], 10),
+    parseInt(timeParts[2], 10) || 0,
+  );
+
+  return isNaN(d.getTime()) ? null : d;
+}
+
 export default function ProfileReportHistoryEditNext() {
   const router = useRouter();
+  const { report: reportParam, viewOnly } = useLocalSearchParams();
+  const isViewOnly = viewOnly === "true";
   const scrollRef = useRef(null);
   const [draft, setDraft] = useState(null);
 
@@ -198,6 +230,34 @@ export default function ProfileReportHistoryEditNext() {
 
   useFocusEffect(
     useCallback(() => {
+      // View-only mode: build the equivalent "draft" straight from the report
+      // param — no AsyncStorage draft involved, nothing to redirect on.
+      if (isViewOnly) {
+        const fresh = reportParam ? JSON.parse(reportParam) : {};
+
+        setDraft({
+          reportId: fresh.lost_report_id,
+          itemName: fresh.item_name ?? "",
+          description: fresh.description ?? "",
+          contents: fresh.contents ?? "",
+          categoryId: fresh.category_id ?? "",
+          locationLost: fresh.location_lost ?? "",
+          lostDate: fresh.actual_lost_date ?? fresh.lost_date ?? null,
+          imageUri: null,
+        });
+
+        const d = parseLostDateToDate(
+          fresh.actual_lost_date ?? fresh.lost_date,
+        );
+        if (d) {
+          setDate(d);
+          setTime(d);
+        }
+
+        setErrors({});
+        return;
+      }
+
       const saved = getReportDraft();
       if (!saved) {
         Alert.alert("Incomplete form", "Please start from page 1.", [
@@ -212,40 +272,24 @@ export default function ProfileReportHistoryEditNext() {
       setDraft(saved);
 
       if (saved.lostDate) {
-        const rawClean = saved.lostDate
-          .replace(/\+\d{2}(:\d{2})?$/, "")
-          .replace(/\+00$/, "")
-          .replace("T", " ")
-          .trim();
-        const parts = rawClean.split(" ");
-        const dateParts = parts[0].split("-");
-        const timeParts = parts[1] ? parts[1].split(":") : ["00", "00", "00"];
-
-        const d = new Date(
-          parseInt(dateParts[0], 10),
-          parseInt(dateParts[1], 10) - 1,
-          parseInt(dateParts[2], 10),
-          parseInt(timeParts[0], 10),
-          parseInt(timeParts[1], 10),
-          parseInt(timeParts[2], 10) || 0,
-        );
+        const d = parseLostDateToDate(saved.lostDate);
 
         console.log("=== DATE PICKER PARSE CONTEXT ===");
         console.log("- Source local timestamp value:", saved.lostDate);
         console.log(
           "- Successfully initialized Date context object:",
-          d.toString(),
+          d ? d.toString() : "invalid",
         );
         console.log("=================================");
 
-        if (!isNaN(d.getTime())) {
+        if (d) {
           setDate(d);
           setTime(d);
         }
       }
 
       setErrors({});
-    }, [router]),
+    }, [router, isViewOnly, reportParam]),
   );
 
   useEffect(() => {
@@ -533,43 +577,68 @@ export default function ProfileReportHistoryEditNext() {
         keyboardShouldPersistTaps="handled"
         contentContainerStyle={styles.scrollContent}
       >
-        <Text style={styles.title}>Edit Lost Item Report</Text>
+        <View style={styles.titleRow}>
+          <TouchableOpacity
+            onPress={() => router.navigate("/(tabs)/profileReportHistory")}
+            activeOpacity={0.6}
+            style={styles.titleBackButton}
+          >
+            <MaterialIcons name="arrow-back" size={24} color={AppColors.surface} />
+          </TouchableOpacity>
+          <Text style={styles.title}>
+            {isViewOnly ? "Report Details" : "Edit Lost Item Report"}
+          </Text>
+        </View>
         <Text style={styles.subTitle}>When & Where</Text>
 
         <Text style={styles.sectionTitle}>Date Lost</Text>
         <TouchableOpacity
           onPress={() => setOpenCalendar(true)}
-          activeOpacity={0.8}
+          activeOpacity={isViewOnly ? 1 : 0.8}
+          disabled={isViewOnly}
         >
-          <View style={styles.dataPickerButton}>
+          <View
+            style={[
+              styles.dataPickerButton,
+            ]}
+          >
             <Text style={styles.pickerValueText}>
               {date.toLocaleDateString()}
             </Text>
-            <MaterialIcons
-              name="calendar-month"
-              size={24}
-              color={AppColors.background}
-            />
+            {!isViewOnly && (
+              <MaterialIcons
+                name="calendar-month"
+                size={24}
+                color={AppColors.background}
+              />
+            )}
           </View>
         </TouchableOpacity>
 
         <Text style={styles.sectionTitle}>Time Lost</Text>
         <TouchableOpacity
           onPress={() => setOpenClock(true)}
-          activeOpacity={0.8}
+          activeOpacity={isViewOnly ? 1 : 0.8}
+          disabled={isViewOnly}
         >
-          <View style={styles.dataPickerButton}>
+          <View
+            style={[
+              styles.dataPickerButton,
+            ]}
+          >
             <Text style={styles.pickerValueText}>
               {time.toLocaleTimeString([], {
                 hour: "2-digit",
                 minute: "2-digit",
               })}
             </Text>
-            <MaterialIcons
-              name="access-time"
-              size={24}
-              color={AppColors.background}
-            />
+            {!isViewOnly && (
+              <MaterialIcons
+                name="access-time"
+                size={24}
+                color={AppColors.background}
+              />
+            )}
           </View>
         </TouchableOpacity>
         <FieldError message={errors.dateTime} />
@@ -615,6 +684,7 @@ export default function ProfileReportHistoryEditNext() {
                       key={`college-${idx}`}
                       label={item}
                       value={selectedColleges.includes(item)}
+                      disabled={isViewOnly}
                       onValueChange={() =>
                         handleLocationSelectionChange(
                           selectedColleges,
@@ -639,6 +709,7 @@ export default function ProfileReportHistoryEditNext() {
                       key={`space-${idx}`}
                       label={item}
                       value={selectedSpaces.includes(item)}
+                      disabled={isViewOnly}
                       onValueChange={() =>
                         handleLocationSelectionChange(
                           selectedSpaces,
@@ -663,6 +734,7 @@ export default function ProfileReportHistoryEditNext() {
                       key={`gate-${idx}`}
                       label={item}
                       value={selectedGates.includes(item)}
+                      disabled={isViewOnly}
                       onValueChange={() =>
                         handleLocationSelectionChange(
                           selectedGates,
@@ -678,8 +750,16 @@ export default function ProfileReportHistoryEditNext() {
                 style={[styles.nestedHeader, styles.cantRememberRow]}
                 onPress={handleCantRememberChange}
                 activeOpacity={0.7}
+                disabled={isViewOnly}
               >
-                <Text style={styles.nestedHeaderTitle}>Can't Remember</Text>
+                <Text
+                  style={[
+                    styles.nestedHeaderTitle,
+                    isViewOnly && styles.disabledText,
+                  ]}
+                >
+                  Can't Remember
+                </Text>
                 <MaterialIcons
                   name={
                     cantRemember
@@ -695,47 +775,68 @@ export default function ProfileReportHistoryEditNext() {
         </View>
         <FieldError message={errors.location} />
 
-        <View style={styles.infoCard}>
-          <View style={styles.infoTitleRow}>
-            <Feather
-              name="info"
-              size={20}
-              color="#000000"
-              style={styles.infoIcon}
-            />
-            <Text style={styles.infoTitle}>What happens next?</Text>
+        {!isViewOnly && (
+          <View style={styles.infoCard}>
+            <View style={styles.infoTitleRow}>
+              <Feather
+                name="info"
+                size={20}
+                color="#000000"
+                style={styles.infoIcon}
+              />
+              <Text style={styles.infoTitle}>What happens next?</Text>
+            </View>
+            <Text style={styles.infoBody}>
+              We’ll check for matching found items and notify you if we find a
+              potential match. You’ll receive updates via the notification bell.
+            </Text>
           </View>
-          <Text style={styles.infoBody}>
-            We’ll check for matching found items and notify you if we find a
-            potential match. You’ll receive updates via the notification bell.
-          </Text>
-        </View>
+        )}
 
         <View style={styles.nextSection}>
           <Text style={styles.pageIndicator}>Page 2 out of 2</Text>
           <View style={styles.buttonSection}>
-            <TouchableOpacity
-              style={styles.cancelButton}
-              disabled={isSubmitting}
-              onPress={handleBack}
-            >
-              <Text style={styles.backButtonText}>Back</Text>
-            </TouchableOpacity>
+            {isViewOnly ? (
+              <TouchableOpacity
+                style={styles.cancelButton}
+                onPress={() =>
+                  router.navigate({
+                    pathname: "/(tabs)/profileReportHistoryEdit",
+                    params: {
+                      report: reportParam,
+                      viewOnly: "true",
+                    },
+                  })
+                }
+              >
+                <Text style={styles.backButtonText}>Back to Page 1</Text>
+              </TouchableOpacity>
+            ) : (
+              <>
+                <TouchableOpacity
+                  style={styles.cancelButton}
+                  disabled={isSubmitting}
+                  onPress={handleBack}
+                >
+                  <Text style={styles.backButtonText}>Back to Page 1</Text>
+                </TouchableOpacity>
 
-            <TouchableOpacity
-              style={[
-                styles.submitButton,
-                isSubmitting && styles.submitButtonDisabled,
-              ]}
-              onPress={handleSubmit}
-              disabled={isSubmitting}
-            >
-              {isSubmitting ? (
-                <ActivityIndicator color={AppColors.surface} />
-              ) : (
-                <Text style={styles.submitButtonText}>Confirm</Text>
-              )}
-            </TouchableOpacity>
+                <TouchableOpacity
+                  style={[
+                    styles.submitButton,
+                    isSubmitting && styles.submitButtonDisabled,
+                  ]}
+                  onPress={handleSubmit}
+                  disabled={isSubmitting}
+                >
+                  {isSubmitting ? (
+                    <ActivityIndicator color={AppColors.surface} />
+                  ) : (
+                    <Text style={styles.submitButtonText}>Confirm</Text>
+                  )}
+                </TouchableOpacity>
+              </>
+            )}
           </View>
         </View>
       </ScrollView>
@@ -757,7 +858,19 @@ const styles = StyleSheet.create({
     fontSize: 22,
     fontWeight: "700",
     color: AppColors.surface,
-    padding: 20,
+    paddingVertical: 20,
+    paddingRight: 20,
+    paddingLeft: 8,
+    flex: 1,
+  },
+  titleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: AppColors.background,
+  },
+  titleBackButton: {
+    paddingLeft: 16,
+    paddingVertical: 20,
   },
   subTitle: {
     borderBottomWidth: 1,
@@ -787,7 +900,7 @@ const styles = StyleSheet.create({
   submitButton: {
     paddingVertical: 12,
     paddingHorizontal: 26,
-    backgroundColor: "#D37570",
+    backgroundColor: AppColors.background, 
     borderRadius: 14,
     minWidth: 100,
     alignItems: "center",

@@ -29,8 +29,9 @@ function FieldError({ message }) {
 
 export default function ProfileReportHistoryEdit() {
   const router = useRouter();
-  const { report: reportParam, editSession, fromBack } = useLocalSearchParams();
+  const { report: reportParam, editSession, fromBack, viewOnly } = useLocalSearchParams();
   const report = reportParam ? JSON.parse(reportParam) : {};
+  const isViewOnly = viewOnly === 'true';
 
   const [selectedImage, setSelectedImage] = useState(null);
   const [selectedCategoryId, setSelectedCategoryId] = useState(
@@ -62,6 +63,18 @@ export default function ProfileReportHistoryEdit() {
 
   useFocusEffect(
     useCallback(() => {
+      // View-only mode never touches the draft — always reflect the report param
+      if (isViewOnly) {
+        const fresh = reportParam ? JSON.parse(reportParam) : {};
+        setSelectedImage(null);
+        setSelectedCategoryId(fresh.category_id ? String(fresh.category_id) : '');
+        setItemName(fresh.item_name ?? '');
+        setDetailedDescription(fresh.description ?? '');
+        setContents(fresh.contents ?? '');
+        setErrors({});
+        return;
+      }
+
       if (isFirstFocus.current) {
         isFirstFocus.current = false;
 
@@ -100,7 +113,7 @@ export default function ProfileReportHistoryEdit() {
           setContents(saved.contents ?? '');
         }
       }
-    }, [reportParam, editSession, fromBack])
+    }, [reportParam, editSession, fromBack, isViewOnly])
   );
 
   const analyzeImage = async (uri) => {
@@ -187,6 +200,18 @@ export default function ProfileReportHistoryEdit() {
   };
 
   const handleNext = () => {
+    if (isViewOnly) {
+      // No validation, no draft — just carry the report + flag to page 2
+      router.push({
+        pathname: '/(tabs)/profileReportHistoryEditNext',
+        params: {
+          report: reportParam,
+          viewOnly: 'true',
+        },
+      });
+      return;
+    }
+
     const validation = validateReportPage1({
       categoryId: selectedCategoryId,
       itemName,
@@ -240,7 +265,16 @@ export default function ProfileReportHistoryEdit() {
         }}
       />
       <ScrollView contentContainerStyle={styles.container}>
-        <Text style={styles.title}>Edit Lost Item Report</Text>
+        {isViewOnly ? (
+          <View style={styles.titleRow}>
+            <TouchableOpacity onPress={() => router.navigate('/(tabs)/profileReportHistory')} style={styles.backButton}>
+              <MaterialIcons name="arrow-back" size={24} color={AppColors.surface} />
+            </TouchableOpacity>
+            <Text style={styles.titleInRow}>Report Details</Text>
+          </View>
+        ) : (
+          <Text style={styles.title}>Edit Lost Item Report</Text>
+        )}
         <Text style={styles.subTitle}>Item Description</Text>
 
         {/* ── Image upload ── */}
@@ -250,7 +284,7 @@ export default function ProfileReportHistoryEdit() {
               style={styles.uploadTarget}
               activeOpacity={0.7}
               onPress={handleImagePickOptions}
-              disabled={isLoading}
+              disabled={isLoading || isViewOnly}
             >
               {isLoading ? (
                 <View style={[styles.dashedRing, { borderColor: '#CCC' }]}>
@@ -259,9 +293,15 @@ export default function ProfileReportHistoryEdit() {
               ) : displayImage ? (
                 <View style={styles.imagePreviewContainer}>
                   <Image source={{ uri: displayImage }} style={styles.previewImage} />
-                  <View style={styles.changeBadge}>
-                    <MaterialIcons name="edit" size={16} color="#FFFFFF" />
-                  </View>
+                  {!isViewOnly && (
+                    <View style={styles.changeBadge}>
+                      <MaterialIcons name="edit" size={16} color="#FFFFFF" />
+                    </View>
+                  )}
+                </View>
+              ) : isViewOnly ? (
+                <View style={[styles.dashedRing, styles.dashedRingViewOnly]}>
+                  <MaterialIcons name="image-not-supported" size={28} color="#B0A09A" />
                 </View>
               ) : (
                 <View style={styles.dashedRing}>
@@ -273,13 +313,29 @@ export default function ProfileReportHistoryEdit() {
             </TouchableOpacity>
 
             <Text style={styles.titleText}>
-              {isLoading ? 'Analyzing image...' : 'Upload Item Photo (Optional)'}
+              {isLoading
+                ? 'Analyzing image...'
+                : isViewOnly
+                ? (displayImage ? 'Item Photo' : 'No Photo Attached')
+                : 'Upload Item Photo (Optional)'}
             </Text>
-            <Text style={styles.subText}>
-              *FoundNest AI will help auto-fill details based on your photo.
-            </Text>
+            {!isViewOnly && (
+              <Text style={styles.subText}>
+                *FoundNest AI will help auto-fill details based on your photo.
+              </Text>
+            )}
           </View>
         </View>
+
+        {/* ── Report ID ── */}
+        {isViewOnly && (
+          <>
+            <Text style={styles.sectionTitle}>Report ID</Text>
+            <Text style={[styles.picker, { lineHeight: 50 }]}>
+              {report.lost_report_id ? `RPT-${String(report.lost_report_id).padStart(5, '0')}` : '—'}
+            </Text>
+          </>
+        )}
 
         {/* ── Category ── */}
         <Text style={styles.sectionTitle}>Category</Text>
@@ -295,25 +351,31 @@ export default function ProfileReportHistoryEdit() {
           labelField="label"
           valueField="value"
           placeholder={categoryDropdownData.length === 0 ? 'Loading categories...' : 'Select a category...'}
-          disable={categoryDropdownData.length === 0}
+          disable={categoryDropdownData.length === 0 || isViewOnly}
           value={selectedCategoryId || null}
           onChange={(item) => {
             setSelectedCategoryId(item.value);
             if (errors.category) setErrors((prev) => ({ ...prev, category: undefined }));
           }}
-          renderRightIcon={() => (
-            <MaterialIcons name="keyboard-arrow-down" size={24} color={AppColors.background} />
-          )}
+          renderRightIcon={() =>
+            isViewOnly ? null : (
+              <MaterialIcons name="keyboard-arrow-down" size={24} color={AppColors.background} />
+            )
+          }
         />
         <FieldError message={errors.category} />
 
         {/* ── Item Name ── */}
         <Text style={styles.sectionTitle}>Item Name</Text>
         <TextInput
-          style={[styles.picker, errors.itemName && styles.inputErrorBorder]}
+          style={[
+            styles.picker,
+            errors.itemName && styles.inputErrorBorder,
+          ]}
           placeholder="e.g., iPhone 13 Pro Max, Bag, Umbrella"
           placeholderTextColor="#8C7A70"
           value={itemName}
+          editable={!isViewOnly}
           onChangeText={(text) => {
             setItemName(text);
             if (errors.itemName) setErrors((prev) => ({ ...prev, itemName: undefined }));
@@ -324,13 +386,18 @@ export default function ProfileReportHistoryEdit() {
         {/* ── Description ── */}
         <Text style={styles.sectionTitle}>Detailed Description</Text>
         <TextInput
-          style={[styles.picker, styles.multilineInput, errors.description && styles.inputErrorBorder]}
+          style={[
+            styles.picker,
+            styles.multilineInput,
+            errors.description && styles.inputErrorBorder,
+          ]}
           multiline
           numberOfLines={8}
           textAlignVertical="top"
           placeholder="Brand, Model, Size, Color, Material, etc."
           placeholderTextColor="#8C7A70"
           value={detailedDescription}
+          editable={!isViewOnly}
           onChangeText={(text) => {
             setDetailedDescription(text);
             if (errors.description) setErrors((prev) => ({ ...prev, description: undefined }));
@@ -341,10 +408,11 @@ export default function ProfileReportHistoryEdit() {
         {/* ── Contents ── */}
         <Text style={styles.sectionTitle}>Contents (if applicable)</Text>
         <TextInput
-          style={styles.picker}
+          style={[styles.picker]}
           placeholder="e.g., wallet contents, keys, notes..."
           placeholderTextColor="#8C7A70"
           value={contents}
+          editable={!isViewOnly}
           onChangeText={setContents}
         />
 
@@ -352,12 +420,14 @@ export default function ProfileReportHistoryEdit() {
         <View style={styles.nextSection}>
             <Text style={styles.pageIndicator}>Page 1 out of 2</Text>
             <View style={styles.buttonSection}>
-                <TouchableOpacity
-                    style={styles.outlinedButton}
-                    onPress={() => setDiscardModalVisible(true)}
-                >
-                    <Text style={styles.outlinedButtonText}>Cancel</Text>
-                </TouchableOpacity>
+                {!isViewOnly && (
+                  <TouchableOpacity
+                      style={styles.outlinedButton}
+                      onPress={() => setDiscardModalVisible(true)}
+                  >
+                      <Text style={styles.outlinedButtonText}>Cancel</Text>
+                  </TouchableOpacity>
+                )}
                 <TouchableOpacity style={styles.nextButton} onPress={handleNext}>
                     <Text style={styles.buttonText}>Next</Text>
                 </TouchableOpacity>
@@ -378,11 +448,28 @@ const styles = StyleSheet.create({
         backgroundColor: '#FFF1E0', 
         paddingBottom: 40 
     },
+    titleRow: {
+        backgroundColor: AppColors.background,
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: 16,
+        paddingVertical: 16,
+    },
+    backButton: {
+        marginRight: 10,
+        padding: 2,
+    },
+    titleInRow: {
+        flex: 1,
+        fontSize: 22,
+        fontWeight: '700',
+        color: AppColors.surface,
+    },
     title: {
         backgroundColor: AppColors.background,
-        fontSize: 22, 
+        fontSize: 22,
         fontWeight: '700',
-        color: AppColors.surface, 
+        color: AppColors.surface,
         padding: 20,
     },
     subTitle: {
@@ -434,6 +521,9 @@ const styles = StyleSheet.create({
         borderStyle: 'dashed',
         justifyContent: 'center', 
         alignItems: 'center',
+    },
+    dashedRingViewOnly: {
+        borderColor: '#CCCCCC',
     },
     solidCircle: {
         width: 60, 
