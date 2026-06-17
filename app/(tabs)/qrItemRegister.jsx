@@ -1,10 +1,10 @@
 import ConfirmDiscardModal from "@/components/ConfirmDiscardModal";
 import { API_BASE_URL } from "@/constants/api";
 import AppColors from "@/constants/AppColors";
-import { fetchWithAuth } from "@/constants/authApi";
+import { fetchWithAuth, uploadWithAuth } from "@/constants/authApi";
 import { getCategories, matchCategoryFromAi } from "@/constants/category";
 import { DescribeItem } from "@/constants/geminiAI";
-import { getToken, getUser } from "@/constants/StudentData";
+import { getUser } from "@/constants/StudentData";
 import { Ionicons, MaterialIcons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import { useFocusEffect, useRouter } from "expo-router";
@@ -252,7 +252,6 @@ export default function QrItemRegister() {
       });
 
       // Build multipart/form-data so the backend receives req.file for Cloudinary upload
-      const token = await getToken();
       const formData = new FormData();
 
       formData.append("user_id", String(user.user_id));
@@ -281,13 +280,14 @@ export default function QrItemRegister() {
         });
       }
 
-      const res = await fetch(`${API_BASE_URL}/api/qr-items/register`, {
-        method: "POST",
-        body: formData,
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
+      // uploadWithAuth handles token expiry + silent refresh automatically
+      // Do NOT use fetchWithAuth here — it forces Content-Type: application/json
+      // which breaks multipart/form-data boundary
+      const res = await uploadWithAuth(
+        `${API_BASE_URL}/api/qr-items/register`,
+        formData,
+        // 'POST' is the default, no need to pass it
+      );
 
       const data = await res.json();
 

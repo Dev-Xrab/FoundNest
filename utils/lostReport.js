@@ -1,5 +1,6 @@
 import { API_BASE_URL } from '@/constants/api';
-import { getToken, getUser } from '@/constants/StudentData';
+import { uploadWithAuth } from '@/constants/authApi';
+import { getUser } from '@/constants/StudentData';
 
 export function formatLostDateTime(datePart, timePart) {
   const combined = new Date(datePart);
@@ -119,10 +120,9 @@ export async function submitLostReport({
   dateLost,
   timeLost,
 }) {
-  const token = await getToken();
   const user = await getUser();
 
-  if (!token || !user?.user_id) {
+  if (!user?.user_id) {
     throw new Error('You must be logged in to submit a report.');
   }
 
@@ -153,13 +153,13 @@ export async function submitLostReport({
   formData.append('location_lost', locationLost);
   formData.append('lost_date', formatLostDateTime(dateLost, timeLost));
 
-  const response = await fetch(`${API_BASE_URL}/api/lost-reports`, {
-    method: 'POST',
-    body: formData,
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
-  });
+  // uploadWithAuth handles token expiry + silent refresh automatically
+  // Do NOT use fetch here — it forces manual token management and skips silent refresh
+  const response = await uploadWithAuth(
+    `${API_BASE_URL}/api/lost-reports`,
+    formData,
+    'POST',
+  );
 
   if (!response.ok) {
     const message = await parseApiError(response);

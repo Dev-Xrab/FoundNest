@@ -1,9 +1,8 @@
 import ConfirmDiscardModal from '@/components/ConfirmDiscardModal';
 import { API_BASE_URL } from '@/constants/api';
 import AppColors from '@/constants/AppColors';
-import { fetchWithAuth } from '@/constants/authApi';
+import { fetchWithAuth, uploadWithAuth } from '@/constants/authApi';
 import { getCategories } from '@/constants/category';
-import { getToken } from '@/constants/StudentData';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
@@ -252,8 +251,6 @@ export default function QrItemEdit() {
     setIsSaving(true);
 
     try {
-      const token = await getToken();
-
       if (selectedImage) {
         const formData = new FormData();
         formData.append('item_name', itemName.trim());
@@ -274,13 +271,13 @@ export default function QrItemEdit() {
           type: mimeType,
         });
 
-        const res = await fetch(
+        // uploadWithAuth handles token expiry + silent refresh automatically
+        // Do NOT use fetchWithAuth here — it forces Content-Type: application/json
+        // which breaks multipart/form-data boundary
+        const res = await uploadWithAuth(
           `${API_BASE_URL}/api/qr-items/${item.qr_code_id}`,
-          {
-            method: 'PUT',
-            body: formData,
-            headers: { Authorization: `Bearer ${token}` },
-          }
+          formData,
+          'PUT'
         );
         const data = await res.json();
         if (!res.ok) {

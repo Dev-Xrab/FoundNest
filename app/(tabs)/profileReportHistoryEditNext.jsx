@@ -1,5 +1,6 @@
 import { API_BASE_URL } from "@/constants/api";
 import AppColors from "@/constants/AppColors";
+import { uploadWithAuth } from '@/constants/authApi';
 import fetchBulsuColleges from "@/constants/CollegeBuildings";
 import fetchGates from "@/constants/Gates";
 import {
@@ -8,10 +9,8 @@ import {
   setReportDraft,
 } from "@/constants/reportDraft";
 import fetchSharedStudentSpaces from "@/constants/SharedStudentSpaces";
-import { getToken } from "@/constants/StudentData";
 import { buildLocationLost, validateReportPage2 } from "@/utils/lostReport";
 import { Feather, MaterialIcons } from "@expo/vector-icons";
-import * as FileSystem from "expo-file-system"; // ── ADDED EXPO FILE SYSTEM ──
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
@@ -462,15 +461,10 @@ export default function ProfileReportHistoryEditNext() {
         formData.append("image", { uri: draft.imageUri, name: fileName, type: mimeType });
       }
 
-      const token = await getToken();
-      
-      const res = await fetch(
+      const res = await uploadWithAuth(
         `${API_BASE_URL}/api/lost-reports/${draft.reportId}`,
-        {
-          method: "PUT", 
-          headers: { Authorization: `Bearer ${token}` },
-          body: formData,
-        },
+        formData,
+        "PUT",
       );
 
       if (!res.ok) {

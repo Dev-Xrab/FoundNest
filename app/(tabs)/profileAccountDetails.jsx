@@ -3,8 +3,8 @@ import ConfirmDiscardModal from '@/components/ConfirmDiscardModal';
 import Toast from '@/components/Toast';
 import { API_BASE_URL } from '@/constants/api';
 import AppColors from '@/constants/AppColors';
-import { fetchWithAuth } from '@/constants/authApi';
-import { getToken, getUser, updateUser } from '@/constants/StudentData';
+import { fetchWithAuth, uploadWithAuth } from '@/constants/authApi';
+import { getUser, updateUser } from '@/constants/StudentData';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
@@ -137,8 +137,6 @@ export default function ProfileAccountDetails() {
   const uploadProfileImage = async (asset) => {
     setIsUploadingPhoto(true);
     try {
-      const token = await getToken();
-
       const filename = asset.uri.split('/').pop();
       const match = /\.(\w+)$/.exec(filename ?? '');
       const ext = match ? match[1] : 'jpg';
@@ -150,16 +148,13 @@ export default function ProfileAccountDetails() {
         type: `image/${ext}`,
       });
 
-      const res = await fetch(
+      // uploadWithAuth handles token expiry + silent refresh automatically
+      // Do NOT use fetchWithAuth here — it forces Content-Type: application/json
+      // which breaks multipart/form-data boundary
+      const res = await uploadWithAuth(
         `${API_BASE_URL}/api/profile/${user.user_id}/picture`,
-        {
-          method: 'PUT',
-          headers: {
-            Authorization: `Bearer ${token}`,
-            // Do NOT set Content-Type — let fetch set the multipart boundary
-          },
-          body: formData,
-        }
+        formData,
+        'PUT'
       );
 
       const data = await res.json();
