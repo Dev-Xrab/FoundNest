@@ -54,7 +54,7 @@ export default function CustomHeader({ title }) {
 
   return (
     <View style={[styles.wrapper, { paddingTop: insets.top }]}>
-       <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
+       <StatusBar style="dark" backgroundColor="transparent" translucent />
       <View style={styles.bar}>
         <View style={styles.logoContainer}>
           <Image
