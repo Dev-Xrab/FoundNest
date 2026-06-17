@@ -1,10 +1,12 @@
 import ConfirmDiscardModal from '@/components/ConfirmDiscardModal';
+import ChangePhotoModal from '@/components/InsertEditImage';
 import AppColors from '@/constants/AppColors';
 import { getCategories, matchCategoryFromAi } from '@/constants/category';
 import { DescribeItem } from '@/constants/geminiAI';
 import { clearReportDraft, getReportDraft, setReportDraft } from '@/constants/reportDraft';
 import { validateReportPage1 } from '@/utils/lostReport';
 import { MaterialIcons } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
@@ -34,6 +36,7 @@ export default function ProfileReportHistoryEdit() {
   const isViewOnly = viewOnly === 'true';
 
   const [selectedImage, setSelectedImage] = useState(null);
+  const [isImageRemoved, setIsImageRemoved] = useState(false); 
   const [selectedCategoryId, setSelectedCategoryId] = useState(
     report.category_id ? String(report.category_id) : ''
   );
@@ -44,6 +47,7 @@ export default function ProfileReportHistoryEdit() {
   const [categories, setCategories] = useState([]);
   const [errors, setErrors] = useState({});
   const [discardModalVisible, setDiscardModalVisible] = useState(false);
+  const [photoModalVisible, setPhotoModalVisible] = useState(false);
 
   const categoryDropdownData = categories.map((cat) => ({
     label: cat.category_name,
@@ -56,17 +60,16 @@ export default function ProfileReportHistoryEdit() {
 
   const isFirstFocus = useRef(true);
 
-  // Reset the flag whenever a new edit session starts (new item opened)
   useEffect(() => {
     isFirstFocus.current = true;
   }, [editSession]);
 
   useFocusEffect(
     useCallback(() => {
-      // View-only mode never touches the draft — always reflect the report param
       if (isViewOnly) {
         const fresh = reportParam ? JSON.parse(reportParam) : {};
         setSelectedImage(null);
+        setIsImageRemoved(false);
         setSelectedCategoryId(fresh.category_id ? String(fresh.category_id) : '');
         setItemName(fresh.item_name ?? '');
         setDetailedDescription(fresh.description ?? '');
@@ -79,39 +82,26 @@ export default function ProfileReportHistoryEdit() {
         isFirstFocus.current = false;
 
         if (fromBack === 'true') {
-          // Arriving here via Back button from page 2 — restore from draft
           const saved = getReportDraft();
           if (saved) {
             setSelectedCategoryId(saved.categoryId ?? '');
             setItemName(saved.itemName ?? '');
             setDetailedDescription(saved.description ?? '');
             setContents(saved.contents ?? '');
-            // selectedImage is a local URI kept in draft only; don't restore it
-            // to state but it will be re-included when Next is pressed again
+            setSelectedImage(saved.imageUri ?? null);
+            setIsImageRemoved(saved.isImageRemoved ?? false); 
           }
           return;
         }
 
-        // Fresh open from the list — seed fields from report param
         const fresh = reportParam ? JSON.parse(reportParam) : {};
         setSelectedImage(null);
+        setIsImageRemoved(false); 
         setSelectedCategoryId(fresh.category_id ? String(fresh.category_id) : '');
         setItemName(fresh.item_name ?? '');
         setDetailedDescription(fresh.description ?? '');
         setContents(fresh.contents ?? '');
         setErrors({});
-        return;
-      }
-
-      // Subsequent focuses (e.g. coming back after cancel modal) — restore from draft
-      if (fromBack === 'true') {
-        const saved = getReportDraft();
-        if (saved) {
-          setSelectedCategoryId(saved.categoryId ?? '');
-          setItemName(saved.itemName ?? '');
-          setDetailedDescription(saved.description ?? '');
-          setContents(saved.contents ?? '');
-        }
       }
     }, [reportParam, editSession, fromBack, isViewOnly])
   );
@@ -127,7 +117,7 @@ export default function ProfileReportHistoryEdit() {
 
       const aiResult = await DescribeItem({
         imageUri: uri,
-        categoryOptions: categoryList.map((c) => c.name),
+        categoryOptions: categoryList.map((c) => c.category_name),
       });
 
       if (aiResult) {
@@ -142,66 +132,58 @@ export default function ProfileReportHistoryEdit() {
       }
     } catch (error) {
       console.error('AI Analysis Failed:', error);
-      Alert.alert(
-        'AI Error',
-        'Failed to auto-fill details. Please fill them out manually.',
-      );
+      Alert.alert('AI Error', 'Failed to auto-fill details. Please fill them out manually.');
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleImagePickOptions = () => {
-    Alert.alert('Upload Item Photo', 'Choose a source for your photo:', [
-      {
-        text: 'Use Camera',
-        onPress: async () => {
-          const { ImagePicker } = await import('expo-image-picker');
-          const permissionResult =
-            await ImagePicker.requestCameraPermissionsAsync();
-          if (!permissionResult.granted) {
-            Alert.alert('Permission Denied', 'You need to allow camera access.');
-            return;
-          }
-          const result = await ImagePicker.launchCameraAsync({
-            allowsEditing: false,
-            quality: 0.8,
-          });
-          if (!result.canceled) {
-            const uri = result.assets[0].uri;
-            setSelectedImage(uri);
-            analyzeImage(uri);
-          }
-        },
-      },
-      {
-        text: 'Pick from Gallery',
-        onPress: async () => {
-          const { ImagePicker } = await import('expo-image-picker');
-          const permissionResult =
-            await ImagePicker.requestMediaLibraryPermissionsAsync();
-          if (!permissionResult.granted) {
-            Alert.alert('Permission Denied', 'You need to allow library access.');
-            return;
-          }
-          const result = await ImagePicker.launchImageLibraryAsync({
-            allowsEditing: false,
-            quality: 0.8,
-          });
-          if (!result.canceled) {
-            const uri = result.assets[0].uri;
-            setSelectedImage(uri);
-            analyzeImage(uri);
-          }
-        },
-      },
-      { text: 'Cancel', style: 'cancel' },
-    ]);
+  const handleTakePhoto = async () => {
+    setPhotoModalVisible(false);
+    const permissionResult = await ImagePicker.requestCameraPermissionsAsync();
+    if (!permissionResult.granted) {
+      Alert.alert('Permission Denied', 'You need to allow camera access.');
+      return;
+    }
+    const result = await ImagePicker.launchCameraAsync({
+      allowsEditing: false,
+      quality: 0.8,
+    });
+    if (!result.canceled) {
+      const uri = result.assets[0].uri;
+      setSelectedImage(uri);
+      setIsImageRemoved(false); 
+      analyzeImage(uri);
+    }
+  };
+
+  const handleChooseFromLibrary = async () => {
+    setPhotoModalVisible(false);
+    const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permissionResult.granted) {
+      Alert.alert('Permission Denied', 'You need to allow library access.');
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      allowsEditing: false,
+      quality: 0.8,
+    });
+    if (!result.canceled) {
+      const uri = result.assets[0].uri;
+      setSelectedImage(uri);
+      setIsImageRemoved(false); 
+      analyzeImage(uri);
+    }
+  };
+
+  const handleRemovePhoto = () => {
+    setPhotoModalVisible(false);
+    setSelectedImage(null);
+    setIsImageRemoved(true); 
   };
 
   const handleNext = () => {
     if (isViewOnly) {
-      // No validation, no draft — just carry the report + flag to page 2
       router.push({
         pathname: '/(tabs)/profileReportHistoryEditNext',
         params: {
@@ -231,8 +213,9 @@ export default function ProfileReportHistoryEdit() {
       reportId:         report.lost_report_id,
       reportParam:      reportParam,
       editSession:      editSession,
-      imageUri:         selectedImage,
-      existingImageUrl: report.lost_item_image ?? null,
+      imageUri:         isImageRemoved ? null : selectedImage,
+      isImageRemoved:   isImageRemoved, 
+      existingImageUrl: isImageRemoved ? null : (selectedImage ? null : (report.lost_item_image ?? null)),
       categoryId:       selectedCategoryId,
       itemName:         itemName.trim(),
       description:      detailedDescription.trim(),
@@ -244,8 +227,7 @@ export default function ProfileReportHistoryEdit() {
     router.navigate('/(tabs)/profileReportHistoryEditNext');
   };
 
-  // Image to display: newly picked > existing URL > nothing
-  const displayImage = selectedImage ?? report.lost_item_image ?? null;
+  const displayImage = isImageRemoved ? null : (selectedImage ?? report.lost_item_image ?? null);
 
   return (
     <KeyboardAvoidingView
@@ -264,6 +246,16 @@ export default function ProfileReportHistoryEdit() {
           });
         }}
       />
+
+      <ChangePhotoModal
+        visible={photoModalVisible}
+        hasPhoto={!!displayImage}
+        onTakePhoto={handleTakePhoto}
+        onChooseFromLibrary={handleChooseFromLibrary}
+        onRemovePhoto={handleRemovePhoto}
+        onClose={() => setPhotoModalVisible(false)}
+      />
+
       <ScrollView contentContainerStyle={styles.container}>
         {isViewOnly ? (
           <View style={styles.titleRow}>
@@ -277,13 +269,12 @@ export default function ProfileReportHistoryEdit() {
         )}
         <Text style={styles.subTitle}>Item Description</Text>
 
-        {/* ── Image upload ── */}
         <View style={styles.uploadCardWrapper}>
           <View style={styles.card}>
             <TouchableOpacity
               style={styles.uploadTarget}
               activeOpacity={0.7}
-              onPress={handleImagePickOptions}
+              onPress={() => setPhotoModalVisible(true)}
               disabled={isLoading || isViewOnly}
             >
               {isLoading ? (
@@ -327,7 +318,6 @@ export default function ProfileReportHistoryEdit() {
           </View>
         </View>
 
-        {/* ── Report ID ── */}
         {isViewOnly && (
           <>
             <Text style={styles.sectionTitle}>Report ID</Text>
@@ -337,7 +327,6 @@ export default function ProfileReportHistoryEdit() {
           </>
         )}
 
-        {/* ── Category ── */}
         <Text style={styles.sectionTitle}>Category</Text>
         <Dropdown
           style={[styles.categoryDropdown, errors.category && styles.inputErrorBorder]}
@@ -365,13 +354,9 @@ export default function ProfileReportHistoryEdit() {
         />
         <FieldError message={errors.category} />
 
-        {/* ── Item Name ── */}
         <Text style={styles.sectionTitle}>Item Name</Text>
         <TextInput
-          style={[
-            styles.picker,
-            errors.itemName && styles.inputErrorBorder,
-          ]}
+          style={[styles.picker, errors.itemName && styles.inputErrorBorder]}
           placeholder="e.g., iPhone 13 Pro Max, Bag, Umbrella"
           placeholderTextColor="#8C7A70"
           value={itemName}
@@ -383,14 +368,9 @@ export default function ProfileReportHistoryEdit() {
         />
         <FieldError message={errors.itemName} />
 
-        {/* ── Description ── */}
         <Text style={styles.sectionTitle}>Detailed Description</Text>
         <TextInput
-          style={[
-            styles.picker,
-            styles.multilineInput,
-            errors.description && styles.inputErrorBorder,
-          ]}
+          style={[styles.picker, styles.multilineInput, errors.description && styles.inputErrorBorder]}
           multiline
           numberOfLines={8}
           textAlignVertical="top"
@@ -405,7 +385,6 @@ export default function ProfileReportHistoryEdit() {
         />
         <FieldError message={errors.description} />
 
-        {/* ── Contents ── */}
         <Text style={styles.sectionTitle}>Contents (if applicable)</Text>
         <TextInput
           style={[styles.picker]}
@@ -416,22 +395,21 @@ export default function ProfileReportHistoryEdit() {
           onChangeText={setContents}
         />
 
-        {/* ── Footer ── */}
         <View style={styles.nextSection}>
-            <Text style={styles.pageIndicator}>Page 1 out of 2</Text>
-            <View style={styles.buttonSection}>
-                {!isViewOnly && (
-                  <TouchableOpacity
-                      style={styles.outlinedButton}
-                      onPress={() => setDiscardModalVisible(true)}
-                  >
-                      <Text style={styles.outlinedButtonText}>Cancel</Text>
-                  </TouchableOpacity>
-                )}
-                <TouchableOpacity style={styles.nextButton} onPress={handleNext}>
-                    <Text style={styles.buttonText}>Next</Text>
-                </TouchableOpacity>
-            </View>
+          <Text style={styles.pageIndicator}>Page 1 out of 2</Text>
+          <View style={styles.buttonSection}>
+            {!isViewOnly && (
+              <TouchableOpacity
+                style={styles.outlinedButton}
+                onPress={() => setDiscardModalVisible(true)}
+              >
+                <Text style={styles.outlinedButtonText}>Cancel</Text>
+              </TouchableOpacity>
+            )}
+            <TouchableOpacity style={styles.nextButton} onPress={handleNext}>
+              <Text style={styles.buttonText}>Next</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -439,226 +417,39 @@ export default function ProfileReportHistoryEdit() {
 }
 
 const styles = StyleSheet.create({
-    screenContainer: { 
-        flex: 1, 
-        backgroundColor: '#FFF1E0' 
-    },
-    container: { 
-        flexGrow: 1, 
-        backgroundColor: '#FFF1E0', 
-        paddingBottom: 40 
-    },
-    titleRow: {
-        backgroundColor: AppColors.background,
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingHorizontal: 16,
-        paddingVertical: 16,
-    },
-    backButton: {
-        marginRight: 10,
-        padding: 2,
-    },
-    titleInRow: {
-        flex: 1,
-        fontSize: 22,
-        fontWeight: '700',
-        color: AppColors.surface,
-    },
-    title: {
-        backgroundColor: AppColors.background,
-        fontSize: 22,
-        fontWeight: '700',
-        color: AppColors.surface,
-        padding: 20,
-    },
-    subTitle: {
-        borderBottomWidth: 1, 
-        borderColor: '#000000',
-        fontSize: 17, 
-        fontWeight: '900',
-        color: AppColors.textOnLight,
-        padding: 20, 
-        paddingLeft: 10, 
-        paddingBottom: 15,
-        marginHorizontal: 10, 
-        marginBottom: 20,
-    },
-    uploadCardWrapper: { 
-        alignItems: 'center', 
-        justifyContent: 'center', 
-        paddingHorizontal: 20, 
-        paddingBottom: 10 
-    },
-    card: {
-        backgroundColor: AppColors.surface, 
-        borderRadius: 28,
-        paddingVertical: 20, 
-        paddingHorizontal: 20,
-        alignItems: 'center', 
-        width: '100%', 
-        maxWidth: 450,
-        shadowColor: '#000', 
-        shadowOffset: { 
-            width: 0, 
-            height: 2 
-        },
-        shadowOpacity: 0.05, 
-        shadowRadius: 10, 
-        elevation: 2,
-    },
-    uploadTarget: { 
-        marginBottom: 20, 
-        justifyContent: 'center', 
-        alignItems: 'center' 
-    },
-    dashedRing: {
-        width: 80, 
-        height: 80, 
-        borderRadius: 40,
-        borderWidth: 1.5, 
-        borderColor: '#900000', 
-        borderStyle: 'dashed',
-        justifyContent: 'center', 
-        alignItems: 'center',
-    },
-    dashedRingViewOnly: {
-        borderColor: '#CCCCCC',
-    },
-    solidCircle: {
-        width: 60, 
-        height: 60, 
-        borderRadius: 30,
-        backgroundColor: '#900000', 
-        justifyContent: 'center', 
-        alignItems: 'center',
-    },
-    titleText: { 
-        fontSize: 17, 
-        fontWeight: '600', 
-        color: '#6B5A52', 
-        textAlign: 'center', 
-        marginBottom: 14 
-    },
-    subText: { 
-        fontSize: 13, 
-        color: '#8C7A70', 
-        textAlign: 'center', 
-        lineHeight: 22, 
-        paddingHorizontal: 12 
-    },
-    sectionTitle: { 
-        fontSize: 17, 
-        fontWeight: '800', 
-        color: AppColors.textOnLight, 
-        paddingLeft: 20, 
-        marginTop: 20, 
-        marginBottom: 8 
-    },
-    categoryDropdown: { 
-        marginHorizontal: 20, 
-        backgroundColor: AppColors.surface, 
-        borderRadius: 8, 
-        paddingHorizontal: 12, 
-        height: 50 
-    },
-    categoryPlaceholder: { 
-        fontSize: 16, 
-        color: '#8C7A70' 
-    },
-    categorySelectedText: { 
-        fontSize: 16, 
-        color: AppColors.textOnLight 
-    },
-    categoryDropdownContainer: { 
-        marginHorizontal: 20, 
-        borderRadius: 8, 
-        borderWidth: 1, 
-        borderColor: 'rgba(0,0,0,0.08)' 
-    },
-    categoryItemText: { 
-        fontSize: 16, 
-        color: AppColors.textOnLight 
-    },
-    picker: { 
-        marginHorizontal: 20, 
-        backgroundColor: AppColors.surface, 
-        borderRadius: 8, 
-        paddingHorizontal: 12, 
-        height: 50, 
-        fontSize: 16 
-    },
-    multilineInput: { 
-        height: 140, 
-        paddingTop: 12 
-    },
-    inputErrorBorder: { 
-        borderWidth: 1, 
-        borderColor: '#C62828' 
-    },
-    fieldError: { 
-        color: '#C62828', 
-        fontSize: 13, 
-        marginHorizontal: 20, 
-        marginTop: 4 
-    },
-    imagePreviewContainer: { 
-        width: 110, 
-        height: 110, 
-        position: 'relative' 
-    },
-    previewImage: { 
-        width: '100%', 
-        height: '100%', 
-        borderRadius: 20 
-    },
-    changeBadge: {
-        position: 'absolute', 
-        bottom: -4, 
-        right: -4,
-        backgroundColor: '#900000', 
-        width: 28, 
-        height: 28,
-        borderRadius: 14, 
-        justifyContent: 'center', 
-        alignItems: 'center',
-        borderWidth: 2, 
-        borderColor: '#FFFFFF',
-    },
-    nextSection: {
-        flexDirection: 'row', 
-        justifyContent: 'space-between',
-        marginHorizontal: 20, 
-        marginTop: 20, 
-        paddingVertical: 30,
-        borderTopWidth: 1, 
-        borderColor: 'rgba(0,0,0,0.24)',
-        alignItems: 'center',
-    },
-    pageIndicator: { 
-        fontWeight: 'bold' 
-    },
-    buttonSection: { 
-        flexDirection: 'row', 
-        gap: 8 
-    },
-    outlinedButton: {
-        padding: 10,
-        paddingHorizontal: 30,
-        borderRadius: 10,
-        borderWidth: 1.5,
-        borderColor: AppColors.background,
-    },
-    outlinedButtonText: {
-        color: AppColors.background,
-    },
-    nextButton: { 
-        padding: 10, 
-        paddingHorizontal: 30, 
-        backgroundColor: AppColors.background, 
-        borderRadius: 10 
-    },
-    buttonText: { 
-        color: AppColors.surface 
-    },
+  screenContainer: { flex: 1, backgroundColor: '#FFF1E0' },
+  container: { flexGrow: 1, backgroundColor: '#FFF1E0', paddingBottom: 40 },
+  titleRow: { backgroundColor: AppColors.background, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 16 },
+  backButton: { marginRight: 10, padding: 2 },
+  titleInRow: { flex: 1, fontSize: 22, fontWeight: '700', color: AppColors.surface },
+  title: { backgroundColor: AppColors.background, fontSize: 22, fontWeight: '700', color: AppColors.surface, padding: 20 },
+  subTitle: { borderBottomWidth: 1, borderColor: '#000000', fontSize: 17, fontWeight: '900', color: AppColors.textOnLight, padding: 20, paddingLeft: 10, paddingBottom: 15, marginHorizontal: 10, marginBottom: 20 },
+  uploadCardWrapper: { alignItems: 'center', justifyContent: 'center', paddingHorizontal: 20, paddingBottom: 10 },
+  card: { backgroundColor: AppColors.surface, borderRadius: 28, paddingVertical: 20, paddingHorizontal: 20, alignItems: 'center', width: '100%', maxWidth: 450, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 10, elevation: 2 },
+  uploadTarget: { marginBottom: 20, justifyContent: 'center', alignItems: 'center' },
+  dashedRing: { width: 80, height: 80, borderRadius: 40, borderWidth: 1.5, borderColor: '#900000', borderStyle: 'dashed', justifyContent: 'center', alignItems: 'center' },
+  dashedRingViewOnly: { borderColor: '#CCCCCC' },
+  solidCircle: { width: 60, height: 60, borderRadius: 30, backgroundColor: '#900000', justifyContent: 'center', alignItems: 'center' },
+  titleText: { fontSize: 17, fontWeight: '600', color: '#6B5A52', textAlign: 'center', marginBottom: 14 },
+  subText: { fontSize: 13, color: '#8C7A70', textAlign: 'center', lineHeight: 22, paddingHorizontal: 12 },
+  sectionTitle: { fontSize: 17, fontWeight: '800', color: AppColors.textOnLight, paddingLeft: 20, marginTop: 20, marginBottom: 8 },
+  categoryDropdown: { marginHorizontal: 20, backgroundColor: AppColors.surface, borderRadius: 8, paddingHorizontal: 12, height: 50 },
+  categoryPlaceholder: { fontSize: 16, color: '#8C7A70' },
+  categorySelectedText: { fontSize: 16, color: AppColors.textOnLight },
+  categoryDropdownContainer: { marginHorizontal: 20, borderRadius: 8, borderWidth: 1, borderColor: 'rgba(0,0,0,0.08)' },
+  categoryItemText: { fontSize: 16, color: AppColors.textOnLight },
+  picker: { marginHorizontal: 20, backgroundColor: AppColors.surface, borderRadius: 8, paddingHorizontal: 12, height: 50, fontSize: 16 },
+  multilineInput: { height: 140, paddingTop: 12 },
+  inputErrorBorder: { borderWidth: 1, borderColor: '#C62828' },
+  fieldError: { color: '#C62828', fontSize: 13, marginHorizontal: 20, marginTop: 4 },
+  imagePreviewContainer: { width: 110, height: 110, position: 'relative' },
+  previewImage: { width: '100%', height: '100%', borderRadius: 20 },
+  changeBadge: { position: 'absolute', bottom: -4, right: -4, backgroundColor: '#900000', width: 28, height: 28, borderRadius: 14, justifyContent: 'center', alignItems: 'center', borderWidth: 2, borderColor: '#FFFFFF' },
+  nextSection: { flexDirection: 'row', justifyContent: 'space-between', marginHorizontal: 20, marginTop: 20, paddingVertical: 30, borderTopWidth: 1, borderColor: 'rgba(0,0,0,0.24)', alignItems: 'center' },
+  pageIndicator: { fontWeight: 'bold' },
+  buttonSection: { flexDirection: 'row', gap: 8 },
+  outlinedButton: { padding: 10, paddingHorizontal: 30, borderRadius: 10, borderWidth: 1.5, borderColor: AppColors.background },
+  outlinedButtonText: { color: AppColors.background },
+  nextButton: { padding: 10, paddingHorizontal: 30, backgroundColor: AppColors.background, borderRadius: 10 },
+  buttonText: { color: AppColors.surface },
 });

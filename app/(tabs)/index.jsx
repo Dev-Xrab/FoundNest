@@ -326,7 +326,7 @@ export default function HomeScreen() {
           />
           <TextInput
             style={styles.input}
-            onChangeText={setSearch} // Uses your existing state setter
+            onChangeText={setSearch} 
             value={search}
             placeholder="Search the Nest (e.g, Wallet, Bag, etc...)"
             placeholderTextColor={"#9e9e9e"}

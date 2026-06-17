@@ -11,6 +11,7 @@ import fetchSharedStudentSpaces from "@/constants/SharedStudentSpaces";
 import { getToken } from "@/constants/StudentData";
 import { buildLocationLost, validateReportPage2 } from "@/utils/lostReport";
 import { Feather, MaterialIcons } from "@expo/vector-icons";
+import * as FileSystem from "expo-file-system"; // ── ADDED EXPO FILE SYSTEM ──
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
@@ -148,8 +149,6 @@ function parseLocationLost(
   };
 }
 
-// Parses a stored lost_date string (with or without a timezone offset) into a
-// local-time Date object for the date/time pickers. Returns null if invalid.
 function parseLostDateToDate(lostDate) {
   if (!lostDate) return null;
 
@@ -230,8 +229,6 @@ export default function ProfileReportHistoryEditNext() {
 
   useFocusEffect(
     useCallback(() => {
-      // View-only mode: build the equivalent "draft" straight from the report
-      // param — no AsyncStorage draft involved, nothing to redirect on.
       if (isViewOnly) {
         const fresh = reportParam ? JSON.parse(reportParam) : {};
 
@@ -246,9 +243,7 @@ export default function ProfileReportHistoryEditNext() {
           imageUri: null,
         });
 
-        const d = parseLostDateToDate(
-          fresh.actual_lost_date ?? fresh.lost_date,
-        );
+        const d = parseLostDateToDate(fresh.actual_lost_date ?? fresh.lost_date);
         if (d) {
           setDate(d);
           setTime(d);
@@ -273,15 +268,6 @@ export default function ProfileReportHistoryEditNext() {
 
       if (saved.lostDate) {
         const d = parseLostDateToDate(saved.lostDate);
-
-        console.log("=== DATE PICKER PARSE CONTEXT ===");
-        console.log("- Source local timestamp value:", saved.lostDate);
-        console.log(
-          "- Successfully initialized Date context object:",
-          d ? d.toString() : "invalid",
-        );
-        console.log("=================================");
-
         if (d) {
           setDate(d);
           setTime(d);
@@ -297,24 +283,6 @@ export default function ProfileReportHistoryEditNext() {
 
     const rawLocationField = draft.locationLost || draft.location_lost || "";
 
-    // ─── ADDED: EXPLICIT LOG PRINTING FOR THE WHOLE ITEM DATA ───
-    console.log("===========================================================");
-    console.log(
-      "👉 WHOLE ITEM DRAFT DATA CONTEXT:",
-      JSON.stringify(draft, null, 2),
-    );
-    console.log("===========================================================");
-
-    console.log("=============== FOUNDNEST EDIT PAGE 2 DEBUG ===============");
-    console.log(
-      "1. DISCOVERED LOCATIONlost DATABASE FIELD VALUE:",
-      rawLocationField,
-    );
-    console.log("2. AVAILABLE COGNIZANT LISTS FROM BACKEND HELPERS:");
-    console.log("   - collegesList Array:", collegesList);
-    console.log("   - spacesList Array:", spacesList);
-    console.log("   - gatesList Array:", gatesList);
-
     const parsed = parseLocationLost(
       rawLocationField,
       collegesList,
@@ -322,22 +290,12 @@ export default function ProfileReportHistoryEditNext() {
       gatesList,
     );
 
-    console.log("3. FINAL EVALUATED CHECKBOX CROSS-REFERENCES RECOVERED:");
-    console.log("   - Match Check colleges Result:", parsed.colleges);
-    console.log("   - Match Check spaces Result:", parsed.spaces);
-    console.log("   - Match Check gates Result:", parsed.gates);
-    console.log("===========================================================");
-
     setSelectedColleges(parsed.colleges);
     setSelectedSpaces(parsed.spaces);
     setSelectedGates(parsed.gates);
     setCantRemember(parsed.cantRemember);
 
-    if (
-      parsed.colleges.length > 0 ||
-      parsed.spaces.length > 0 ||
-      parsed.gates.length > 0
-    ) {
+    if (parsed.colleges.length > 0 || parsed.spaces.length > 0 || parsed.gates.length > 0) {
       setShowLocation(true);
       mainRotation.value = 180;
     }
@@ -375,27 +333,23 @@ export default function ProfileReportHistoryEditNext() {
     clearLocationError();
   };
 
-  const handleLocationSelectionChange =
-    (currentSelection, setter) => (item) => {
-      let newSelection = [...currentSelection];
-      if (newSelection.includes(item)) {
-        newSelection = newSelection.filter((i) => i !== item);
-      } else {
-        newSelection.push(item);
-      }
-      setter(newSelection);
-      setCantRemember(false);
-      clearLocationError();
-    };
+  const handleLocationSelectionChange = (currentSelection, setter) => (item) => {
+    let newSelection = [...currentSelection];
+    if (newSelection.includes(item)) {
+      newSelection = newSelection.filter((i) => i !== item);
+    } else {
+      newSelection.push(item);
+    }
+    setter(newSelection);
+    setCantRemember(false);
+    clearLocationError();
+  };
 
   const formatDataList = (sourceData) => {
     return Array.isArray(sourceData)
       ? sourceData.map((item) =>
           item && typeof item === "object"
-            ? item.college_name ||
-              item.shared_space_name ||
-              item.gate_name ||
-              item.name
+            ? item.college_name || item.shared_space_name || item.gate_name || item.name
             : item,
         )
       : [];
@@ -425,7 +379,7 @@ export default function ProfileReportHistoryEditNext() {
     router.navigate({
       pathname: "/(tabs)/profileReportHistoryEdit",
       params: {
-        report: saved?.reportParam ?? "",
+        report: reportParam,
         editSession: saved?.editSession ?? "",
         fromBack: "true",
       },
@@ -453,10 +407,7 @@ export default function ProfileReportHistoryEditNext() {
         setShowLocation(true);
         mainRotation.value = withTiming(180, { duration: 300 });
       }
-      Alert.alert(
-        "Missing information",
-        Object.values(validation.errors).join("\n"),
-      );
+      Alert.alert("Missing information", Object.values(validation.errors).join("\n"));
       scrollRef.current?.scrollToEnd({ animated: true });
       return;
     }
@@ -480,30 +431,43 @@ export default function ProfileReportHistoryEditNext() {
         `${combined.getFullYear()}-${pad(combined.getMonth() + 1)}-${pad(combined.getDate())}` +
         `T${pad(combined.getHours())}:${pad(combined.getMinutes())}:00`;
 
+      const backupReport = reportParam ? JSON.parse(reportParam) : {};
+
+      const finalItemName = draft.itemName || backupReport.item_name || "";
+      const finalDescription = draft.description || backupReport.description || "";
+      const finalContents = draft.contents !== undefined ? draft.contents : (backupReport.contents || "");
+      
+      const rawCategoryId = draft.categoryId || backupReport.category_id || "";
+      const finalCategoryId = rawCategoryId ? parseInt(String(rawCategoryId), 10) : "";
+
       const formData = new FormData();
-      formData.append("item_name", draft.itemName);
-      formData.append("description", draft.description);
-      formData.append("contents", draft.contents);
-      formData.append("category_id", draft.categoryId);
+      formData.append("item_name", String(finalItemName));
+      formData.append("description", String(finalDescription));
+      formData.append("contents", String(finalContents));
+      
+      if (finalCategoryId) {
+        formData.append("category_id", String(finalCategoryId));
+      }
+      
       formData.append("location_lost", locationLost);
       formData.append("lost_date", localISO);
 
-      if (draft.imageUri) {
-        const fileName = draft.imageUri.split("/").pop();
+      // profileReportHistoryEditNext.jsx - in handleSubmit
+      if (draft.isImageRemoved === true) {
+        formData.append("image_url", "REMOVE"); 
+      } else if (draft.imageUri) {
+        const fileName = draft.imageUri.split("/").pop() || "image.jpg";
         const ext = fileName?.split(".").pop()?.toLowerCase();
         const mimeType = ext === "png" ? "image/png" : "image/jpeg";
-        formData.append("image", {
-          uri: draft.imageUri,
-          name: fileName,
-          type: mimeType,
-        });
+        formData.append("image", { uri: draft.imageUri, name: fileName, type: mimeType });
       }
 
       const token = await getToken();
+      
       const res = await fetch(
         `${API_BASE_URL}/api/lost-reports/${draft.reportId}`,
         {
-          method: "PUT",
+          method: "PUT", 
           headers: { Authorization: `Bearer ${token}` },
           body: formData,
         },
@@ -514,10 +478,31 @@ export default function ProfileReportHistoryEditNext() {
         throw new Error(data.error ?? "Failed to update report.");
       }
 
+    
+      const resolvedDisplayImage = draft.isImageRemoved 
+        ? null 
+        : (draft.imageUri || draft.existingImageUrl || backupReport.lost_item_image || null);
+      console.log(`Resolved: ${resolvedDisplayImage}`)
+      const updatedReportPackage = {
+        lost_report_id: draft.reportId,
+        item_name: finalItemName,
+        description: finalDescription,
+        contents: finalContents,
+        category_id: finalCategoryId,
+        location_lost: locationLost, 
+        lost_date: localISO,
+        lost_item_image: resolvedDisplayImage,
+        matches: backupReport.matches || [],
+      };
+
       clearReportDraft();
+      
       router.replace({
         pathname: "/(tabs)/reportSuccess",
-        params: { source: "edit" },
+        params: { 
+          source: "edit",
+          reportObject: JSON.stringify(updatedReportPackage),
+        },
       });
     } catch (error) {
       console.error("Update lost report error:", error);
@@ -552,8 +537,7 @@ export default function ProfileReportHistoryEditNext() {
         onConfirm={(selectedDate) => {
           setOpenCalendar(false);
           setDate(selectedDate);
-          if (errors.dateTime)
-            setErrors((prev) => ({ ...prev, dateTime: undefined }));
+          if (errors.dateTime) setErrors((prev) => ({ ...prev, dateTime: undefined }));
         }}
         onCancel={() => setOpenCalendar(false)}
       />
@@ -566,79 +550,33 @@ export default function ProfileReportHistoryEditNext() {
         onConfirm={(selectedTime) => {
           setOpenClock(false);
           setTime(selectedTime);
-          if (errors.dateTime)
-            setErrors((prev) => ({ ...prev, dateTime: undefined }));
+          if (errors.dateTime) setErrors((prev) => ({ ...prev, dateTime: undefined }));
         }}
         onCancel={() => setOpenClock(false)}
       />
 
-      <ScrollView
-        ref={scrollRef}
-        keyboardShouldPersistTaps="handled"
-        contentContainerStyle={styles.scrollContent}
-      >
+      <ScrollView ref={scrollRef} keyboardShouldPersistTaps="handled" contentContainerStyle={styles.scrollContent}>
         <View style={styles.titleRow}>
-          <TouchableOpacity
-            onPress={() => router.navigate("/(tabs)/profileReportHistory")}
-            activeOpacity={0.6}
-            style={styles.titleBackButton}
-          >
+          <TouchableOpacity onPress={handleBack} activeOpacity={0.6} style={styles.titleBackButton}>
             <MaterialIcons name="arrow-back" size={24} color={AppColors.surface} />
           </TouchableOpacity>
-          <Text style={styles.title}>
-            {isViewOnly ? "Report Details" : "Edit Lost Item Report"}
-          </Text>
+          <Text style={styles.title}>{isViewOnly ? "Report Details" : "Edit Lost Item Report"}</Text>
         </View>
         <Text style={styles.subTitle}>When & Where</Text>
 
         <Text style={styles.sectionTitle}>Date Lost</Text>
-        <TouchableOpacity
-          onPress={() => setOpenCalendar(true)}
-          activeOpacity={isViewOnly ? 1 : 0.8}
-          disabled={isViewOnly}
-        >
-          <View
-            style={[
-              styles.dataPickerButton,
-            ]}
-          >
-            <Text style={styles.pickerValueText}>
-              {date.toLocaleDateString()}
-            </Text>
-            {!isViewOnly && (
-              <MaterialIcons
-                name="calendar-month"
-                size={24}
-                color={AppColors.background}
-              />
-            )}
+        <TouchableOpacity onPress={() => setOpenCalendar(true)} activeOpacity={isViewOnly ? 1 : 0.8} disabled={isViewOnly}>
+          <View style={styles.dataPickerButton}>
+            <Text style={styles.pickerValueText}>{date.toLocaleDateString()}</Text>
+            {!isViewOnly && <MaterialIcons name="calendar-month" size={24} color={AppColors.background} />}
           </View>
         </TouchableOpacity>
 
         <Text style={styles.sectionTitle}>Time Lost</Text>
-        <TouchableOpacity
-          onPress={() => setOpenClock(true)}
-          activeOpacity={isViewOnly ? 1 : 0.8}
-          disabled={isViewOnly}
-        >
-          <View
-            style={[
-              styles.dataPickerButton,
-            ]}
-          >
-            <Text style={styles.pickerValueText}>
-              {time.toLocaleTimeString([], {
-                hour: "2-digit",
-                minute: "2-digit",
-              })}
-            </Text>
-            {!isViewOnly && (
-              <MaterialIcons
-                name="access-time"
-                size={24}
-                color={AppColors.background}
-              />
-            )}
+        <TouchableOpacity onPress={() => setOpenClock(true)} activeOpacity={isViewOnly ? 1 : 0.8} disabled={isViewOnly}>
+          <View style={styles.dataPickerButton}>
+            <Text style={styles.pickerValueText}>{time.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</Text>
+            {!isViewOnly && <MaterialIcons name="access-time" size={24} color={AppColors.background} />}
           </View>
         </TouchableOpacity>
         <FieldError message={errors.dateTime} />
@@ -646,129 +584,47 @@ export default function ProfileReportHistoryEditNext() {
         <Text style={styles.sectionTitle}>Select Location</Text>
 
         <View style={styles.dropdownMainContainer}>
-          <TouchableOpacity
-            onPress={handleMainLocationPress}
-            activeOpacity={0.9}
-          >
-            <View
-              style={[
-                styles.dataPickerButton,
-                styles.locationMainSelector,
-                showLocation && styles.dataPickerButtonActive,
-                errors.location && !showLocation && styles.inputErrorBorder,
-              ]}
-            >
+          <TouchableOpacity onPress={handleMainLocationPress} activeOpacity={0.9}>
+            <View style={[styles.dataPickerButton, styles.locationMainSelector, showLocation && styles.dataPickerButtonActive, errors.location && !showLocation && styles.inputErrorBorder]}>
               <Text style={styles.selectLocationLabel}>Select Location</Text>
               <Animated.View style={mainAnimatedStyle}>
-                <MaterialIcons
-                  name="keyboard-arrow-down"
-                  size={24}
-                  color={showLocation ? "#900014" : AppColors.background}
-                />
+                <MaterialIcons name="keyboard-arrow-down" size={24} color={showLocation ? "#900014" : AppColors.background} />
               </Animated.View>
             </View>
           </TouchableOpacity>
 
           {showLocation && (
             <View style={styles.integratedMenuBlock}>
-              <NestedDropdownHeader
-                title="College Buildings"
-                isOpen={openSubSection === "colleges"}
-                disabled={cantRemember}
-                onPress={() => toggleSubSection("colleges")}
-              />
+              <NestedDropdownHeader title="College Buildings" isOpen={openSubSection === "colleges"} disabled={cantRemember} onPress={() => toggleSubSection("colleges")} />
               {openSubSection === "colleges" && (
                 <View style={styles.nestedCheckboxList}>
                   {formatDataList(collegesList).map((item, idx) => (
-                    <CustomCheckbox
-                      key={`college-${idx}`}
-                      label={item}
-                      value={selectedColleges.includes(item)}
-                      disabled={isViewOnly}
-                      onValueChange={() =>
-                        handleLocationSelectionChange(
-                          selectedColleges,
-                          setSelectedColleges,
-                        )(item)
-                      }
-                    />
+                    <CustomCheckbox key={`college-${idx}`} label={item} value={selectedColleges.includes(item)} disabled={isViewOnly} onValueChange={() => handleLocationSelectionChange(selectedColleges, setSelectedColleges)(item)} />
                   ))}
                 </View>
               )}
 
-              <NestedDropdownHeader
-                title="Shared Student Spaces"
-                isOpen={openSubSection === "spaces"}
-                disabled={cantRemember}
-                onPress={() => toggleSubSection("spaces")}
-              />
+              <NestedDropdownHeader title="Shared Student Spaces" isOpen={openSubSection === "spaces"} disabled={cantRemember} onPress={() => toggleSubSection("spaces")} />
               {openSubSection === "spaces" && (
                 <View style={styles.nestedCheckboxList}>
                   {formatDataList(spacesList).map((item, idx) => (
-                    <CustomCheckbox
-                      key={`space-${idx}`}
-                      label={item}
-                      value={selectedSpaces.includes(item)}
-                      disabled={isViewOnly}
-                      onValueChange={() =>
-                        handleLocationSelectionChange(
-                          selectedSpaces,
-                          setSelectedSpaces,
-                        )(item)
-                      }
-                    />
+                    <CustomCheckbox key={`space-${idx}`} label={item} value={selectedSpaces.includes(item)} disabled={isViewOnly} onValueChange={() => handleLocationSelectionChange(selectedSpaces, setSelectedSpaces)(item)} />
                   ))}
                 </View>
               )}
 
-              <NestedDropdownHeader
-                title="Gates"
-                isOpen={openSubSection === "gates"}
-                disabled={cantRemember}
-                onPress={() => toggleSubSection("gates")}
-              />
+              <NestedDropdownHeader title="Gates" isOpen={openSubSection === "gates"} disabled={cantRemember} onPress={() => toggleSubSection("gates")} />
               {openSubSection === "gates" && (
                 <View style={styles.nestedCheckboxList}>
                   {formatDataList(gatesList).map((item, idx) => (
-                    <CustomCheckbox
-                      key={`gate-${idx}`}
-                      label={item}
-                      value={selectedGates.includes(item)}
-                      disabled={isViewOnly}
-                      onValueChange={() =>
-                        handleLocationSelectionChange(
-                          selectedGates,
-                          setSelectedGates,
-                        )(item)
-                      }
-                    />
+                    <CustomCheckbox key={`gate-${idx}`} label={item} value={selectedGates.includes(item)} disabled={isViewOnly} onValueChange={() => handleLocationSelectionChange(selectedGates, setSelectedGates)(item)} />
                   ))}
                 </View>
               )}
 
-              <TouchableOpacity
-                style={[styles.nestedHeader, styles.cantRememberRow]}
-                onPress={handleCantRememberChange}
-                activeOpacity={0.7}
-                disabled={isViewOnly}
-              >
-                <Text
-                  style={[
-                    styles.nestedHeaderTitle,
-                    isViewOnly && styles.disabledText,
-                  ]}
-                >
-                  Can't Remember
-                </Text>
-                <MaterialIcons
-                  name={
-                    cantRemember
-                      ? "radio-button-checked"
-                      : "radio-button-unchecked"
-                  }
-                  size={22}
-                  color="#900014"
-                />
+              <TouchableOpacity style={[styles.nestedHeader, styles.cantRememberRow]} onPress={handleCantRememberChange} activeOpacity={0.7} disabled={isViewOnly}>
+                <Text style={[styles.nestedHeaderTitle, isViewOnly && styles.disabledText]}>Can't Remember</Text>
+                <MaterialIcons name={cantRemember ? "radio-button-checked" : "radio-button-unchecked"} size={22} color="#900014" />
               </TouchableOpacity>
             </View>
           )}
@@ -778,17 +634,11 @@ export default function ProfileReportHistoryEditNext() {
         {!isViewOnly && (
           <View style={styles.infoCard}>
             <View style={styles.infoTitleRow}>
-              <Feather
-                name="info"
-                size={20}
-                color="#000000"
-                style={styles.infoIcon}
-              />
+              <Feather name="info" size={20} color="#000000" style={styles.infoIcon} />
               <Text style={styles.infoTitle}>What happens next?</Text>
             </View>
             <Text style={styles.infoBody}>
-              We’ll check for matching found items and notify you if we find a
-              potential match. You’ll receive updates via the notification bell.
+              We’ll check for matching found items and notify you if we find a potential match. You’ll receive updates via the notification bell.
             </Text>
           </View>
         )}
@@ -797,43 +647,17 @@ export default function ProfileReportHistoryEditNext() {
           <Text style={styles.pageIndicator}>Page 2 out of 2</Text>
           <View style={styles.buttonSection}>
             {isViewOnly ? (
-              <TouchableOpacity
-                style={styles.cancelButton}
-                onPress={() =>
-                  router.navigate({
-                    pathname: "/(tabs)/profileReportHistoryEdit",
-                    params: {
-                      report: reportParam,
-                      viewOnly: "true",
-                    },
-                  })
-                }
-              >
+              <TouchableOpacity style={styles.cancelButton} onPress={() => router.navigate({ pathname: "/(tabs)/profileReportHistoryEdit", params: { report: reportParam, viewOnly: "true" } })}>
                 <Text style={styles.backButtonText}>Back to Page 1</Text>
               </TouchableOpacity>
             ) : (
               <>
-                <TouchableOpacity
-                  style={styles.cancelButton}
-                  disabled={isSubmitting}
-                  onPress={handleBack}
-                >
+                <TouchableOpacity style={styles.cancelButton} disabled={isSubmitting} onPress={handleBack}>
                   <Text style={styles.backButtonText}>Back to Page 1</Text>
                 </TouchableOpacity>
 
-                <TouchableOpacity
-                  style={[
-                    styles.submitButton,
-                    isSubmitting && styles.submitButtonDisabled,
-                  ]}
-                  onPress={handleSubmit}
-                  disabled={isSubmitting}
-                >
-                  {isSubmitting ? (
-                    <ActivityIndicator color={AppColors.surface} />
-                  ) : (
-                    <Text style={styles.submitButtonText}>Confirm</Text>
-                  )}
+                <TouchableOpacity style={[styles.submitButton, isSubmitting && styles.submitButtonDisabled]} onPress={handleSubmit} disabled={isSubmitting}>
+                  {isSubmitting ? <ActivityIndicator color={AppColors.surface} /> : <Text style={styles.submitButtonText}>Confirm</Text>}
                 </TouchableOpacity>
               </>
             )}
@@ -846,176 +670,41 @@ export default function ProfileReportHistoryEditNext() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#FFF1E0" },
-  loadingScreen: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: "#FFF1E0",
-  },
+  loadingScreen: { flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#FFF1E0" },
   scrollContent: { flexGrow: 1, paddingBottom: 48 },
-  title: {
-    backgroundColor: AppColors.background,
-    fontSize: 22,
-    fontWeight: "700",
-    color: AppColors.surface,
-    paddingVertical: 20,
-    paddingRight: 20,
-    paddingLeft: 8,
-    flex: 1,
-  },
-  titleRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: AppColors.background,
-  },
-  titleBackButton: {
-    paddingLeft: 16,
-    paddingVertical: 20,
-  },
-  subTitle: {
-    borderBottomWidth: 1,
-    borderColor: "#000000",
-    fontSize: 17,
-    fontWeight: "900",
-    color: AppColors.textOnLight,
-    padding: 20,
-    paddingLeft: 10,
-    paddingBottom: 15,
-    marginHorizontal: 10,
-    marginBottom: 20,
-  },
-  nextSection: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginHorizontal: 20,
-    marginTop: 20,
-    paddingVertical: 24,
-    borderTopWidth: 1,
-    borderColor: "rgba(0, 0, 0, 0.15)",
-    alignItems: "center",
-    flexWrap: "wrap",
-    gap: 12,
-  },
+  title: { backgroundColor: AppColors.background, fontSize: 22, fontWeight: "700", color: AppColors.surface, paddingVertical: 20, paddingRight: 20, paddingLeft: 8, flex: 1 },
+  titleRow: { flexDirection: "row", alignItems: "center", backgroundColor: AppColors.background },
+  titleBackButton: { paddingLeft: 16, paddingVertical: 20 },
+  subTitle: { borderBottomWidth: 1, borderColor: "#000000", fontSize: 17, fontWeight: "900", color: AppColors.textOnLight, padding: 20, paddingLeft: 10, paddingBottom: 15, marginHorizontal: 10, marginBottom: 20 },
+  nextSection: { flexDirection: "row", justifyContent: "space-between", marginHorizontal: 20, marginTop: 20, paddingVertical: 24, borderTopWidth: 1, borderColor: "rgba(0, 0, 0, 0.15)", alignItems: "center", flexWrap: "wrap", gap: 12 },
   pageIndicator: { fontSize: 15, fontWeight: "500", color: "#212121" },
-  submitButton: {
-    paddingVertical: 12,
-    paddingHorizontal: 26,
-    backgroundColor: AppColors.background, 
-    borderRadius: 14,
-    minWidth: 100,
-    alignItems: "center",
-  },
+  submitButton: { paddingVertical: 12, paddingHorizontal: 26, backgroundColor: AppColors.background, borderRadius: 14, minWidth: 100, alignItems: "center" },
   submitButtonDisabled: { opacity: 0.7 },
-  cancelButton: {
-    paddingVertical: 12,
-    paddingHorizontal: 28,
-    backgroundColor: "transparent",
-    borderRadius: 14,
-    borderWidth: 1.5,
-    borderColor: "#900014",
-  },
+  cancelButton: { paddingVertical: 12, paddingHorizontal: 28, backgroundColor: "transparent", borderRadius: 14, borderWidth: 1.5, borderColor: "#900014" },
   submitButtonText: { color: "#FFFFFF", fontSize: 15, fontWeight: "500" },
   backButtonText: { color: "#900014", fontSize: 15, fontWeight: "500" },
   buttonSection: { gap: 10, flexDirection: "row" },
-  sectionTitle: {
-    fontSize: 17,
-    fontWeight: "800",
-    color: AppColors.textOnLight,
-    paddingLeft: 20,
-    marginTop: 20,
-    marginBottom: 8,
-  },
-  dataPickerButton: {
-    justifyContent: "space-between",
-    alignItems: "center",
-    flexDirection: "row",
-    marginHorizontal: 20,
-    marginBottom: 10,
-    padding: 14,
-    backgroundColor: "#fff",
-    borderWidth: 1,
-    borderColor: "#E0E0E0",
-    borderRadius: 6,
-  },
+  sectionTitle: { fontSize: 17, fontWeight: "800", color: AppColors.textOnLight, paddingLeft: 20, marginTop: 20, marginBottom: 8 },
+  dataPickerButton: { justifyContent: "space-between", alignItems: "center", flexDirection: "row", marginHorizontal: 20, marginBottom: 10, padding: 14, backgroundColor: "#fff", borderWidth: 1, borderColor: "#E0E0E0", borderRadius: 6 },
   pickerValueText: { fontSize: 15, color: "#333" },
   locationMainSelector: { marginHorizontal: 0, marginBottom: 0 },
-  dataPickerButtonActive: {
-    backgroundColor: "#FFFFFF",
-    borderBottomLeftRadius: 0,
-    borderBottomRightRadius: 0,
-    borderBottomWidth: 0,
-  },
+  dataPickerButtonActive: { backgroundColor: "#FFFFFF", borderBottomLeftRadius: 0, borderBottomRightRadius: 0, borderBottomWidth: 0 },
   selectLocationLabel: { fontWeight: "600", fontSize: 15, color: "#A2938A" },
   inputErrorBorder: { borderWidth: 1, borderColor: "#C62828" },
-  dropdownMainContainer: {
-    marginHorizontal: 20,
-    boxShadow: "0px 2px 4px rgba(0,0,0,0.06)",
-  },
-  integratedMenuBlock: {
-    backgroundColor: "#FFFFFF",
-    borderLeftWidth: 1,
-    borderRightWidth: 1,
-    borderBottomWidth: 1,
-    borderColor: "#E0E0E0",
-    borderBottomLeftRadius: 6,
-    borderBottomRightRadius: 6,
-    marginTop: 0,
-  },
-  nestedHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    borderTopWidth: 1,
-    borderColor: "#EEEEEE",
-    backgroundColor: "#FFFFFF",
-  },
+  dropdownMainContainer: { marginHorizontal: 20, boxShadow: "0px 2px 4px rgba(0,0,0,0.06)" },
+  integratedMenuBlock: { backgroundColor: "#FFFFFF", borderLeftWidth: 1, borderRightWidth: 1, borderBottomWidth: 1, borderColor: "#E0E0E0", borderBottomLeftRadius: 6, borderBottomRightRadius: 6, marginTop: 0 },
+  nestedHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingVertical: 14, paddingHorizontal: 16, borderTopWidth: 1, borderColor: "#EEEEEE", backgroundColor: "#FFFFFF" },
   nestedHeaderDisabled: { opacity: 0.5 },
   nestedHeaderTitle: { fontSize: 15, fontWeight: "600", color: "#212121" },
   cantRememberRow: { borderBottomLeftRadius: 6, borderBottomRightRadius: 6 },
-  nestedCheckboxList: {
-    backgroundColor: "#F9F9F9",
-    paddingVertical: 6,
-    borderTopWidth: 1,
-    borderColor: "#EEEEEE",
-  },
-  checkboxContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 10,
-    paddingHorizontal: 24,
-  },
+  nestedCheckboxList: { backgroundColor: "#F9F9F9", paddingVertical: 6, borderTopWidth: 1, borderColor: "#EEEEEE" },
+  checkboxContainer: { flexDirection: "row", alignItems: "center", paddingVertical: 10, paddingHorizontal: 24 },
   checkboxLabel: { marginLeft: 12, fontSize: 15, color: "#212121" },
   disabledText: { color: "#A0A0A0" },
-  fieldError: {
-    color: "#C62828",
-    fontSize: 13,
-    marginHorizontal: 20,
-    marginTop: 4,
-    marginBottom: 8,
-  },
-  infoCard: {
-    backgroundColor: "#E3D5CA",
-    borderRadius: 8,
-    padding: 16,
-    marginHorizontal: 20,
-    marginTop: 28,
-    marginBottom: 12,
-    boxShadow: "0px 1px 3px rgba(0,0,0,0.05)",
-  },
-  infoTitleRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 10,
-  },
+  fieldError: { color: '#C62828', fontSize: 13, marginHorizontal: 20, marginTop: 4, marginBottom: 8 },
+  infoCard: { backgroundColor: "#E3D5CA", borderRadius: 8, padding: 16, marginHorizontal: 20, marginTop: 28, marginBottom: 12, boxShadow: "0px 1px 3px rgba(0,0,0,0.05)" },
+  infoTitleRow: { flexDirection: "row", alignItems: "center", marginBottom: 10 },
   infoIcon: { marginRight: 8 },
   infoTitle: { fontSize: 16, fontWeight: "bold", color: "#000000" },
-  infoBody: {
-    fontSize: 14,
-    color: AppColors.activeIcon,
-    lineHeight: 20,
-    fontWeight: "400",
-    paddingLeft: 28,
-  },
+  infoBody: { fontSize: 14, color: AppColors.activeIcon, lineHeight: 20, fontWeight: "400", paddingLeft: 28 },
 });

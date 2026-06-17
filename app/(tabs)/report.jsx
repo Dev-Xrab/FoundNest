@@ -1,3 +1,4 @@
+import ChangePhotoModal from "@/components/InsertEditImage"; 
 import AppColors from "@/constants/AppColors";
 import { getCategories, matchCategoryFromAi } from "@/constants/category";
 import { DescribeItem } from "@/constants/geminiAI";
@@ -36,6 +37,7 @@ export default function Report() {
   const [isLoading, setIsLoading] = useState(false);
   const [categories, setCategories] = useState([]);
   const [errors, setErrors] = useState({});
+  const [modalVisible, setModalVisible] = useState(false); // 👈 MODAL STATE
   const router = useRouter();
 
   const categoryDropdownData = categories.map((cat) => ({
@@ -82,62 +84,52 @@ export default function Report() {
     }
   };
 
-  const handleImagePickOptions = () => {
-    Alert.alert("Upload Item Photo", "Choose a source for your photo:", [
-      {
-        text: "Use Camera",
-        onPress: async () => {
-          const permissionResult =
-            await ImagePicker.requestCameraPermissionsAsync();
-          if (!permissionResult.granted) {
-            Alert.alert(
-              "Permission Denied",
-              "You need to allow camera access to take photos.",
-            );
-            return;
-          }
+  // ── RECONFIGURED IMAGE PICKING WORKFLOWS ──
+  const handleTakePhoto = async () => {
+    setModalVisible(false);
+    const permissionResult = await ImagePicker.requestCameraPermissionsAsync();
+    if (!permissionResult.granted) {
+      Alert.alert("Permission Denied", "You need to allow camera access to take photos.");
+      return;
+    }
 
-          const result = await ImagePicker.launchCameraAsync({
-            allowsEditing: false,
-            aspect: [4, 3],
-            quality: 0.8,
-          });
+    const result = await ImagePicker.launchCameraAsync({
+      allowsEditing: false,
+      aspect: [4, 3],
+      quality: 0.8,
+    });
 
-          if (!result.canceled) {
-            const uri = result.assets[0].uri;
-            setSelectedImage(uri);
-            analyzeImage(uri);
-          }
-        },
-      },
-      {
-        text: "Pick from Gallery",
-        onPress: async () => {
-          const permissionResult =
-            await ImagePicker.requestMediaLibraryPermissionsAsync();
-          if (!permissionResult.granted) {
-            Alert.alert(
-              "Permission Denied",
-              "You need to allow library access to select files.",
-            );
-            return;
-          }
+    if (!result.canceled) {
+      const uri = result.assets[0].uri;
+      setSelectedImage(uri);
+      analyzeImage(uri);
+    }
+  };
 
-          const result = await ImagePicker.launchImageLibraryAsync({
-            allowsEditing: false,
-            aspect: [4, 3],
-            quality: 0.8,
-          });
+  const handleChooseFromLibrary = async () => {
+    setModalVisible(false);
+    const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permissionResult.granted) {
+      Alert.alert("Permission Denied", "You need to allow library access to select files.");
+      return;
+    }
 
-          if (!result.canceled) {
-            const uri = result.assets[0].uri;
-            setSelectedImage(uri);
-            analyzeImage(uri);
-          }
-        },
-      },
-      { text: "Cancel", style: "cancel" },
-    ]);
+    const result = await ImagePicker.launchImageLibraryAsync({
+      allowsEditing: false,
+      aspect: [4, 3],
+      quality: 0.8,
+    });
+
+    if (!result.canceled) {
+      const uri = result.assets[0].uri;
+      setSelectedImage(uri);
+      analyzeImage(uri);
+    }
+  };
+
+  const handleRemovePhoto = () => {
+    setModalVisible(false);
+    setSelectedImage(null);
   };
 
   const handleNext = () => {
@@ -181,6 +173,16 @@ export default function Report() {
       behavior={Platform.OS === "ios" ? "padding" : "height"}
       style={styles.screenContainer}
     >
+      {/* ── MODAL MOUNTED HERE ── */}
+      <ChangePhotoModal
+        visible={modalVisible}
+        hasPhoto={!!selectedImage}
+        onTakePhoto={handleTakePhoto}
+        onChooseFromLibrary={handleChooseFromLibrary}
+        onRemovePhoto={handleRemovePhoto}
+        onClose={() => setModalVisible(false)}
+      />
+
       <ScrollView contentContainerStyle={styles.container}>
         <Text style={styles.title}>Lost Item Report Form</Text>
         <Text style={styles.subTitle}>Item Description</Text>
@@ -190,7 +192,7 @@ export default function Report() {
             <TouchableOpacity
               style={styles.uploadTarget}
               activeOpacity={0.7}
-              onPress={handleImagePickOptions}
+              onPress={() => setModalVisible(true)} // 👈 OPEN MODAL ON CLICK
               disabled={isLoading}
             >
               {isLoading ? (
@@ -324,6 +326,7 @@ export default function Report() {
   );
 }
 
+// ... your exact original styles remain identical below
 const styles = StyleSheet.create({
   container: {
     flexGrow: 1,
@@ -431,9 +434,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: AppColors.textOnLight,
   },
-
-  // --- BEGINNER SIMPLIFIED CONTAINER STYLE ---
-  // We remove left/right/width variables and let the internal layout mirror your marginHorizontal: 20
   categoryDropdownContainer: {
     backgroundColor: "#FFFFFF",
     borderRadius: 8,

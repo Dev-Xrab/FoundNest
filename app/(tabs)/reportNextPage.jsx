@@ -225,7 +225,8 @@ export default function ReportNextPage() {
         gates: selectedGates,
       });
 
-      await submitLostReport({
+      // Execute your standard creation submission handler
+      const response = await submitLostReport({
         imageUri: draft.imageUri,
         itemName: draft.itemName,
         description: draft.description,
@@ -236,12 +237,28 @@ export default function ReportNextPage() {
         timeLost: time,
       });
 
+      // Package the data exactly how your edit form expects it to be parsed
+      const fallbackReportPackage = {
+        lost_report_id: response?.id || response?.lost_report_id || "", // Fallback if your utility returns the new row ID
+        item_name: draft.itemName,
+        description: draft.description,
+        contents: draft.contents,
+        category_id: draft.categoryId,
+        location_lost: locationLost, 
+        lost_date: date.toISOString(),
+        lost_item_image: draft.imageUri || null,
+        matches: [],
+      };
+
       clearReportDraft();
-      Alert.alert(
-        "Report submitted",
-        "Your lost item report was sent successfully.",
-        [{ text: "OK", onPress: () => router.replace("/(tabs)/") }],
-      );
+
+      router.replace({
+        pathname: "/(tabs)/reportSuccess",
+        params: {
+          source: "create", 
+          reportObject: JSON.stringify(fallbackReportPackage), // 👈 Pass the object package forward!
+        },
+      });
     } catch (error) {
       console.error("Submit lost report:", error);
       Alert.alert(

@@ -15,21 +15,33 @@ export default function ReportSuccess() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
 
-  const { source } = useLocalSearchParams();
+  // Extract navigation parameters
+  const { source, reportObject } = useLocalSearchParams();
   const isEdit = source === 'edit';
 
   const handleEditPress = () => {
+    if (!reportObject) {
+      // Direct global safety fallback if params are empty
+      router.navigate('/(tabs)/profileReportHistory');
+      return;
+    }
+
     if (isEdit) {
-      router.navigate('/(tabs)/profileReportHistoryEdit');
-    } else {
-      router.navigate('/(tabs)/report');
+      // ── Scenario A: Return to Edit Flow ──
+      router.navigate({
+        pathname: '/(tabs)/profileReportHistoryEdit',
+        params: {
+          report: reportObject, 
+          editSession: Date.now()
+        }
+      });
     }
   };
 
   return (
     <View style={[styles.screen, { paddingTop: insets.top }]}>
 
-      {/* ── Top row: heart + title/subtitle ── */}
+      {/* ── Top row: heart + dynamic headers ── */}
       <View style={styles.topRow}>
         <Image
           source={require('@/assets/images/happy-heart.png')}
@@ -49,7 +61,7 @@ export default function ReportSuccess() {
         </View>
       </View>
 
-      {/* ── Card: what happens next + actions ── */}
+      {/* ── Card: dynamic text point markers ── */}
       <View style={styles.card}>
         <Text style={styles.cardTitle}>What happens next?</Text>
 
@@ -75,29 +87,33 @@ export default function ReportSuccess() {
           </Text>
         </View>
 
-        {/* ── Horizontal rule ── */}
+        {/* ── Horizontal divider rule ── */}
         <View style={styles.actionSeparator} />
 
-        {/* ── Action buttons inside the card ── */}
-        <View style={styles.actions}>
-          <TouchableOpacity
-            activeOpacity={0.4}
-            onPress={handleEditPress}
-            style={styles.editButton}
-          >
-            <MaterialCommunityIcons
-              name="pencil-outline"
-              size={14}
-              color={AppColors.primary ?? AppColors.background}
-            />
-            <Text style={styles.editButtonText}>  Edit Report</Text>
-          </TouchableOpacity>
+        {/* ── Unified Layout Actions ── */}
+        <View style={[styles.actions, !isEdit && styles.actionsCentered]}>
+          {isEdit && (
+            <TouchableOpacity
+              activeOpacity={0.4}
+              onPress={handleEditPress}
+              style={styles.editButton}
+            >
+              <MaterialCommunityIcons
+                name="pencil-outline"
+                size={14}
+                color={AppColors.primary ?? AppColors.background}
+              />
+              <Text style={styles.editButtonText}>  Edit Report</Text>
+            </TouchableOpacity>
+          )}
 
           <TouchableOpacity
             activeOpacity={0.4}
             onPress={() => router.replace('/(tabs)/profileReportHistory')}
           >
-            <Text style={styles.historyButtonText}>Report History  →</Text>
+            <Text style={styles.historyButtonText}>
+              {isEdit ? 'Report History  →' : 'View Report History  →'}
+            </Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -113,8 +129,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     justifyContent: 'center',
   },
-
-  // ── Top row
   topRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -140,8 +154,6 @@ const styles = StyleSheet.create({
     color: 'rgba(255,255,255,0.85)',
     lineHeight: 20,
   },
-
-  // ── Card
   card: {
     backgroundColor: '#FFFFFF',
     borderRadius: 16,
@@ -170,8 +182,6 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     textAlign: 'justify',
   },
-
-  // ── Actions (inside card)
   actionSeparator: {
     height: 1,
     backgroundColor: 'rgba(0,0,0,0.08)',
@@ -182,6 +192,11 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginTop: 16,
     paddingHorizontal: 4,
+    alignItems: 'center',
+  },
+  actionsCentered: {
+    justifyContent: 'center',
+    paddingVertical: 4,
   },
   editButton: {
     flexDirection: 'row',
