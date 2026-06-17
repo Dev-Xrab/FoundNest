@@ -101,6 +101,7 @@ export default function LoginScreen() {
       }
 
       await saveSession(data.accessToken, data.user, rememberMe, data.refreshToken);
+      console.log('[Login] refreshToken saved:', data.refreshToken ? 'YES' : 'NO'); // Temporarily log this to verify it's being saved correctly
       router.replace('/(tabs)');
 
     } catch (error) {
