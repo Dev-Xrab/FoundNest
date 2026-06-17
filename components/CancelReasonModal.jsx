@@ -3,7 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 const REASONS = [
-  'I found it myself!',
+  'I found it myself.',
   "I'm no longer looking for it.",
   'I duplicated a report.',
 ];
