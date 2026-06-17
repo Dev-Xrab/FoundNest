@@ -4,6 +4,7 @@ import { clearSavedEmail, getSavedEmail, saveEmail, saveSession } from "@/consta
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
+import { StatusBar } from "expo-status-bar"; 
 import {
   ActivityIndicator,
   Image,
@@ -121,6 +122,7 @@ export default function LoginScreen() {
       enableOnAndroid={true}
       extraScrollHeight={20}
     >
+      <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
       {/* TOP — white section with illustration */}
       <View style={styles.topSection}>
         <Image

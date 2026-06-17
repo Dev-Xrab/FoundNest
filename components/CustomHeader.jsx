@@ -3,6 +3,7 @@ import { useRouter } from "expo-router";
 import React, { useEffect, useState } from "react";
 import { Image, Pressable, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import {StatusBar} from "expo-status-bar"
 
 // Imports needed for your API logic
 import FoundNestLogo from "@/assets/images/app-logo.png";
@@ -53,6 +54,7 @@ export default function CustomHeader({ title }) {
 
   return (
     <View style={[styles.wrapper, { paddingTop: insets.top }]}>
+       <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
       <View style={styles.bar}>
         <View style={styles.logoContainer}>
           <Image
