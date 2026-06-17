@@ -1,7 +1,7 @@
 import AppColors from "@/constants/AppColors";
 import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Image,
   Modal,
@@ -31,8 +31,14 @@ const ItemDetails = () => {
     );
   }
 
+  useEffect(()=>{
+    console.log(`Data: ${item}`)
+  })
+
   return (
+    
     <View style={styles.container}>
+      
       <View style={[styles.header, { paddingTop: insets.top }]}>
         <View style={styles.headerRow}>
           <TouchableOpacity
@@ -65,6 +71,11 @@ const ItemDetails = () => {
           <Text style={styles.itemTitle}>{item.title}</Text>
 
           <View style={styles.divider} />
+
+          <View style={styles.infoBlock}>
+            <Text style={styles.label}>ITEM ID</Text>
+            <Text style={styles.value}>SI-{item.id.padStart(5,"0")}</Text>
+          </View>
 
           <View style={styles.infoBlock}>
             <Text style={styles.label}>Category</Text>

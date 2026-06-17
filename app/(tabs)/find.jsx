@@ -86,7 +86,7 @@ const Find = () => {
       id: "college",
       title: "College Buildings",
       items: bulsuColleges
-        .map((c) => (c && typeof c === "object" ? c.office_name : c))
+        .map((c) => (c && typeof c === "object" ? c.office_id : c))
         .filter(Boolean),
     },
     {

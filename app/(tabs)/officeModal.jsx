@@ -20,32 +20,47 @@ function OfficeBanner({ office }) {
   const [imageFailed, setImageFailed] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
-  const imageUri =
-    typeof office.image === "string" ? office.image.trim() : null;
-  const localImage = typeof office.image === "number" ? office.image : null;
+  // Fallback checks
+  const imageUri = typeof office.image_url === "string" ? office.image_url.trim() : null;
+  const localImage = typeof office.image=== "number" ? office.image : null;
 
   useEffect(() => {
     setImageFailed(false);
     setIsLoading(true);
   }, [office.office_id, imageUri, localImage]);
 
-  const showImage = (localImage != null || Boolean(imageUri)) && !imageFailed;
+  const showImage = (localImage !== null || Boolean(imageUri)) && !imageFailed;
 
   return (
     <View style={styles.imageBanner}>
       {showImage ? (
-        <>
+        <View style={StyleSheet.absoluteFillObject}>
           <Image
-            source={localImage != null ? localImage : { uri: imageUri }}
+            source={localImage !== null ? 
+              localImage : 
+              { uri: imageUri, 
+                headers: {
+                "User-Agent": "Mozilla/5.0 (Linux; Android 10; Mobile) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36"
+          }
+              }}
             style={styles.bannerImage}
             resizeMode="cover"
             onLoadStart={() => setIsLoading(true)}
             onLoadEnd={() => setIsLoading(false)}
-            onError={() => {
+            onError={(e) => {
+              console.log("Image load error:", e.nativeEvent.error); // Debug log
               setImageFailed(true);
               setIsLoading(false);
             }}
           />
+          
+          {/* Text Overlay sits on top of the image */}
+          <View style={styles.imageOverlay}>
+            <Text style={styles.imageTextHeader}>{office.floor}</Text>
+            <Text style={styles.imageTextSub}>Hours: {office.operating_hours}</Text>
+          </View>
+
+          {/* Loading Overlay is placed last so it sits on top of EVERYTHING while active */}
           {isLoading && (
             <View style={styles.loadingOverlay}>
               <ActivityIndicator
@@ -54,7 +69,7 @@ function OfficeBanner({ office }) {
               />
             </View>
           )}
-        </>
+        </View>
       ) : (
         <View
           style={[
@@ -65,11 +80,6 @@ function OfficeBanner({ office }) {
           <Text style={styles.bannerFallbackAcronym}>No Image Available</Text>
         </View>
       )}
-
-      <View style={styles.imageOverlay}>
-        <Text style={styles.imageTextHeader}>{office.floor}</Text>
-        <Text style={styles.imageTextSub}>Hours: {office.operating_hours}</Text>
-      </View>
     </View>
   );
 }
@@ -205,9 +215,8 @@ export default function OfficeModal({ visible, onClose, office }) {
   };
 
   const headerTitle = office.office_name;
-  const subtitle = office.floor
-    ? `Location: ${office.floor}`
-    : "FoundNest Office";
+  
+  
 
   return (
     <Modal
@@ -234,9 +243,7 @@ export default function OfficeModal({ visible, onClose, office }) {
               <Text style={styles.headerTitle} numberOfLines={2}>
                 {headerTitle}
               </Text>
-              <Text style={styles.headerSubtitle} numberOfLines={1}>
-                {subtitle}
-              </Text>
+             
             </View>
             <TouchableOpacity onPress={onClose} style={styles.closeButton}>
               <Text style={styles.closeText}>✕</Text>
