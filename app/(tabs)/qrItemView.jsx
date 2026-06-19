@@ -106,18 +106,37 @@ export default function QrItemView() {
           value={item.contents}
         />
 
+        {/* VIEW QR — lets the owner pull up the QR code and download it */}
+        <View style={styles.divider} />
+        <TouchableOpacity
+          style={styles.viewQrButton}
+          onPress={() =>
+            router.navigate({
+              pathname: '/(tabs)/qrItemSuccess',
+              params: {
+                qr_data: item.qr_data ?? '',
+                itemName: item.item_name,
+                mode: 'view',
+                item: itemParam,
+                fromScan,
+              },
+            })
+          }
+          activeOpacity={0.8}
+        >
+          <Ionicons name="qr-code-outline" size={20} color="#FFFFFF" style={{ marginRight: 8 }} />
+          <Text style={styles.viewQrText}>View QR</Text>
+        </TouchableOpacity>
+
         {/* SCAN ANOTHER — only shown when navigated from the scanner */}
         {isFromScan && (
-          <>
-            <View style={styles.divider} />
-            <TouchableOpacity
-              style={styles.scanAnotherButton}
-              onPress={() => router.navigate('/(tabs)/qrItemScan')}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.scanAnotherText}>Scan Another Item</Text>
-            </TouchableOpacity>
-          </>
+          <TouchableOpacity
+            style={[styles.scanAnotherButton, { marginTop: 12 }]}
+            onPress={() => router.navigate('/(tabs)/qrItemScan')}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.scanAnotherText}>Scan Another Item</Text>
+          </TouchableOpacity>
         )}
       </ScrollView>
     </View>
@@ -231,6 +250,20 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   scanAnotherText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  viewQrButton: {
+    flexDirection: 'row',
+    width: '100%',
+    height: 52,
+    borderRadius: 12,
+    backgroundColor: AppColors.background,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  viewQrText: {
     fontSize: 15,
     fontWeight: '700',
     color: '#FFFFFF',

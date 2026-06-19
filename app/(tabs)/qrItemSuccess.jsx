@@ -13,16 +13,21 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import QRCode from 'react-native-qrcode-svg';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import ViewShot from 'react-native-view-shot';
 
 export default function QrItemSuccess() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { qr_data, itemName, mode } = useLocalSearchParams();
+  const { qr_data, itemName, mode, item, fromScan } = useLocalSearchParams();
   const isEditMode = mode === 'edit';
-  const bannerText = isEditMode ? 'Item Edited Successfully!' : 'Item Successfully Registered!';
+  const isViewMode = mode === 'view';
+  const bannerText = isViewMode
+    ? 'Your Item QR Code'
+    : isEditMode
+    ? 'Item Edited Successfully!'
+    : 'Item Successfully Registered!';
   const qrRef = useRef(null);
   const viewShotRef = useRef(null);
 
@@ -44,7 +49,12 @@ export default function QrItemSuccess() {
   };
 
   const handleBottomButton = () => {
-    if (isEditMode) {
+    if (isViewMode) {
+      router.navigate({
+        pathname: '/(tabs)/qrItemView',
+        params: { item, fromScan },
+      });
+    } else if (isEditMode) {
       router.replace('/(tabs)/qrItemList');
     } else {
       router.replace('/(tabs)/qrItemRegister');
@@ -59,7 +69,11 @@ export default function QrItemSuccess() {
       {/* SUCCESS BANNER */}
       <View style={styles.successBanner}>
         <View style={styles.checkCircle}>
-          <Ionicons name="checkmark" size={28} color={AppColors.background} />
+          <Ionicons
+            name={isViewMode ? 'qr-code-outline' : 'checkmark'}
+            size={28}
+            color={AppColors.background}
+          />
         </View>
         <Text style={styles.successText}>{bannerText}</Text>
       </View>
@@ -114,7 +128,7 @@ export default function QrItemSuccess() {
         activeOpacity={0.7}
       >
         <Text style={styles.registerAnotherText}>
-          {isEditMode ? 'Back to My Items' : 'Register Another Item'}
+          {isViewMode ? 'Close' : isEditMode ? 'Back to My Items' : 'Register Another Item'}
         </Text>
       </TouchableOpacity>
     </ScrollView>
