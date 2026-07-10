@@ -145,18 +145,21 @@ const Find = () => {
   }, []);
 
   // Fetch Reports
-  useEffect(() => {
-    const fetchReports = async () => {
-      try {
-        const response = await fetchWithAuth(
-          "https://foundnest-backend.onrender.com/api/found-reports",
-        );
-        const json = await response.json();
+useEffect(() => {
+  const fetchReports = async () => {
+    try {
+      const response = await fetchWithAuth(
+        "https://foundnest-backend.onrender.com/api/found-reports/public",
+      );
+      const json = await response.json();
 
-        console.log("=== 🛰️ RAW FETCHED FOUND-REPORTS API DATALOAD ===");
-        console.log(JSON.stringify(json, null, 2));
-        console.log("==================================================");
+      console.log("=== 🛰️ RAW FETCHED FOUND-REPORTS API DATALOAD ===");
+     
+      console.log(JSON.stringify(json, null, 2));
+      console.log("==================================================");
 
+      // check if json is an array before processing
+      if (Array.isArray(json)) {
         const formattedData = json.map((item) => ({
           id: item.found_report_id.toString(),
           title: item.item_name,
@@ -172,15 +175,19 @@ const Find = () => {
         }));
 
         setItems(formattedData);
-      } catch (error) {
-        console.error("Error fetching data:", error);
-      } finally {
-        if (loading) setLoading(false);
+      } else {
+        console.warn("Backend did not return an array. Check API endpoint error:", json.error || json);
+        setItems([]); 
       }
-    };
+    } catch (error) {
+      console.error("Error fetching data:", error);
+    } finally {
+      setLoading(false); // Make sure loader is always turned off
+    }
+  };
 
-    fetchReports();
-  }, []);
+  fetchReports();
+}, []);
 
   // MULTI-SELECT TOGGLE LOGIC: CATEGORIES
   const toggleCategory = (categoryClicked) => {
@@ -291,7 +298,7 @@ const Find = () => {
       style={styles.card}
       onPress={() => {
         router.push({
-          pathname: "/FoundItemDetails",
+          pathname: "/foundItemDetails",
           params: { itemString: JSON.stringify(item) },
         });
       }}

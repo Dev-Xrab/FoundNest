@@ -31,7 +31,7 @@ export default async function registerForPushNotificationsAsync() {
     // Gets the actual token
     token = (
       await Notifications.getExpoPushTokenAsync({
-        projectId: "5b513b9e-ddf8-47a2-b919-16c9c7e8e540", // Get this from your app.json / Expo dashboard
+        projectId: "5b513b9e-ddf8-47a2-b919-16c9c7e8e540",
       })
     ).data;
   } else {

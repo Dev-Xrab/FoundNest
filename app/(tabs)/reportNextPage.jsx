@@ -327,7 +327,10 @@ export default function ReportNextPage() {
               <Text style={styles.backButtonText}>Back</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity style={[styles.submitButton, isSubmitting && styles.submitButtonDisabled]} onPress={handleSubmit} disabled={isSubmitting}>
+            <TouchableOpacity 
+              style={[styles.submitButton, isSubmitting && styles.submitButtonDisabled]} 
+              onPress={handleSubmit} 
+              disabled={isSubmitting}>
               {isSubmitting ? <ActivityIndicator color={AppColors.surface} /> : <Text style={styles.submitButtonText}>Submit</Text>}
             </TouchableOpacity>
           </View>
@@ -345,7 +348,7 @@ const styles = StyleSheet.create({
   subTitle: { borderBottomWidth: 1, borderColor: "#000000", fontSize: 17, fontWeight: "900", color: AppColors.textOnLight, padding: 20, paddingLeft: 10, paddingBottom: 15, marginHorizontal: 10, marginBottom: 20 },
   nextSection: { flexDirection: "row", justifyContent: "space-between", marginHorizontal: 20, marginTop: 20, paddingVertical: 24, borderTopWidth: 1, borderColor: "rgba(0, 0, 0, 0.15)", alignItems: "center", flexWrap: "wrap", gap: 12 },
   pageIndicator: { fontSize: 15, fontWeight: "500", color: "#212121" },
-  submitButton: { paddingVertical: 12, paddingHorizontal: 26, backgroundColor: "#D37570", borderRadius: 14, minWidth: 100, alignItems: "center" },
+  submitButton: { paddingVertical: 12, paddingHorizontal: 26, backgroundColor: "#900014", borderRadius: 14, minWidth: 100, alignItems: "center" },
   submitButtonDisabled: { opacity: 0.7 },
   cancelButton: { paddingVertical: 12, paddingHorizontal: 28, backgroundColor: "transparent", borderRadius: 14, borderWidth: 1.5, borderColor: "#900014" },
   submitButtonText: { color: "#FFFFFF", fontSize: 15, fontWeight: "500" },
