@@ -263,7 +263,7 @@ function ReportCard({ report, onCancel, router }) {
       </TouchableOpacity>
 
       {/* ── Divider + View Matches toggle ── */}
-      {hasMatches && (
+      {hasMatches && !isCancelled && (
         <>
           <View style={styles.matchDividerLine} />
           <TouchableOpacity
@@ -284,7 +284,7 @@ function ReportCard({ report, onCancel, router }) {
       )}
 
       {/* ── Match cards (expanded) — 2-per-row grid ── */}
-      {expanded && (
+      {expanded && !isCancelled && (
         <View style={styles.matchGrid}>
           {report.matches.map((match, index) => (
             <MatchCard

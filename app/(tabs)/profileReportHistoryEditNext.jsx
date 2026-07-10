@@ -1,3 +1,4 @@
+import ConfirmDiscardModal from '@/components/ConfirmDiscardModal';
 import { API_BASE_URL } from "@/constants/api";
 import AppColors from "@/constants/AppColors";
 import { uploadWithAuth } from '@/constants/authApi';
@@ -198,6 +199,7 @@ export default function ProfileReportHistoryEditNext() {
   const [openCalendar, setOpenCalendar] = useState(false);
   const [openClock, setOpenClock] = useState(false);
   const [openSubSection, setOpenSubSection] = useState(null);
+  const [discardModalVisible, setDiscardModalVisible] = useState(false);
 
   const mainRotation = useSharedValue(0);
   const mainAnimatedStyle = useAnimatedStyle(() => ({
@@ -354,6 +356,63 @@ export default function ProfileReportHistoryEditNext() {
       : [];
   };
 
+  // True value comparison against the original report — covers this page's
+  // fields (location/date) plus whatever page 1 last committed to the draft.
+  const isSessionDirty = () => {
+    if (!draft) return false;
+
+    const originalReport = draft.reportParam
+      ? JSON.parse(draft.reportParam)
+      : (reportParam ? JSON.parse(reportParam) : {});
+
+    const originalCategoryId = originalReport.category_id ? String(originalReport.category_id) : '';
+    const originalItemName = (originalReport.item_name ?? '').trim();
+    const originalDescription = (originalReport.description ?? '').trim();
+    const originalContents = (originalReport.contents ?? '').trim();
+    const originalPhoto = originalReport.lost_item_image ?? null;
+
+    if ((draft.categoryId ?? '') !== originalCategoryId) return true;
+    if ((draft.itemName ?? '').trim() !== originalItemName) return true;
+    if ((draft.description ?? '').trim() !== originalDescription) return true;
+    if ((draft.contents ?? '').trim() !== originalContents) return true;
+
+    const draftPhoto = draft.isImageRemoved ? null : (draft.imageUri ?? draft.existingImageUrl ?? null);
+    if (draftPhoto !== originalPhoto) return true;
+
+    // Compare structured selections (not rebuilt strings) so formatting
+    // differences from the parse/build round trip never cause a false positive.
+    const sameItems = (a = [], b = []) => {
+      const sa = [...a].sort();
+      const sb = [...b].sort();
+      return sa.length === sb.length && sa.every((v, i) => v === sb[i]);
+    };
+
+    const originalLocation = parseLocationLost(
+      originalReport.location_lost ?? '',
+      collegesList,
+      spacesList,
+      gatesList,
+    );
+
+    if (cantRemember !== originalLocation.cantRemember) return true;
+    if (!sameItems(selectedColleges, originalLocation.colleges)) return true;
+    if (!sameItems(selectedSpaces, originalLocation.spaces)) return true;
+    if (!sameItems(selectedGates, originalLocation.gates)) return true;
+
+    // Compare actual timestamps at minute precision (matches the precision
+    // the app itself saves at) rather than strings, to avoid timezone drift.
+    const toMinuteMs = (ms) => (ms === null ? null : Math.floor(ms / 60000) * 60000);
+    const originalDate = parseLostDateToDate(originalReport.actual_lost_date ?? originalReport.lost_date);
+    const combined = new Date(date);
+    combined.setHours(time.getHours(), time.getMinutes(), 0, 0);
+
+    const originalMs = originalDate ? toMinuteMs(originalDate.getTime()) : null;
+    const currentMs = toMinuteMs(combined.getTime());
+    if (originalMs !== currentMs) return true;
+
+    return false;
+  };
+
   const handleBack = () => {
     const saved = getReportDraft();
 
@@ -378,7 +437,7 @@ export default function ProfileReportHistoryEditNext() {
     router.navigate({
       pathname: "/(tabs)/profileReportHistoryEdit",
       params: {
-        report: reportParam,
+        report: saved?.reportParam ?? reportParam,
         editSession: saved?.editSession ?? "",
         fromBack: "true",
       },
@@ -522,6 +581,19 @@ export default function ProfileReportHistoryEditNext() {
       behavior={Platform.OS === "ios" ? "padding" : "height"}
       style={styles.container}
     >
+      <ConfirmDiscardModal
+        visible={discardModalVisible}
+        onKeepEditing={() => setDiscardModalVisible(false)}
+        onDiscard={() => {
+          setDiscardModalVisible(false);
+          clearReportDraft();
+          router.navigate({
+            pathname: '/(tabs)/profileReportHistory',
+            params: { toast: 'editCancelled' },
+          });
+        }}
+      />
+
       <DatePicker
         modal
         open={openCalendar}
@@ -551,7 +623,20 @@ export default function ProfileReportHistoryEditNext() {
 
       <ScrollView ref={scrollRef} keyboardShouldPersistTaps="handled" contentContainerStyle={styles.scrollContent}>
         <View style={styles.titleRow}>
-          <TouchableOpacity onPress={handleBack} activeOpacity={0.6} style={styles.titleBackButton}>
+          <TouchableOpacity
+            onPress={() => {
+              if (isViewOnly) {
+                router.navigate('/(tabs)/profileReportHistory');
+              } else if (isSessionDirty()) {
+                setDiscardModalVisible(true);
+              } else {
+                clearReportDraft();
+                router.navigate('/(tabs)/profileReportHistory');
+              }
+            }}
+            activeOpacity={0.6}
+            style={styles.titleBackButton}
+          >
             <MaterialIcons name="arrow-back" size={24} color={AppColors.surface} />
           </TouchableOpacity>
           <Text style={styles.title}>{isViewOnly ? "Report Details" : "Edit Lost Item Report"}</Text>

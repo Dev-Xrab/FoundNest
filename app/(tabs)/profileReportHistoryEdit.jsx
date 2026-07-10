@@ -36,7 +36,8 @@ export default function ProfileReportHistoryEdit() {
   const isViewOnly = viewOnly === 'true';
 
   const [selectedImage, setSelectedImage] = useState(null);
-  const [isImageRemoved, setIsImageRemoved] = useState(false); 
+  const [isImageRemoved, setIsImageRemoved] = useState(false);
+  const [existingImageUrl, setExistingImageUrl] = useState(report.lost_item_image ?? null); 
   const [selectedCategoryId, setSelectedCategoryId] = useState(
     report.category_id ? String(report.category_id) : ''
   );
@@ -70,6 +71,7 @@ export default function ProfileReportHistoryEdit() {
         const fresh = reportParam ? JSON.parse(reportParam) : {};
         setSelectedImage(null);
         setIsImageRemoved(false);
+        setExistingImageUrl(fresh.lost_item_image ?? null);
         setSelectedCategoryId(fresh.category_id ? String(fresh.category_id) : '');
         setItemName(fresh.item_name ?? '');
         setDetailedDescription(fresh.description ?? '');
@@ -89,14 +91,16 @@ export default function ProfileReportHistoryEdit() {
             setDetailedDescription(saved.description ?? '');
             setContents(saved.contents ?? '');
             setSelectedImage(saved.imageUri ?? null);
-            setIsImageRemoved(saved.isImageRemoved ?? false); 
+            setIsImageRemoved(saved.isImageRemoved ?? false);
+            setExistingImageUrl(saved.existingImageUrl ?? (report.lost_item_image ?? null));
           }
           return;
         }
 
         const fresh = reportParam ? JSON.parse(reportParam) : {};
         setSelectedImage(null);
-        setIsImageRemoved(false); 
+        setIsImageRemoved(false);
+        setExistingImageUrl(fresh.lost_item_image ?? null);
         setSelectedCategoryId(fresh.category_id ? String(fresh.category_id) : '');
         setItemName(fresh.item_name ?? '');
         setDetailedDescription(fresh.description ?? '');
@@ -215,7 +219,7 @@ export default function ProfileReportHistoryEdit() {
       editSession:      editSession,
       imageUri:         isImageRemoved ? null : selectedImage,
       isImageRemoved:   isImageRemoved, 
-      existingImageUrl: isImageRemoved ? null : (selectedImage ? null : (report.lost_item_image ?? null)),
+      existingImageUrl: isImageRemoved ? null : (selectedImage ? null : existingImageUrl),
       categoryId:       selectedCategoryId,
       itemName:         itemName.trim(),
       description:      detailedDescription.trim(),
@@ -224,10 +228,74 @@ export default function ProfileReportHistoryEdit() {
       lostDate:         existingDraft?.lostDate ?? report.actual_lost_date ?? report.lost_date ?? null,
     });
 
-    router.navigate('/(tabs)/profileReportHistoryEditNext');
+    router.navigate({
+      pathname: '/(tabs)/profileReportHistoryEditNext',
+      params: {
+        report: reportParam,
+        editSession: editSession,
+      },
+    });
   };
 
-  const displayImage = isImageRemoved ? null : (selectedImage ?? report.lost_item_image ?? null);
+  const displayImage = isImageRemoved ? null : (selectedImage ?? existingImageUrl ?? null);
+
+  // Normalizes a lost-date value to epoch-ms truncated to the minute, so
+  // second/millisecond noise (which the app doesn't let users edit anyway)
+  // never causes a false "unsaved changes" positive.
+  const parseDateToMinuteMs = (value) => {
+    if (!value) return null;
+    const cleaned = String(value)
+      .replace(/\+\d{2}(:\d{2})?$/, '')
+      .replace(/\+00$/, '')
+      .replace('T', ' ')
+      .trim();
+    const d = new Date(cleaned.replace(' ', 'T'));
+    if (isNaN(d.getTime())) return null;
+    return Math.floor(d.getTime() / 60000) * 60000;
+  };
+
+  // True value comparison against the original report — only flags "dirty"
+  // if something actually differs, on this page or (via the draft) page 2.
+  const isSessionDirty = () => {
+    const originalCategoryId = report.category_id ? String(report.category_id) : '';
+    const originalItemName = (report.item_name ?? '').trim();
+    const originalDescription = (report.description ?? '').trim();
+    const originalContents = (report.contents ?? '').trim();
+    const originalPhoto = report.lost_item_image ?? null;
+
+    if (selectedCategoryId !== originalCategoryId) return true;
+    if (itemName.trim() !== originalItemName) return true;
+    if (detailedDescription.trim() !== originalDescription) return true;
+    if (contents.trim() !== originalContents) return true;
+
+    const currentPhoto = isImageRemoved ? null : (selectedImage ?? existingImageUrl ?? null);
+    if (currentPhoto !== originalPhoto) return true;
+
+    // Location/date only matter if page 2 was already visited this session —
+    // otherwise the draft simply mirrors the untouched original.
+    const existingDraft = getReportDraft();
+
+    const originalLocationLost = report.location_lost ?? '';
+    const currentLocationLost = existingDraft?.locationLost ?? originalLocationLost;
+    if (currentLocationLost !== originalLocationLost) return true;
+
+    const originalLostDateMs = parseDateToMinuteMs(report.actual_lost_date ?? report.lost_date);
+    const currentLostDateMs = existingDraft?.lostDate
+      ? parseDateToMinuteMs(existingDraft.lostDate)
+      : originalLostDateMs;
+    if (currentLostDateMs !== originalLostDateMs) return true;
+
+    return false;
+  };
+
+  const handleCancelPress = () => {
+    if (isSessionDirty()) {
+      setDiscardModalVisible(true);
+    } else {
+      clearReportDraft();
+      router.navigate('/(tabs)/profileReportHistory');
+    }
+  };
 
   return (
     <KeyboardAvoidingView
@@ -265,7 +333,12 @@ export default function ProfileReportHistoryEdit() {
             <Text style={styles.titleInRow}>Report Details</Text>
           </View>
         ) : (
-          <Text style={styles.title}>Edit Lost Item Report</Text>
+          <View style={styles.titleRow}>
+            <TouchableOpacity onPress={handleCancelPress} style={styles.backButton}>
+              <MaterialIcons name="arrow-back" size={24} color={AppColors.surface} />
+            </TouchableOpacity>
+            <Text style={styles.titleInRow}>Edit Lost Item Report</Text>
+          </View>
         )}
         <Text style={styles.subTitle}>Item Description</Text>
 
@@ -401,7 +474,7 @@ export default function ProfileReportHistoryEdit() {
             {!isViewOnly && (
               <TouchableOpacity
                 style={styles.outlinedButton}
-                onPress={() => setDiscardModalVisible(true)}
+                onPress={handleCancelPress}
               >
                 <Text style={styles.outlinedButtonText}>Cancel</Text>
               </TouchableOpacity>
