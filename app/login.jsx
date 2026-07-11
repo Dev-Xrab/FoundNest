@@ -1,10 +1,11 @@
+import Toast from "@/components/Toast";
 import { API_BASE_URL } from "@/constants/api";
 import AppColors from "@/constants/AppColors";
 import { clearSavedEmail, getSavedEmail, saveEmail, saveSession } from "@/constants/StudentData";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import { StatusBar } from "expo-status-bar";
 import { useEffect, useState } from "react";
-import { StatusBar } from "expo-status-bar"; 
 import {
   ActivityIndicator,
   Image,
@@ -62,6 +63,13 @@ export default function LoginScreen() {
   const [isLoading, setIsLoading] = useState(false);
   const [loginError, setLoginError] = useState("");
 
+  const { passwordResetSuccess, passwordChangedSuccess } = useLocalSearchParams();
+  const [toast, setToast] = useState({
+    visible: passwordResetSuccess === "1" || passwordChangedSuccess === "1",
+    type: "success",
+    message: "Password changed successfully!",
+  });
+
   useEffect(() => {
     const loadSavedEmail = async () => {
       const saved = await getSavedEmail();
@@ -113,130 +121,143 @@ export default function LoginScreen() {
   };
 
   return (
-    <KeyboardAwareScrollView
-      style={styles.root}
-      contentContainerStyle={styles.scroll}
-      keyboardShouldPersistTaps="handled"
-      showsVerticalScrollIndicator={false}
-      bounces={false}
-      enableOnAndroid={true}
-      extraScrollHeight={20}
-    >
-      <StatusBar style="dark" backgroundColor="transparent" translucent />
-      {/* TOP — white section with illustration */}
-      <View style={styles.topSection}>
-        <Image
-          source={require("@/assets/images/login-image.png")}
-          style={styles.illustration}
-          resizeMode="contain"
-        />
-      </View>
-
-      {/* BOTTOM — deep red card */}
-      <View
-        style={[
-          styles.card,
-          { paddingBottom: Math.max(insets.bottom + 8, 16) },
-        ]}
+    <>
+      <KeyboardAwareScrollView
+        style={styles.root}
+        contentContainerStyle={styles.scroll}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+        bounces={false}
+        enableOnAndroid={true}
+        extraScrollHeight={20}
       >
-        <Text style={styles.heading}>Log In</Text>
-
-        {/* Email */}
-        <View style={styles.inputWrapper}>
-          <FloatingLabelInput
-            label="Email"
-            value={email}
-            onChangeText={(text) => {
-              setEmail(text);
-              setLoginError("");
-            }}
-            keyboardType="email-address"
-            returnKeyType="next"
-            editable={!isLoading}
+        <StatusBar style="dark" backgroundColor="transparent" translucent />
+        {/* TOP — white section with illustration */}
+        <View style={styles.topSection}>
+          <Image
+            source={require("@/assets/images/login-image.png")}
+            style={styles.illustration}
+            resizeMode="contain"
           />
         </View>
 
-        {/* Password */}
-        <View style={styles.inputWrapper}>
-          <FloatingLabelInput
-            label="Password"
-            value={password}
-            onChangeText={(text) => {
-              setPassword(text);
-              setLoginError("");
-            }}
-            secureTextEntry={!showPassword}
-            returnKeyType="done"
-            onSubmitEditing={handleLogin}
-            editable={!isLoading}
-            rightElement={
-              <TouchableOpacity
-                onPress={() => setShowPassword((v) => !v)}
-                accessibilityRole="button"
-                accessibilityLabel={
-                  showPassword ? "Hide password" : "Show password"
-                }
-              >
-                <Ionicons
-                  name={showPassword ? "eye-outline" : "eye-off-outline"}
-                  size={20}
-                  color="rgba(0,0,0,0.35)"
-                />
-              </TouchableOpacity>
-            }
-          />
-        </View>
-
-        {loginError ? <Text style={styles.errorText}>{loginError}</Text> : null}
-
-        {/* Remember me + Forgot password */}
-        <View style={styles.optionsRow}>
-          <TouchableOpacity
-            style={styles.checkboxRow}
-            onPress={() => setRememberMe((v) => !v)}
-            activeOpacity={0.8}
-            accessibilityRole="checkbox"
-            accessibilityState={{ checked: rememberMe }}
-          >
-            <View
-              style={[styles.checkbox, rememberMe && styles.checkboxChecked]}
-            >
-              {rememberMe && (
-                <Ionicons
-                  name="checkmark"
-                  size={12}
-                  color={AppColors.background}
-                />
-              )}
-            </View>
-            <Text style={styles.rememberText}>Remember me</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity activeOpacity={0.5} accessibilityRole="button">
-            <Text style={styles.forgotText}>Forgot password?</Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Login button */}
-        <TouchableOpacity
+        {/* BOTTOM — deep red card */}
+        <View
           style={[
-            styles.loginButton,
-            (isLoading || isFormIncomplete) && styles.loginButtonDisabled,
+            styles.card,
+            { paddingBottom: Math.max(insets.bottom + 8, 16) },
           ]}
-          onPress={handleLogin}
-          disabled={isLoading || isFormIncomplete}
-          activeOpacity={0.8}
-          accessibilityRole="button"
-          accessibilityLabel="Log in"
         >
-          {isLoading ? (
-            <ActivityIndicator size="small" color={AppColors.background} />
-          ) : (
-            <Text style={styles.loginButtonText}>Log In</Text>
-          )}
-        </TouchableOpacity>
-      </View>
-    </KeyboardAwareScrollView>
+          <Text style={styles.heading}>Log In</Text>
+
+          {/* Email */}
+          <View style={styles.inputWrapper}>
+            <FloatingLabelInput
+              label="Email"
+              value={email}
+              onChangeText={(text) => {
+                setEmail(text);
+                setLoginError("");
+              }}
+              keyboardType="email-address"
+              returnKeyType="next"
+              editable={!isLoading}
+            />
+          </View>
+
+          {/* Password */}
+          <View style={styles.inputWrapper}>
+            <FloatingLabelInput
+              label="Password"
+              value={password}
+              onChangeText={(text) => {
+                setPassword(text);
+                setLoginError("");
+              }}
+              secureTextEntry={!showPassword}
+              returnKeyType="done"
+              onSubmitEditing={handleLogin}
+              editable={!isLoading}
+              rightElement={
+                <TouchableOpacity
+                  onPress={() => setShowPassword((v) => !v)}
+                  accessibilityRole="button"
+                  accessibilityLabel={
+                    showPassword ? "Hide password" : "Show password"
+                  }
+                >
+                  <Ionicons
+                    name={showPassword ? "eye-outline" : "eye-off-outline"}
+                    size={20}
+                    color="rgba(0,0,0,0.35)"
+                  />
+                </TouchableOpacity>
+              }
+            />
+          </View>
+
+          {loginError ? <Text style={styles.errorText}>{loginError}</Text> : null}
+
+          {/* Remember me + Forgot password */}
+          <View style={styles.optionsRow}>
+            <TouchableOpacity
+              style={styles.checkboxRow}
+              onPress={() => setRememberMe((v) => !v)}
+              activeOpacity={0.8}
+              accessibilityRole="checkbox"
+              accessibilityState={{ checked: rememberMe }}
+            >
+              <View
+                style={[styles.checkbox, rememberMe && styles.checkboxChecked]}
+              >
+                {rememberMe && (
+                  <Ionicons
+                    name="checkmark"
+                    size={12}
+                    color={AppColors.background}
+                  />
+                )}
+              </View>
+              <Text style={styles.rememberText}>Remember me</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              activeOpacity={0.5}
+              accessibilityRole="button"
+              onPress={() => router.push("/forgotPassword")}
+            >
+              <Text style={styles.forgotText}>Forgot password?</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Login button */}
+          <TouchableOpacity
+            style={[
+              styles.loginButton,
+              (isLoading || isFormIncomplete) && styles.loginButtonDisabled,
+            ]}
+            onPress={handleLogin}
+            disabled={isLoading || isFormIncomplete}
+            activeOpacity={0.8}
+            accessibilityRole="button"
+            accessibilityLabel="Log in"
+          >
+            {isLoading ? (
+              <ActivityIndicator size="small" color={AppColors.background} />
+            ) : (
+              <Text style={styles.loginButtonText}>Log In</Text>
+            )}
+          </TouchableOpacity>
+        </View>
+      </KeyboardAwareScrollView>
+
+      <Toast
+        visible={toast.visible}
+        type={toast.type}
+        message={toast.message}
+        onHide={() => setToast((t) => ({ ...t, visible: false }))}
+      />
+    </>
   );
 }
 

@@ -79,6 +79,9 @@ function RootLayoutNav() {
     <ThemeProvider value={NavigationTheme}>
       <Stack>
         <Stack.Screen name="login" options={{ headerShown: false }} />
+        <Stack.Screen name="forgotPassword" options={{ headerShown: false }} />
+        <Stack.Screen name="forgotPasswordVerify" options={{ headerShown: false }} />
+        <Stack.Screen name="forgotPasswordSetNew" options={{ headerShown: false }} />
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen
           name="allNotification"

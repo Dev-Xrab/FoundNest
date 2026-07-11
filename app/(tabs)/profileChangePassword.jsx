@@ -1,9 +1,10 @@
 import ConfirmDiscardModal from '@/components/ConfirmDiscardModal';
+import PasswordChecklist from '@/components/PasswordChecklist';
 import Toast from '@/components/Toast';
 import { API_BASE_URL } from '@/constants/api';
 import AppColors from '@/constants/AppColors';
 import { fetchWithAuth } from '@/constants/authApi';
-import { getUser } from '@/constants/StudentData';
+import { clearSession, getUser } from '@/constants/StudentData';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
@@ -41,32 +42,6 @@ function PasswordField({ label, value, onChangeText, showPassword, onToggle, err
         </TouchableOpacity>
       </View>
       {error ? <Text style={styles.errorText}>{error}</Text> : null}
-    </View>
-  );
-}
-
-function PasswordChecklist({ password }) {
-  const rules = [
-    { label: 'At least 8 characters',        met: password.length >= 8 },
-    { label: 'At least one uppercase letter', met: /[A-Z]/.test(password) },
-    { label: 'At least one number',           met: /[0-9]/.test(password) },
-    { label: 'At least one special character', met: /[^a-zA-Z0-9]/.test(password) },
-  ];
-
-  return (
-    <View style={styles.checklist}>
-      {rules.map((rule) => (
-        <View key={rule.label} style={styles.checklistRow}>
-          <Ionicons
-            name={rule.met ? 'checkmark-circle' : 'close-circle'}
-            size={16}
-            color={rule.met ? '#2E7D32' : '#C0392B'}
-          />
-          <Text style={[styles.checklistText, { color: rule.met ? '#2E7D32' : '#C0392B' }]}>
-            {rule.label}
-          </Text>
-        </View>
-      ))}
     </View>
   );
 }
@@ -168,11 +143,11 @@ export default function ProfileChangePassword() {
         return;
       }
 
-      setCurrentPassword('');
-      setNewPassword('');
-      setConfirmPassword('');
-      showToast('success', 'Password changed successfully.');
-
+      await clearSession();
+      router.replace({
+        pathname: '/login',
+        params: { passwordChangedSuccess: '1' },
+      });
     } catch (err) {
       console.error('Change password error:', err);
       showToast('error', 'Could not connect to server.');
@@ -288,7 +263,7 @@ export default function ProfileChangePassword() {
           </View>
         </View>
       </ScrollView>
-
+      
       <Toast
         visible={toast.visible}
         type={toast.type}
@@ -370,19 +345,6 @@ const styles = StyleSheet.create({
     color: '#C0392B',
     marginTop: 2,
     marginLeft: 4,
-  },
-  checklist: {
-    marginTop: 8,
-    gap: 4,
-    paddingLeft: 4,
-  },
-  checklistRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  checklistText: {
-    fontSize: 13,
   },
   buttonsSection: {
     marginTop: 4,
