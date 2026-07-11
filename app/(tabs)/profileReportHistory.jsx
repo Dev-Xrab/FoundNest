@@ -514,122 +514,127 @@ export default function ProfileReportHistory() {
         </View>
       </View>
 
-      {/* ── Search bar ─────────────────────────────────────────────────── */}
-      <View style={styles.searchContainer}>
-        <Ionicons name="search-outline" size={20} color={AppColors.background} style={styles.searchIcon} />
-        <TextInput
-          style={styles.searchInput}
-          placeholder="Search Item"
-          placeholderTextColor="#999"
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-        />
-        {searchQuery.length > 0 && (
-          <TouchableOpacity onPress={() => setSearchQuery("")} activeOpacity={0.7}>
-            <Ionicons name="close-circle" size={18} color="#B0A09A" />
-          </TouchableOpacity>
-        )}
-      </View>
-
-      {/* ── Filter trigger bar ──────────────────────────────────────────── */}
-      <View style={styles.filterBar}>
-        <View style={styles.filterContainer}>
-          {/* Category trigger */}
-          <TouchableOpacity
-            style={[styles.filterTrigger, (!!selectedCategory || activeMenu === "category") && styles.filterTriggerActive]}
-            onPress={() => setActiveMenu(activeMenu === "category" ? null : "category")}
-            activeOpacity={0.7}
-          >
-            <Text
-              style={[styles.filterTriggerText, !!selectedCategory && styles.filterTriggerTextActive]}
-              numberOfLines={1}
-            >
-              {categoryDisplayText}
-            </Text>
-            <Ionicons
-              name={activeMenu === "category" ? "chevron-up" : "chevron-down"}
-              size={13}
-              color={selectedCategory ? AppColors.background : AppColors.background}
+      {/* ── Search bar + filters (hidden entirely when there's no report history) ── */}
+      {!isLoading && reports.length > 0 && (
+        <>
+          {/* ── Search bar ─────────────────────────────────────────────── */}
+          <View style={styles.searchContainer}>
+            <Ionicons name="search-outline" size={20} color={AppColors.background} style={styles.searchIcon} />
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Search Item"
+              placeholderTextColor="#999"
+              value={searchQuery}
+              onChangeText={setSearchQuery}
             />
-          </TouchableOpacity>
+            {searchQuery.length > 0 && (
+              <TouchableOpacity onPress={() => setSearchQuery("")} activeOpacity={0.7}>
+                <Ionicons name="close-circle" size={18} color="#B0A09A" />
+              </TouchableOpacity>
+            )}
+          </View>
 
-          {/* Status trigger */}
-          <TouchableOpacity
-            style={[styles.filterTrigger, (!!selectedStatus || activeMenu === "status") && styles.filterTriggerActive]}
-            onPress={() => setActiveMenu(activeMenu === "status" ? null : "status")}
-            activeOpacity={0.7}
-          >
-            <Text
-              style={[styles.filterTriggerText, !!selectedStatus && styles.filterTriggerTextActive]}
-              numberOfLines={1}
-            >
-              {statusDisplayText}
-            </Text>
-            <Ionicons
-              name={activeMenu === "status" ? "chevron-up" : "chevron-down"}
-              size={13}
-              color={selectedStatus ? AppColors.background : AppColors.background}
-            />
-          </TouchableOpacity>
+          {/* ── Filter trigger bar ──────────────────────────────────────── */}
+          <View style={styles.filterBar}>
+            <View style={styles.filterContainer}>
+              {/* Category trigger */}
+              <TouchableOpacity
+                style={[styles.filterTrigger, (!!selectedCategory || activeMenu === "category") && styles.filterTriggerActive]}
+                onPress={() => setActiveMenu(activeMenu === "category" ? null : "category")}
+                activeOpacity={0.7}
+              >
+                <Text
+                  style={[styles.filterTriggerText, !!selectedCategory && styles.filterTriggerTextActive]}
+                  numberOfLines={1}
+                >
+                  {categoryDisplayText}
+                </Text>
+                <Ionicons
+                  name={activeMenu === "category" ? "chevron-up" : "chevron-down"}
+                  size={13}
+                  color={selectedCategory ? AppColors.background : AppColors.background}
+                />
+              </TouchableOpacity>
 
-          {/* Clear all filters — always occupies its own fixed slot */}
-          {hasActiveFilters && (
-            <TouchableOpacity
-              style={styles.clearButton}
-              onPress={() => {
-                setSearchQuery("");
-                setSelectedCategory(null);
-                setSelectedStatus(null);
-                setActiveMenu(null);
-              }}
-              activeOpacity={0.7}
-            >
-              <Ionicons name="close" size={14} color={AppColors.background} />
-              <Text style={styles.clearButtonText}>Clear</Text>
-            </TouchableOpacity>
+              {/* Status trigger */}
+              <TouchableOpacity
+                style={[styles.filterTrigger, (!!selectedStatus || activeMenu === "status") && styles.filterTriggerActive]}
+                onPress={() => setActiveMenu(activeMenu === "status" ? null : "status")}
+                activeOpacity={0.7}
+              >
+                <Text
+                  style={[styles.filterTriggerText, !!selectedStatus && styles.filterTriggerTextActive]}
+                  numberOfLines={1}
+                >
+                  {statusDisplayText}
+                </Text>
+                <Ionicons
+                  name={activeMenu === "status" ? "chevron-up" : "chevron-down"}
+                  size={13}
+                  color={selectedStatus ? AppColors.background : AppColors.background}
+                />
+              </TouchableOpacity>
+
+              {/* Clear all filters — always occupies its own fixed slot */}
+              {hasActiveFilters && (
+                <TouchableOpacity
+                  style={styles.clearButton}
+                  onPress={() => {
+                    setSearchQuery("");
+                    setSelectedCategory(null);
+                    setSelectedStatus(null);
+                    setActiveMenu(null);
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons name="close" size={14} color={AppColors.background} />
+                  <Text style={styles.clearButtonText}>Clear</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          </View>
+
+          {/* ── Filter dropdowns ──────────────────────────────────────── */}
+          {activeMenu === "category" && (
+            <View style={styles.dropdownCard}>
+              <View style={styles.chipRow}>
+                <FilterChip
+                  label="All"
+                  isActive={!selectedCategory}
+                  onPress={() => { setSelectedCategory(null); setActiveMenu(null); }}
+                />
+                {categories.map((cat, i) => (
+                  <FilterChip
+                    key={`cat-${i}`}
+                    label={cat}
+                    isActive={selectedCategory === cat}
+                    onPress={() => { setSelectedCategory(cat); setActiveMenu(null); }}
+                  />
+                ))}
+              </View>
+            </View>
           )}
-        </View>
-      </View>
 
-      {/* ── Filter dropdowns ────────────────────────────────────────────── */}
-      {activeMenu === "category" && (
-        <View style={styles.dropdownCard}>
-          <View style={styles.chipRow}>
-            <FilterChip
-              label="All"
-              isActive={!selectedCategory}
-              onPress={() => { setSelectedCategory(null); setActiveMenu(null); }}
-            />
-            {categories.map((cat, i) => (
-              <FilterChip
-                key={`cat-${i}`}
-                label={cat}
-                isActive={selectedCategory === cat}
-                onPress={() => { setSelectedCategory(cat); setActiveMenu(null); }}
-              />
-            ))}
-          </View>
-        </View>
-      )}
-
-      {activeMenu === "status" && (
-        <View style={styles.dropdownCard}>
-          <View style={styles.chipRow}>
-            <FilterChip
-              label="All"
-              isActive={!selectedStatus}
-              onPress={() => { setSelectedStatus(null); setActiveMenu(null); }}
-            />
-            {STATUS_OPTIONS.map((s) => (
-              <FilterChip
-                key={s}
-                label={s.charAt(0).toUpperCase() + s.slice(1)}
-                isActive={selectedStatus === s}
-                onPress={() => { setSelectedStatus(s); setActiveMenu(null); }}
-              />
-            ))}
-          </View>
-        </View>
+          {activeMenu === "status" && (
+            <View style={styles.dropdownCard}>
+              <View style={styles.chipRow}>
+                <FilterChip
+                  label="All"
+                  isActive={!selectedStatus}
+                  onPress={() => { setSelectedStatus(null); setActiveMenu(null); }}
+                />
+                {STATUS_OPTIONS.map((s) => (
+                  <FilterChip
+                    key={s}
+                    label={s.charAt(0).toUpperCase() + s.slice(1)}
+                    isActive={selectedStatus === s}
+                    onPress={() => { setSelectedStatus(s); setActiveMenu(null); }}
+                  />
+                ))}
+              </View>
+            </View>
+          )}
+        </>
       )}
 
       {/* ── Body ───────────────────────────────────────────────────────── */}
