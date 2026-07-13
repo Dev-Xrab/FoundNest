@@ -1,6 +1,7 @@
 import AppColors from "@/constants/AppColors";
+import { goBack } from "@/constants/previousPage";
 import { Ionicons } from "@expo/vector-icons";
-import { router, useLocalSearchParams } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import {
   Image,
@@ -15,6 +16,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 const ItemDetails = () => {
   const insets = useSafeAreaInsets();
+  const router = useRouter();
   const { itemString } = useLocalSearchParams();
   const item = itemString ? JSON.parse(itemString) : null;
 
@@ -42,7 +44,7 @@ const ItemDetails = () => {
       <View style={[styles.header, { paddingTop: insets.top }]}>
         <View style={styles.headerRow}>
           <TouchableOpacity
-            onPress={() => router.push("/find")}
+            onPress={() => goBack(router)}
             activeOpacity={0.7}
             style={styles.backButton}
           >

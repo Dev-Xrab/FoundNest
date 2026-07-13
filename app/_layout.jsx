@@ -7,6 +7,7 @@ import { useEffect, useState } from "react"; // Added useState
 import "react-native-reanimated";
 
 import AnimatedSplashScreen from "@/components/AnimatedSplashScreen"; // 1. Import your custom splash screen
+import NavigationBackHandler from "@/components/NavigationBackHandler";
 import AppColors from "@/constants/AppColors";
 
 export {
@@ -77,6 +78,7 @@ export default function RootLayout() {
 function RootLayoutNav() {
   return (
     <ThemeProvider value={NavigationTheme}>
+      <NavigationBackHandler />
       <Stack>
         <Stack.Screen name="login" options={{ headerShown: false }} />
         <Stack.Screen name="forgotPassword" options={{ headerShown: false }} />

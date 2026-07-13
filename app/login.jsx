@@ -2,6 +2,7 @@ import Toast from "@/components/Toast";
 import { API_BASE_URL } from "@/constants/api";
 import AppColors from "@/constants/AppColors";
 import { clearSavedEmail, getSavedEmail, saveEmail, saveSession } from "@/constants/StudentData";
+import { startAtHome } from "@/constants/previousPage";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
@@ -110,6 +111,7 @@ export default function LoginScreen() {
       }
 
       await saveSession(data.accessToken, data.user, rememberMe, data.refreshToken);
+      startAtHome();
       router.replace('/(tabs)');
 
     } catch (error) {
