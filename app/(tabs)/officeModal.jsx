@@ -155,7 +155,7 @@ export default function OfficeModal({ visible, onClose, office }) {
       const userId = await getUser();
       const isEditing = existingReviewId !== null;
       const endpoint = isEditing
-        ? `https://foundnest-backend.onrender.com/api/offices/${office.office_id}/reviews/${existingReviewId}`
+        ? `https://foundnest-backend.onrender.com/api/reviews/${existingReviewId}`
         : `https://foundnest-backend.onrender.com/api/offices/${office.office_id}/reviews`;
 
       const method = isEditing ? "PUT" : "POST";

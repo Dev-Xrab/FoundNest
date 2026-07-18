@@ -172,35 +172,40 @@ export default function HomeScreen() {
 
   // Push Notifications Setup
   useEffect(() => {
-    async function setupNotifications() {
-      const { status: existingStatus } =
-        await Notifications.getPermissionsAsync();
-      if (existingStatus === "denied") return;
+  async function setupNotifications() {
+    // 1. Check current permission status
+    const { status: existingStatus } = await Notifications.getPermissionsAsync();
+    let finalStatus = existingStatus;
 
-      let finalStatus = existingStatus;
-      if (existingStatus !== "granted") {
-        const { status } = await Notifications.requestPermissionsAsync();
-        finalStatus = status;
-
-        if (finalStatus !== "granted") {
-          Alert.alert(
-            "Permission Needed",
-            "Please allow notifications so we can tell you when your lost item is found!",
-          );
-          return;
-        }
-      }
-
-      if (finalStatus === "granted") {
-        const token = await registerForPushNotificationsAsync();
-        if (token) {
-          setExpoPushToken(token);
-          console.log("MY EXPO PUSH TOKEN:", token);
-        }
-      }
+    // 2. Only ask if it hasn't been granted yet
+    if (existingStatus !== "granted") {
+      const { status } = await Notifications.requestPermissionsAsync();
+      finalStatus = status;
     }
-    setupNotifications();
-  }, []);
+
+    // 3. Handle a hard denial gracefully 
+    if (finalStatus !== "granted") {
+      console.log("Notification permissions were denied/not granted.");
+      return; 
+    }
+
+    // 4. Retrieve the token safely if granted
+    try {
+      const token = await registerForPushNotificationsAsync();
+      if (token) {
+        setExpoPushToken(token);
+        console.log("MY EXPO PUSH TOKEN:", token);
+        
+        // TODO: Make an API call here to save this token to your database!
+        // e.g., fetchWithAuth(`${API_BASE_URL}/api/users/push-token`, { method: 'POST', body: JSON.stringify({ token }) })
+      }
+    } catch (error) {
+      console.error("Error fetching push token:", error);
+    }
+  }
+
+  setupNotifications();
+}, []);
 
   // Fetch Current Session User
   useEffect(() => {
