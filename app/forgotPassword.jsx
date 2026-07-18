@@ -17,6 +17,8 @@ import {
 import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+const isValidEmailFormat = (value) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
+
 export default function ForgotPasswordScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
@@ -35,6 +37,12 @@ export default function ForgotPasswordScreen() {
 
   const handleNext = async () => {
     if (!email.trim()) return;
+
+    if (!isValidEmailFormat(email)) {
+      setError("Please enter a valid email address.");
+      return;
+    }
+
     setIsLoading(true);
     setError("");
 
@@ -51,8 +59,6 @@ export default function ForgotPasswordScreen() {
         return;
       }
 
-      // Backend always responds generically (200) whether or not the
-      // email is registered — we proceed to the OTP screen regardless.
       router.push({
         pathname: "/forgotPasswordVerify",
         params: { email: email.trim() },
