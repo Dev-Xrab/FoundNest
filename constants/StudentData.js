@@ -17,12 +17,20 @@ export async function saveSession(
   refreshToken = null,
 ) {
   if (rememberMe) {
+    _token = null;
+    _user = null;
+    _refreshToken = null;
+
     await SecureStore.setItemAsync(TOKEN_KEY, accessToken);
     await SecureStore.setItemAsync(USER_KEY, JSON.stringify(user));
     if (refreshToken) {
       await SecureStore.setItemAsync(REFRESH_TOKEN_KEY, refreshToken);
     }
   } else {
+    await SecureStore.deleteItemAsync(TOKEN_KEY);
+    await SecureStore.deleteItemAsync(USER_KEY);
+    await SecureStore.deleteItemAsync(REFRESH_TOKEN_KEY);
+
     _token = accessToken;
     _user = user;
     _refreshToken = refreshToken;
