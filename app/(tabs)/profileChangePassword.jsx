@@ -77,6 +77,9 @@ export default function ProfileChangePassword() {
     /[0-9]/.test(newPassword) &&
     /[^a-zA-Z0-9]/.test(newPassword);
 
+  const isConfirmMismatched =
+    confirmPassword.length > 0 && confirmPassword !== newPassword;
+
   useEffect(() => {
     getUser().then(setUser);
   }, []);
@@ -97,6 +100,24 @@ export default function ProfileChangePassword() {
 
   const showToast = (type, message) => {
     setToast({ visible: true, type, message });
+  };
+
+  const handleNewPasswordChange = (text) => {
+    setNewPassword(text);
+    if (confirmPassword.length > 0) {
+      setErrors((e) => ({
+        ...e,
+        confirm: confirmPassword !== text ? 'Passwords do not match.' : '',
+      }));
+    }
+  };
+
+  const handleConfirmPasswordChange = (text) => {
+    setConfirmPassword(text);
+    setErrors((e) => ({
+      ...e,
+      confirm: text.length > 0 && text !== newPassword ? 'Passwords do not match.' : '',
+    }));
   };
 
   const handleChangePassword = async () => {
@@ -203,7 +224,7 @@ export default function ProfileChangePassword() {
               <TextInput
                 style={styles.fieldInput}
                 value={newPassword}
-                onChangeText={setNewPassword}
+                onChangeText={handleNewPasswordChange}
                 secureTextEntry={!showNew}
                 autoCapitalize="none"
                 autoCorrect={false}
@@ -223,10 +244,7 @@ export default function ProfileChangePassword() {
           <PasswordField
             label="Confirm New Password"
             value={confirmPassword}
-            onChangeText={(text) => {
-              setConfirmPassword(text);
-              if (errors.confirm) setErrors((e) => ({ ...e, confirm: '' }));
-            }}
+            onChangeText={handleConfirmPasswordChange}
             showPassword={showConfirm}
             onToggle={() => setShowConfirm((v) => !v)}
             error={errors.confirm}
@@ -237,10 +255,10 @@ export default function ProfileChangePassword() {
             <TouchableOpacity
               style={[
                 styles.saveButton,
-                (!isFormFilled || !isNewPasswordValid) && styles.buttonDisabled,
+                (!isFormFilled || !isNewPasswordValid || isConfirmMismatched) && styles.buttonDisabled,
               ]}
               onPress={handleChangePassword}
-              disabled={!isFormFilled || !isNewPasswordValid || isSaving}
+              disabled={!isFormFilled || !isNewPasswordValid || isConfirmMismatched || isSaving}
               activeOpacity={0.8}
             >
               {isSaving ? (
