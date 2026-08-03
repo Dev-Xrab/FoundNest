@@ -8,11 +8,10 @@ import {
   NativeUserLocation,
 } from "@maplibre/maplibre-react-native";
 import * as Location from "expo-location";
-import { useLocalSearchParams, useNavigation } from "expo-router"; // <-- Added useNavigation
-import { useEffect, useRef, useState } from "react"; // <-- Added useRef
+import { useLocalSearchParams, useNavigation } from "expo-router";
+import { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   FlatList,
   StyleSheet,
   Text,
@@ -20,6 +19,8 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+
+import ConfirmDiscardModal from "../../components/ConfirmDiscardModal";
 import OfficeModal from "./officeModal";
 
 const BULSU_CENTER = [120.8142, 14.8582];
@@ -47,13 +48,41 @@ const highDetailHybridStyle = {
 };
 
 export default function MapScreen() {
-  const navigation = useNavigation(); // <-- Handle screen focus events
+  const navigation = useNavigation();
   const [hasPermission, setHasPermission] = useState(false);
   const [isWakingGPS, setIsWakingGPS] = useState(true);
   const [isDataLoading, setIsDataLoading] = useState(true);
   const [selectedOffice, setSelectedOffice] = useState(null);
   const [modalVisible, setModalVisible] = useState(false);
   const [colleges, setColleges] = useState([]);
+
+  // --- Confirm Discard Modal Config State ---
+  const [modalConfig, setModalConfig] = useState({
+    visible: false,
+    message: "",
+    cancelLabel: "Cancel",
+    confirmLabel: "OK",
+    onConfirm: () => {},
+  });
+
+  // Helper function to trigger custom modal dialogs easily
+  const showCustomAlert = ({
+    message,
+    cancelLabel = "Cancel",
+    confirmLabel = "OK",
+    onConfirm = () => {},
+  }) => {
+    setModalConfig({
+      visible: true,
+      message,
+      cancelLabel,
+      confirmLabel,
+      onConfirm: () => {
+        onConfirm();
+        setModalConfig((prev) => ({ ...prev, visible: false }));
+      },
+    });
+  };
 
   // --- Search States ---
   const [searchQuery, setSearchQuery] = useState("");
@@ -62,8 +91,6 @@ export default function MapScreen() {
 
   // --- Incoming params ---
   const { officeId } = useLocalSearchParams();
-
-  // Track the last processed ID to reset properly if needed
   const lastProcessedIdRef = useRef(null);
 
   const [cameraConfig, setCameraConfig] = useState({
@@ -79,10 +106,13 @@ export default function MapScreen() {
         const { status } = await Location.requestForegroundPermissionsAsync();
 
         if (status !== "granted") {
-          Alert.alert(
-            "Location access",
-            "FoundNest can still show campus offices. Enable location to see your distance from them.",
-          );
+          // Replaced native Alert with Custom Modal
+          showCustomAlert({
+            message:
+              "Location Access Needed: FoundNest can still show campus offices, but enable location to view your live distance.",
+            cancelLabel: "Dismiss",
+            confirmLabel: "Got It",
+          });
           setIsWakingGPS(false);
           return;
         }
@@ -109,7 +139,6 @@ export default function MapScreen() {
         const data = await fetchBulsuColleges();
         if (data && data.length > 0) {
           setColleges(data);
-          console.log("Colleges loaded:", data);
         }
       } catch (error) {
         console.error("Error fetching colleges:", error);
@@ -121,7 +150,7 @@ export default function MapScreen() {
     loadColleges();
   }, []);
 
-  // 3. FIXED: Handle incoming parameter checking both on load AND on navigation focus
+  // 3. Handle incoming parameter checking
   useEffect(() => {
     function processIncomingOffice() {
       if (!officeId || !Array.isArray(colleges) || colleges.length === 0) {
@@ -129,7 +158,7 @@ export default function MapScreen() {
       }
 
       const target = colleges.find(
-        (college) => college?.office_id?.toString() === officeId.toString(),
+        (college) => college?.office_id?.toString() === officeId.toString()
       );
 
       if (target) {
@@ -146,17 +175,11 @@ export default function MapScreen() {
 
         setSelectedOffice(target);
         setModalVisible(true);
-      } else {
-        console.warn(
-          `Could not find a college office matching ID: ${officeId}`,
-        );
       }
     }
 
-    // Process immediately if variables change
     processIncomingOffice();
 
-    // ALSO process whenever this tab/screen re-gains focus in the app navigation stack
     const unsubscribe = navigation.addListener("focus", () => {
       processIncomingOffice();
     });
@@ -169,7 +192,7 @@ export default function MapScreen() {
     setSearchQuery(text);
     if (text) {
       const filtered = colleges.filter((college) =>
-        college.office_name.toLowerCase().includes(text.toLowerCase()),
+        college.office_name.toLowerCase().includes(text.toLowerCase())
       );
       setFilteredColleges(filtered);
       setIsDropdownVisible(true);
@@ -187,7 +210,9 @@ export default function MapScreen() {
         setFilteredColleges(colleges);
       } else {
         const filtered = colleges.filter((college) =>
-          college.office_name.toLowerCase().includes(searchQuery.toLowerCase()),
+          college.office_name
+            .toLowerCase()
+            .includes(searchQuery.toLowerCase())
         );
         setFilteredColleges(filtered);
       }
@@ -211,6 +236,22 @@ export default function MapScreen() {
     setIsDropdownVisible(false);
   }
 
+  // Clear search with Modal Prompt
+  function requestClearSearch() {
+    if (searchQuery.length > 0) {
+      showCustomAlert({
+        message: "Clear current search filter?",
+        cancelLabel: "Keep Editing",
+        confirmLabel: "Clear",
+        onConfirm: () => {
+          setSearchQuery("");
+          setFilteredColleges([]);
+          setIsDropdownVisible(false);
+        },
+      });
+    }
+  }
+
   function handleMarkerPress(college) {
     setSelectedOffice(college);
     setModalVisible(true);
@@ -219,7 +260,6 @@ export default function MapScreen() {
   function handleCloseModal() {
     setModalVisible(false);
     setSelectedOffice(null);
-    // Optional: Clear route params completely on close so it doesn't auto-popup on stray re-renders
     navigation.setParams({ officeId: undefined });
   }
 
@@ -244,6 +284,17 @@ export default function MapScreen() {
               if (searchQuery) setIsDropdownVisible(true);
             }}
           />
+
+          {searchQuery.length > 0 && (
+            <TouchableOpacity
+              onPress={requestClearSearch}
+              style={styles.iconContainer}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="close-circle" size={20} color="#888" />
+            </TouchableOpacity>
+          )}
+
           <TouchableOpacity
             onPress={toggleDropdown}
             style={styles.iconContainer}
@@ -293,7 +344,7 @@ export default function MapScreen() {
         {colleges
           .filter(
             (college) =>
-              college.longitude !== null && college.latitude !== null,
+              college.longitude !== null && college.latitude !== null
           )
           .map((college) => {
             const lng = parseFloat(college.longitude);
@@ -320,10 +371,23 @@ export default function MapScreen() {
           })}
       </Map>
 
+      {/* Office Details Modal */}
       <OfficeModal
         visible={modalVisible}
         onClose={handleCloseModal}
         office={selectedOffice}
+      />
+
+      {/* Reusable ConfirmDiscardModal for all alert/confirmation popups */}
+      <ConfirmDiscardModal
+        visible={modalConfig.visible}
+        message={modalConfig.message}
+        cancelLabel={modalConfig.cancelLabel}
+        confirmLabel={modalConfig.confirmLabel}
+        onKeepEditing={() =>
+          setModalConfig((prev) => ({ ...prev, visible: false }))
+        }
+        onDiscard={modalConfig.onConfirm}
       />
     </View>
   );
@@ -363,7 +427,7 @@ const styles = StyleSheet.create({
     color: "#000",
   },
   iconContainer: {
-    padding: 12,
+    padding: 10,
     justifyContent: "center",
     alignItems: "center",
   },

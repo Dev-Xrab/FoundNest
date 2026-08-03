@@ -12,6 +12,7 @@
   "dependencies": {
     "@expo/vector-icons": "^15.0.3",
     "@maplibre/maplibre-react-native": "^11.2.1",
+    "@react-native-community/netinfo": "11.4.1",
     "@react-native-picker/picker": "2.11.1",
     "@react-navigation/native": "^7.1.8",
     "dotenv": "^17.4.2",

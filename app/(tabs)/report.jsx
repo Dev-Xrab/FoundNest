@@ -1,4 +1,5 @@
-import ChangePhotoModal from "@/components/InsertEditImage"; 
+import ChangePhotoModal from "@/components/InsertEditImage";
+import ConfirmDiscardModal from "@/components/ConfirmDiscardModal";
 import AppColors from "@/constants/AppColors";
 import { getCategories, matchCategoryFromAi } from "@/constants/category";
 import { DescribeItem } from "@/constants/geminiAI";
@@ -29,6 +30,7 @@ function FieldError({ message }) {
 }
 
 export default function Report() {
+  const [clearModalVisible, setClearModalVisible] = useState(false);
   const [selectedImage, setSelectedImage] = useState(null);
   const [selectedCategoryId, setSelectedCategoryId] = useState("");
   const [itemName, setItemName] = useState("");
@@ -39,6 +41,7 @@ export default function Report() {
   const [errors, setErrors] = useState({});
   const [modalVisible, setModalVisible] = useState(false);
   const router = useRouter();
+  
 
   const categoryDropdownData = categories.map((cat) => ({
     label: cat.category_name,
@@ -73,7 +76,6 @@ export default function Report() {
 
       const aiResult = await DescribeItem({
         imageUri: uri,
-        categoryOptions: categoryList.map((c) => c.category_name),
       });
 
       if (aiResult) {
@@ -97,11 +99,32 @@ export default function Report() {
     }
   };
 
+const handleClearAll = () => {
+  setClearModalVisible(true);
+};
+
+const confirmClearAll = () => {
+  setSelectedImage(null);
+  setSelectedCategoryId("");
+  setItemName("");
+  setDetailedDescription("");
+  setContents("");
+  setErrors({});
+
+  // Clear the saved draft
+  setReportDraft(null);
+
+  setClearModalVisible(false);
+};
+
   const handleTakePhoto = async () => {
     setModalVisible(false);
     const permissionResult = await ImagePicker.requestCameraPermissionsAsync();
     if (!permissionResult.granted) {
-      Alert.alert("Permission Denied", "You need to allow camera access to take photos.");
+      Alert.alert(
+        "Permission Denied",
+        "You need to allow camera access to take photos.",
+      );
       return;
     }
 
@@ -120,9 +143,13 @@ export default function Report() {
 
   const handleChooseFromLibrary = async () => {
     setModalVisible(false);
-    const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    const permissionResult =
+      await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permissionResult.granted) {
-      Alert.alert("Permission Denied", "You need to allow library access to select files.");
+      Alert.alert(
+        "Permission Denied",
+        "You need to allow library access to select files.",
+      );
       return;
     }
 
@@ -212,7 +239,10 @@ export default function Report() {
                 </View>
               ) : selectedImage ? (
                 <View style={styles.imagePreviewContainer}>
-                  <Image source={{ uri: selectedImage }} style={styles.previewImage} />
+                  <Image
+                    source={{ uri: selectedImage }}
+                    style={styles.previewImage}
+                  />
                   <View style={styles.changeBadge}>
                     <MaterialIcons name="edit" size={16} color="#FFFFFF" />
                   </View>
@@ -227,7 +257,9 @@ export default function Report() {
             </TouchableOpacity>
 
             <Text style={styles.titleText}>
-              {isLoading ? "Analyzing image..." : "Upload Item Photo (Optional)"}
+              {isLoading
+                ? "Analyzing image..."
+                : "Upload Item Photo (Optional)"}
             </Text>
             <Text style={styles.subText}>
               *FoundNest AI will help auto-fill details based on your photo.
@@ -238,7 +270,10 @@ export default function Report() {
         <Text style={styles.sectionTitle}>Category</Text>
 
         <Dropdown
-          style={[styles.categoryDropdown, errors.category && styles.inputErrorBorder]}
+          style={[
+            styles.categoryDropdown,
+            errors.category && styles.inputErrorBorder,
+          ]}
           placeholderStyle={styles.categoryPlaceholder}
           selectedTextStyle={styles.categorySelectedText}
           containerStyle={styles.categoryDropdownContainer}
@@ -246,18 +281,27 @@ export default function Report() {
           maxHeight={280}
           labelField="label"
           valueField="value"
-          placeholder={categoryDropdownData.length === 0 ? "Loading categories..." : "Select Category"}
+          placeholder={
+            categoryDropdownData.length === 0
+              ? "Loading categories..."
+              : "Select Category"
+          }
           disable={categoryDropdownData.length === 0}
           value={selectedCategoryId || null}
           onChange={(item) => {
             setSelectedCategoryId(item.value);
-            if (errors.category) setErrors((prev) => ({ ...prev, category: undefined }));
+            if (errors.category)
+              setErrors((prev) => ({ ...prev, category: undefined }));
           }}
           renderItem={renderDropdownItem}
           dropdownPosition="bottom"
           autoScroll={false}
           renderRightIcon={() => (
-            <MaterialIcons name="keyboard-arrow-down" size={24} color={AppColors.background} />
+            <MaterialIcons
+              name="keyboard-arrow-down"
+              size={24}
+              color={AppColors.background}
+            />
           )}
         />
         <FieldError message={errors.category} />
@@ -270,14 +314,19 @@ export default function Report() {
           value={itemName}
           onChangeText={(text) => {
             setItemName(text);
-            if (errors.itemName) setErrors((prev) => ({ ...prev, itemName: undefined }));
+            if (errors.itemName)
+              setErrors((prev) => ({ ...prev, itemName: undefined }));
           }}
         />
         <FieldError message={errors.itemName} />
 
         <Text style={styles.sectionTitle}>Detailed Description</Text>
         <TextInput
-          style={[styles.picker, styles.multilineInput, errors.description && styles.inputErrorBorder]}
+          style={[
+            styles.picker,
+            styles.multilineInput,
+            errors.description && styles.inputErrorBorder,
+          ]}
           maxHeight={140}
           multiline
           numberOfLines={8}
@@ -287,7 +336,8 @@ export default function Report() {
           value={detailedDescription}
           onChangeText={(text) => {
             setDetailedDescription(text);
-            if (errors.description) setErrors((prev) => ({ ...prev, description: undefined }));
+            if (errors.description)
+              setErrors((prev) => ({ ...prev, description: undefined }));
           }}
         />
         <FieldError message={errors.description} />
@@ -303,43 +353,218 @@ export default function Report() {
 
         <View style={styles.nextSection}>
           <Text style={styles.pageIndicator}>Page 1 out of 2</Text>
-          <TouchableOpacity style={styles.nextButton} onPress={handleNext}>
-            <Text style={styles.buttonText}>Next</Text>
-          </TouchableOpacity>
+
+          <View style={styles.actionButtons}>
+            <TouchableOpacity
+              style={styles.clearButton}
+              onPress={handleClearAll}
+            >
+              <Text style={styles.clearButtonText}>Clear All</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.nextButton} onPress={handleNext}>
+              <Text style={styles.buttonText}>Next</Text>
+            </TouchableOpacity>
+          </View>
         </View>
+        <ConfirmDiscardModal
+  visible={clearModalVisible}
+  message="Clear all entered data? This action cannot be undone."
+  cancelLabel="Cancel"
+  confirmLabel="Clear"
+  onKeepEditing={() => setClearModalVisible(false)}
+  onDiscard={confirmClearAll}
+/>
       </ScrollView>
     </KeyboardAvoidingView>
+    
   );
 }
 
 const styles = StyleSheet.create({
   container: { flexGrow: 1, backgroundColor: "#FFF1E0", paddingBottom: 40 },
-  title: { backgroundColor: AppColors.background, fontSize: 22, fontWeight: "700", color: AppColors.surface, padding: 20 },
-  subTitle: { borderBottomWidth: 1, borderColor: "#000000", fontSize: 17, fontWeight: "900", color: AppColors.textOnLight, padding: 20, paddingLeft: 10, paddingBottom: 15, marginHorizontal: 10, marginBottom: 20 },
-  uploadCardWrapper: { alignItems: "center", justifyContent: "center", paddingHorizontal: 20, paddingBottom: 10 },
-  card: { backgroundColor: AppColors.surface, borderRadius: 28, paddingVertical: 20, paddingHorizontal: 20, alignItems: "center", width: "100%", maxWidth: 450, shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 10, elevation: 2 },
-  uploadTarget: { marginBottom: 20, justifyContent: "center", alignItems: "center" },
-  dashedRing: { width: 80, height: 80, borderRadius: 40, borderWidth: 1.5, borderColor: "#900000", borderStyle: "dashed", justifyContent: "center", alignItems: "center" },
-  solidCircle: { width: 60, height: 60, borderRadius: 30, backgroundColor: "#900000", justifyContent: "center", alignItems: "center" },
-  titleText: { fontSize: 17, fontWeight: "600", color: "#6B5A52", textAlign: "center", marginBottom: 14 },
-  subText: { fontSize: 13, color: "#8C7A70", textAlign: "center", lineHeight: 22, paddingHorizontal: 12 },
-  sectionTitle: { fontSize: 17, fontWeight: "800", color: AppColors.textOnLight, paddingLeft: 20, marginTop: 20, marginBottom: 8 },
-  categoryDropdown: { marginHorizontal: 20, backgroundColor: AppColors.surface, borderRadius: 8, paddingHorizontal: 12, height: 50, borderWidth: 1, borderColor: "rgba(0,0,0,0.08)" },
+  title: {
+    backgroundColor: AppColors.background,
+    fontSize: 22,
+    fontWeight: "700",
+    color: AppColors.surface,
+    padding: 20,
+  },
+  subTitle: {
+    borderBottomWidth: 1,
+    borderColor: "#000000",
+    fontSize: 17,
+    fontWeight: "900",
+    color: AppColors.textOnLight,
+    padding: 20,
+    paddingLeft: 10,
+    paddingBottom: 15,
+    marginHorizontal: 10,
+    marginBottom: 20,
+  },
+  uploadCardWrapper: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 20,
+    paddingBottom: 10,
+  },
+  card: {
+    backgroundColor: AppColors.surface,
+    borderRadius: 28,
+    paddingVertical: 20,
+    paddingHorizontal: 20,
+    alignItems: "center",
+    width: "100%",
+    maxWidth: 450,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 10,
+    elevation: 2,
+  },
+  uploadTarget: {
+    marginBottom: 20,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  dashedRing: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    borderWidth: 1.5,
+    borderColor: "#900000",
+    borderStyle: "dashed",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  solidCircle: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: "#900000",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  titleText: {
+    fontSize: 17,
+    fontWeight: "600",
+    color: "#6B5A52",
+    textAlign: "center",
+    marginBottom: 14,
+  },
+  subText: {
+    fontSize: 13,
+    color: "#8C7A70",
+    textAlign: "center",
+    lineHeight: 22,
+    paddingHorizontal: 12,
+  },
+  sectionTitle: {
+    fontSize: 17,
+    fontWeight: "800",
+    color: AppColors.textOnLight,
+    paddingLeft: 20,
+    marginTop: 20,
+    marginBottom: 8,
+  },
+  categoryDropdown: {
+    marginHorizontal: 20,
+    backgroundColor: AppColors.surface,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    height: 50,
+    borderWidth: 1,
+    borderColor: "rgba(0,0,0,0.08)",
+  },
   categoryPlaceholder: { fontSize: 16, color: "#8C7A70" },
   categorySelectedText: { fontSize: 16, color: AppColors.textOnLight },
-  categoryDropdownContainer: { backgroundColor: "#FFFFFF", borderRadius: 8, borderWidth: 1, borderColor: "rgba(0,0,0,0.12)", shadowColor: "#000", shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 3 },
-  categoryItemRow: { paddingVertical: 14, paddingHorizontal: 16, backgroundColor: "#FFFFFF", borderBottomWidth: 0.5, borderColor: "#ECECEC" },
+  categoryDropdownContainer: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "rgba(0,0,0,0.12)",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  categoryItemRow: {
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    backgroundColor: "#FFFFFF",
+    borderBottomWidth: 0.5,
+    borderColor: "#ECECEC",
+  },
   categoryItemText: { fontSize: 16, color: AppColors.textOnLight },
-  picker: { marginHorizontal: 20, backgroundColor: AppColors.surface, borderRadius: 8, paddingHorizontal: 12, height: 50, justifyContent: "center", fontSize: 16, borderWidth: 1, borderColor: "rgba(0,0,0,0.08)" },
+  picker: {
+    marginHorizontal: 20,
+    backgroundColor: AppColors.surface,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    height: 50,
+    justifyContent: "center",
+    fontSize: 16,
+    borderWidth: 1,
+    borderColor: "rgba(0,0,0,0.08)",
+  },
   multilineInput: { height: 140, paddingTop: 12 },
   inputErrorBorder: { borderWidth: 1, borderColor: "#C62828" },
-  fieldError: { color: "#C62828", fontSize: 13, marginHorizontal: 20, marginTop: 4 },
+  fieldError: {
+    color: "#C62828",
+    fontSize: 13,
+    marginHorizontal: 20,
+    marginTop: 4,
+  },
   screenContainer: { flex: 1, backgroundColor: "#FFF1E0" },
   imagePreviewContainer: { width: 110, height: 110, position: "relative" },
   previewImage: { width: "100%", height: "100%", borderRadius: 20 },
-  changeBadge: { position: "absolute", bottom: -4, right: -4, backgroundColor: "#900000", width: 28, height: 28, borderRadius: 14, justifyContent: "center", alignItems: "center", borderWidth: 2, borderColor: "#FFFFFF" },
-  nextSection: { flexDirection: "row", justifyContent: "space-between", marginHorizontal: 20, marginTop: 20, paddingVertical: 30, borderTopWidth: 1, borderColor: "rgba(0, 0, 0, 0.24)", alignItems: "center" },
+  changeBadge: {
+    position: "absolute",
+    bottom: -4,
+    right: -4,
+    backgroundColor: "#900000",
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 2,
+    borderColor: "#FFFFFF",
+  },
+  nextSection: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginHorizontal: 20,
+    marginTop: 20,
+    paddingVertical: 30,
+    borderTopWidth: 1,
+    borderColor: "rgba(0, 0, 0, 0.24)",
+    alignItems: "center",
+  },
   pageIndicator: { fontWeight: "bold" },
-  nextButton: { padding: 10, paddingHorizontal: 30, backgroundColor: AppColors.background, borderRadius: 10 },
+  nextButton: {
+    padding: 10,
+    paddingHorizontal: 30,
+    backgroundColor: AppColors.background,
+    borderRadius: 10,
+  },
   buttonText: { color: AppColors.surface },
+  actionButtons: {
+  flexDirection: "row",
+  gap: 10,
+},
+
+clearButton: {
+  paddingVertical: 10,
+  paddingHorizontal: 20,
+  borderRadius: 10,
+  borderWidth: 1,
+  borderColor: "#C62828",
+},
+
+clearButtonText: {
+  color: "#C62828",
+  fontWeight: "600",
+},
 });

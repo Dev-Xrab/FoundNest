@@ -1,9 +1,9 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useRouter } from "expo-router";
+import { StatusBar } from "expo-status-bar";
 import React, { useEffect, useState } from "react";
 import { Image, Pressable, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import {StatusBar} from "expo-status-bar"
 
 // Imports needed for your API logic
 import FoundNestLogo from "@/assets/images/app-logo.png";
@@ -16,10 +16,36 @@ export default function CustomHeader({ title }) {
   const insets = useSafeAreaInsets();
   const router = useRouter();
 
-  const [numberOfUnreadNotifications, setNumberOfUnreadNotifications] =
-    useState(0);
+  const [numberOfUnreadNotifications, setNumberOfUnreadNotifications] = useState(0);
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [isOnline, setIsOnline] = useState(true);
+
+  // Checks real internet access by attempting a lightweight ping
+  const checkConnection = async () => {
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 3000);
+
+      const response = await fetch("https://www.google.com/");
+
+      clearTimeout(timeoutId);
+      setIsOnline(response.status === 204 || response.ok);
+    } catch (error) {
+      setIsOnline(false);
+    }
+  };
+
+  useEffect(() => {
+    checkConnection();
+
+    // Re-verify network status every 5 seconds
+    const interval = setInterval(() => {
+      checkConnection();
+    }, 5000);
+
+    return () => clearInterval(interval);
+  }, []);
 
   function openNotifications() {
     router.push("/allNotification");
@@ -30,8 +56,10 @@ export default function CustomHeader({ title }) {
       const user = await getUser();
       const userId = user ? user.user_id : null;
 
+      if (!userId) return;
+
       const response = await fetchWithAuth(
-        `${API_BASE_URL}/api/notifications/user/${userId}`,
+        `${API_BASE_URL}/api/notifications/user/${userId}`
       );
 
       if (!response.ok) {
@@ -54,7 +82,7 @@ export default function CustomHeader({ title }) {
 
   return (
     <View style={[styles.wrapper, { paddingTop: insets.top }]}>
-       <StatusBar style="dark" backgroundColor="transparent" translucent />
+      <StatusBar style="dark" backgroundColor="transparent" translucent />
       <View style={styles.bar}>
         <View style={styles.logoContainer}>
           <Image
@@ -65,6 +93,18 @@ export default function CustomHeader({ title }) {
         </View>
 
         <Text style={styles.title}>{title}</Text>
+
+        {/* Dynamic Badge Color: Green (#22C55E) when Online | Red (#EF4444) when Offline */}
+        <View
+          style={[
+            styles.statusBadge,
+            { backgroundColor: isOnline ? "#22C55E" : "#EF4444" },
+          ]}
+        >
+          <Text style={styles.statusText}>
+            {isOnline ? "Online" : "Offline"}
+          </Text>
+        </View>
 
         <View style={styles.spacer} />
 
@@ -80,7 +120,6 @@ export default function CustomHeader({ title }) {
               size={24}
               color={AppColors.background}
             />
-            {/* Conditional styling: Renders red dot if count is greater than 0 */}
             {numberOfUnreadNotifications > 0 && (
               <View style={styles.badgeDot} />
             )}
@@ -121,6 +160,20 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: "700",
   },
+  statusBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 12,
+    marginLeft: 8,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  statusText: {
+    color: "#FFFFFF",
+    fontSize: 11,
+    fontWeight: "700",
+    textTransform: "uppercase",
+  },
   spacer: {
     flex: 1,
   },
@@ -130,17 +183,17 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   iconWrapper: {
-    position: "relative", // Keeps the dot context inside the icon area
+    position: "relative",
   },
   badgeDot: {
     position: "absolute",
     right: 2,
     top: 2,
-    backgroundColor: "#EF4444", // Red dot color
+    backgroundColor: "#EF4444",
     width: 8,
     height: 8,
     borderRadius: 4,
     borderWidth: 1,
-    borderColor: AppColors.surface, // Gives it a clean cutout visual appearance against your header background
+    borderColor: AppColors.surface,
   },
 });
