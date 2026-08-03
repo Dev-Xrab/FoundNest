@@ -8,6 +8,7 @@ import {
   TextInput,
   TouchableOpacity,
   View,
+  Platform,
 } from "react-native";
 
 import { API_BASE_URL } from "@/constants/api";
@@ -172,7 +173,17 @@ export default function HomeScreen() {
 
   // Push Notifications Setup
   useEffect(() => {
+    
   async function setupNotifications() {
+    if (Platform.OS === "android") {
+    await Notifications.setNotificationChannelAsync("default", {
+      name: "Default",
+      importance: Notifications.AndroidImportance.HIGH,
+      sound: "default",
+      vibrationPattern: [0, 250, 250, 250],
+    });
+  }
+
     // 1. Check current permission status
     const { status: existingStatus } = await Notifications.getPermissionsAsync();
     let finalStatus = existingStatus;

@@ -1,5 +1,7 @@
+import ConfirmDiscardModal from "@/components/ConfirmDiscardModal";
+import AppColors from "@/constants/AppColors";
 import { getUser } from "@/constants/StudentData";
-import { useEffect, useRef, useState } from "react"; // <-- Added useRef here
+import { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -14,15 +16,13 @@ import {
   View,
 } from "react-native";
 
-import AppColors from "@/constants/AppColors";
-
 function OfficeBanner({ office }) {
   const [imageFailed, setImageFailed] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
   // Fallback checks
   const imageUri = typeof office.image_url === "string" ? office.image_url.trim() : null;
-  const localImage = typeof office.image=== "number" ? office.image : null;
+  const localImage = typeof office.image === "number" ? office.image : null;
 
   useEffect(() => {
     setImageFailed(false);
@@ -36,31 +36,35 @@ function OfficeBanner({ office }) {
       {showImage ? (
         <View style={StyleSheet.absoluteFillObject}>
           <Image
-            source={localImage !== null ? 
-              localImage : 
-              { uri: imageUri, 
-                headers: {
-                "User-Agent": "Mozilla/5.0 (Linux; Android 10; Mobile) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36"
-          }
-              }}
+            source={
+              localImage !== null
+                ? localImage
+                : {
+                    uri: imageUri,
+                    headers: {
+                      "User-Agent":
+                        "Mozilla/5.0 (Linux; Android 10; Mobile) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36",
+                    },
+                  }
+            }
             style={styles.bannerImage}
             resizeMode="cover"
             onLoadStart={() => setIsLoading(true)}
             onLoadEnd={() => setIsLoading(false)}
             onError={(e) => {
-              console.log("Image load error:", e.nativeEvent.error); // Debug log
+              console.log("Image load error:", e.nativeEvent.error);
               setImageFailed(true);
               setIsLoading(false);
             }}
           />
-          
-          {/* Text Overlay sits on top of the image */}
+
+          {/* Text Overlay */}
           <View style={styles.imageOverlay}>
             <Text style={styles.imageTextHeader}>{office.floor}</Text>
             <Text style={styles.imageTextSub}>Hours: {office.operating_hours}</Text>
           </View>
 
-          {/* Loading Overlay is placed last so it sits on top of EVERYTHING while active */}
+          {/* Loading Overlay */}
           {isLoading && (
             <View style={styles.loadingOverlay}>
               <ActivityIndicator
@@ -94,7 +98,10 @@ export default function OfficeModal({ visible, onClose, office }) {
 
   const [existingReviewId, setExistingReviewId] = useState(null);
 
-  // 1. Create a reference for the ScrollView
+  // Modal State for custom confirmation popup
+  const [alertModalVisible, setAlertModalVisible] = useState(false);
+  const [alertModalMessage, setAlertModalMessage] = useState("");
+
   const scrollViewRef = useRef(null);
 
   const fetchReviewsAndCheckExisting = async () => {
@@ -104,7 +111,7 @@ export default function OfficeModal({ visible, onClose, office }) {
     try {
       const userId = await getUser();
       const res = await fetch(
-        `https://foundnest-backend.onrender.com/api/offices/${office.office_id}/reviews`,
+        `https://foundnest-backend.onrender.com/api/offices/${office.office_id}/reviews`
       );
       if (!res.ok) throw new Error(`Failed to fetch reviews: ${res.status}`);
 
@@ -114,7 +121,7 @@ export default function OfficeModal({ visible, onClose, office }) {
 
       if (userId) {
         const myReview = fetchedReviews.find(
-          (r) => r.user_id === userId.user_id || r.email === userId.email,
+          (r) => r.user_id === userId.user_id || r.email === userId.email
         );
 
         if (myReview) {
@@ -143,10 +150,8 @@ export default function OfficeModal({ visible, onClose, office }) {
 
   const handlePostReview = async () => {
     if (rating === 0) {
-      Alert.alert(
-        "Rating Required",
-        "Please select a star rating before posting.",
-      );
+      setAlertModalMessage("Please select a star rating before posting.");
+      setAlertModalVisible(true);
       return;
     }
 
@@ -177,17 +182,18 @@ export default function OfficeModal({ visible, onClose, office }) {
         throw new Error(errorData.message || "Failed to submit review");
       }
 
-      Alert.alert(
-        "Success",
-        isEditing
-          ? "Your review has been updated!"
-          : "Your review has been posted!",
-      );
+      const successMsg = isEditing
+        ? "Your review has been updated!"
+        : "Your review has been posted!";
+
+      setAlertModalMessage(successMsg);
+      setAlertModalVisible(true);
 
       fetchReviewsAndCheckExisting();
     } catch (error) {
       console.error("Post review error:", error);
-      Alert.alert("Submission Failed", error.message);
+      setAlertModalMessage(error.message || "Failed to submit review.");
+      setAlertModalVisible(true);
     } finally {
       setIsSubmitting(false);
     }
@@ -215,202 +221,203 @@ export default function OfficeModal({ visible, onClose, office }) {
   };
 
   const headerTitle = office.office_name;
-  
-  
 
   return (
-    <Modal
-      animationType="slide"
-      transparent
-      visible={visible}
-      onRequestClose={onClose}
-    >
-      <KeyboardAvoidingView
-        // 2. We keep this as padding so the overall sheet behaves
-        behavior="padding"
-        style={styles.overlay}
+    <>
+      <Modal
+        animationType="slide"
+        transparent
+        visible={visible}
+        onRequestClose={onClose}
       >
-        <TouchableOpacity
-          style={styles.backgroundTap}
-          onPress={onClose}
-          activeOpacity={1}
-        />
+        <KeyboardAvoidingView behavior="padding" style={styles.overlay}>
+          <TouchableOpacity
+            style={styles.backgroundTap}
+            onPress={onClose}
+            activeOpacity={1}
+          />
 
-        <View style={styles.sheetContainer}>
-          <View style={styles.dragHandle} />
-          <View style={styles.header}>
-            <View style={styles.headerTextWrap}>
-              <Text style={styles.headerTitle} numberOfLines={2}>
-                {headerTitle}
-              </Text>
-             
-            </View>
-            <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-              <Text style={styles.closeText}>✕</Text>
-            </TouchableOpacity>
-          </View>
-
-          <ScrollView
-            // 3. Attach the ref to the ScrollView here
-            ref={scrollViewRef}
-            showsVerticalScrollIndicator={false}
-            contentContainerStyle={styles.scrollContent}
-            keyboardShouldPersistTaps="handled" // Important for scrolling while keyboard is up
-          >
-            <OfficeBanner office={office} />
-
-            <View style={styles.contentPadding}>
-              <Text style={styles.description}>{office.description}</Text>
-
-              <View style={styles.divider} />
-
-              <View style={styles.ratingOverview}>
-                {/* ... existing rating UI ... */}
-                <View style={styles.scoreContainer}>
-                  <Text style={styles.hugeScore}>{averageRating}</Text>
-                  <Text style={styles.stars}>⭐⭐⭐⭐⭐</Text>
-                  <Text style={styles.reviewCount}>({totalReviews})</Text>
-                </View>
-                <View style={styles.barsContainer}>
-                  <View style={styles.barRow}>
-                    <View style={[styles.bar, { width: "100%" }]} />
-                  </View>
-                  <View style={styles.barRow}>
-                    <View style={[styles.bar, { width: "0%" }]} />
-                  </View>
-                  <View style={styles.barRow}>
-                    <View style={[styles.bar, { width: "0%" }]} />
-                  </View>
-                  <View style={styles.barRow}>
-                    <View style={[styles.bar, { width: "0%" }]} />
-                  </View>
-                  <View style={styles.barRow}>
-                    <View style={[styles.bar, { width: "0%" }]} />
-                  </View>
-                </View>
+          <View style={styles.sheetContainer}>
+            <View style={styles.dragHandle} />
+            <View style={styles.header}>
+              <View style={styles.headerTextWrap}>
+                <Text style={styles.headerTitle} numberOfLines={2}>
+                  {headerTitle}
+                </Text>
               </View>
-
-              <View style={styles.divider} />
-
-              <Text style={styles.sectionTitle}>
-                {existingReviewId ? "Edit Your Review" : "Rate and Review"}
-              </Text>
-
-              <View style={styles.starSelector}>
-                {[1, 2, 3, 4, 5].map((star) => (
-                  <TouchableOpacity
-                    key={star}
-                    onPress={() => setRating(star)}
-                    disabled={isLoadingReviews}
-                  >
-                    <Text
-                      style={[
-                        styles.starIcon,
-                        rating >= star && styles.starSelected,
-                      ]}
-                    >
-                      ★
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-
-              <TextInput
-                style={[
-                  styles.textInput,
-                  isLoadingReviews && {
-                    opacity: 0.6,
-                    backgroundColor: "#EFEFEF",
-                  },
-                ]}
-                placeholder="Tell others about your experience at this office."
-                multiline
-                numberOfLines={4}
-                value={reviewText}
-                onChangeText={setReviewText}
-                textAlignVertical="top"
-                editable={!isLoadingReviews}
-                // 4. Scroll exactly to the bottom when the user clicks the input!
-                onFocus={() => {
-                  setTimeout(() => {
-                    scrollViewRef.current?.scrollToEnd({ animated: true });
-                  }, 150); // slight delay gives the keyboard time to animate up first
-                }}
-              />
-
-              <TouchableOpacity
-                style={[
-                  styles.postButton,
-                  (reviewText.length > 0 || rating > 0) &&
-                    !isLoadingReviews &&
-                    styles.postButtonActive,
-                ]}
-                onPress={handlePostReview}
-                disabled={isSubmitting || isLoadingReviews}
-              >
-                {isSubmitting ? (
-                  <ActivityIndicator size="small" color={AppColors.surface} />
-                ) : (
-                  <Text style={styles.postButtonText}>
-                    {existingReviewId ? "Update Review" : "Post Review"}
-                  </Text>
-                )}
+              <TouchableOpacity onPress={onClose} style={styles.closeButton}>
+                <Text style={styles.closeText}>✕</Text>
               </TouchableOpacity>
+            </View>
 
-              <View style={styles.divider} />
+            <ScrollView
+              ref={scrollViewRef}
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={styles.scrollContent}
+              keyboardShouldPersistTaps="handled"
+            >
+              <OfficeBanner office={office} />
 
-              <Text style={styles.sectionTitle}>Reviews</Text>
+              <View style={styles.contentPadding}>
+                <Text style={styles.description}>{office.description}</Text>
 
-              {isLoadingReviews ? (
-                <ActivityIndicator
-                  size="small"
-                  color={AppColors.background || "#900000"}
-                  style={{ marginTop: 20 }}
+                <View style={styles.divider} />
+
+                <View style={styles.ratingOverview}>
+                  <View style={styles.scoreContainer}>
+                    <Text style={styles.hugeScore}>{averageRating}</Text>
+                    <Text style={styles.stars}>⭐⭐⭐⭐⭐</Text>
+                    <Text style={styles.reviewCount}>({totalReviews})</Text>
+                  </View>
+                  <View style={styles.barsContainer}>
+                    <View style={styles.barRow}>
+                      <View style={[styles.bar, { width: "100%" }]} />
+                    </View>
+                    <View style={styles.barRow}>
+                      <View style={[styles.bar, { width: "0%" }]} />
+                    </View>
+                    <View style={styles.barRow}>
+                      <View style={[styles.bar, { width: "0%" }]} />
+                    </View>
+                    <View style={styles.barRow}>
+                      <View style={[styles.bar, { width: "0%" }]} />
+                    </View>
+                    <View style={styles.barRow}>
+                      <View style={[styles.bar, { width: "0%" }]} />
+                    </View>
+                  </View>
+                </View>
+
+                <View style={styles.divider} />
+
+                <Text style={styles.sectionTitle}>
+                  {existingReviewId ? "Edit Your Review" : "Rate and Review"}
+                </Text>
+
+                <View style={styles.starSelector}>
+                  {[1, 2, 3, 4, 5].map((star) => (
+                    <TouchableOpacity
+                      key={star}
+                      onPress={() => setRating(star)}
+                      disabled={isLoadingReviews}
+                    >
+                      <Text
+                        style={[
+                          styles.starIcon,
+                          rating >= star && styles.starSelected,
+                        ]}
+                      >
+                        ★
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+
+                <TextInput
+                  style={[
+                    styles.textInput,
+                    isLoadingReviews && {
+                      opacity: 0.6,
+                      backgroundColor: "#EFEFEF",
+                    },
+                  ]}
+                  placeholder="Tell others about your experience at this office."
+                  multiline
+                  numberOfLines={4}
+                  value={reviewText}
+                  onChangeText={setReviewText}
+                  textAlignVertical="top"
+                  editable={!isLoadingReviews}
+                  onFocus={() => {
+                    setTimeout(() => {
+                      scrollViewRef.current?.scrollToEnd({ animated: true });
+                    }, 150);
+                  }}
                 />
-              ) : reviews.length > 0 ? (
-                reviews.map((review) => {
-                  const reviewerName = review.first_name
-                    ? `${review.first_name} ${review.last_name}`
-                    : review.email || "Anonymous";
 
-                  return (
-                    <View key={review.review_id} style={styles.reviewItem}>
-                      <View style={styles.reviewHeader}>
-                        <View style={styles.avatar} />
-                        <View style={styles.reviewerInfo}>
-                          <Text style={styles.reviewerId}>{reviewerName}</Text>
-                          <Text style={styles.smallStars}>
-                            {"⭐".repeat(review.rating || 0)}
+                <TouchableOpacity
+                  style={[
+                    styles.postButton,
+                    (reviewText.length > 0 || rating > 0) &&
+                      !isLoadingReviews &&
+                      styles.postButtonActive,
+                  ]}
+                  onPress={handlePostReview}
+                  disabled={isSubmitting || isLoadingReviews}
+                >
+                  {isSubmitting ? (
+                    <ActivityIndicator size="small" color={AppColors.surface} />
+                  ) : (
+                    <Text style={styles.postButtonText}>
+                      {existingReviewId ? "Update Review" : "Post Review"}
+                    </Text>
+                  )}
+                </TouchableOpacity>
+
+                <View style={styles.divider} />
+
+                <Text style={styles.sectionTitle}>Reviews</Text>
+
+                {isLoadingReviews ? (
+                  <ActivityIndicator
+                    size="small"
+                    color={AppColors.background || "#900000"}
+                    style={{ marginTop: 20 }}
+                  />
+                ) : reviews.length > 0 ? (
+                  reviews.map((review) => {
+                    const reviewerName = review.first_name
+                      ? `${review.first_name} ${review.last_name}`
+                      : review.email || "Anonymous";
+
+                    return (
+                      <View key={review.review_id} style={styles.reviewItem}>
+                        <View style={styles.reviewHeader}>
+                          <View style={styles.avatar} />
+                          <View style={styles.reviewerInfo}>
+                            <Text style={styles.reviewerId}>{reviewerName}</Text>
+                            <Text style={styles.smallStars}>
+                              {"⭐".repeat(review.rating || 0)}
+                            </Text>
+                          </View>
+                          <Text style={styles.timeAgo}>
+                            {formatDate(review.created_at)}
                           </Text>
                         </View>
-                        <Text style={styles.timeAgo}>
-                          {formatDate(review.created_at)}
+                        <Text style={styles.reviewBody}>
+                          {review.review_text || "No comment provided."}
                         </Text>
                       </View>
-                      <Text style={styles.reviewBody}>
-                        {review.review_text || "No comment provided."}
-                      </Text>
-                    </View>
-                  );
-                })
-              ) : (
-                <Text style={styles.noReviewsText}>
-                  No reviews yet. Be the first to review!
-                </Text>
-              )}
-            </View>
-          </ScrollView>
-        </View>
-      </KeyboardAvoidingView>
-    </Modal>
+                    );
+                  })
+                ) : (
+                  <Text style={styles.noReviewsText}>
+                    No reviews yet. Be the first to review!
+                  </Text>
+                )}
+              </View>
+            </ScrollView>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
+
+      {/* Rendered ConfirmDiscardModal controlled by local state */}
+      <ConfirmDiscardModal
+        visible={alertModalVisible}
+        onKeepEditing={() => setAlertModalVisible(false)}
+        onDiscard={() => setAlertModalVisible(false)}
+        message={alertModalMessage}
+        cancelLabel="OK"
+        confirmLabel= {null}
+      />
+    </>
   );
 }
 
-// Styles remain completely unchanged down below...
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    justifyContent: "flex-end",
+    justify: "flex-end",
     backgroundColor: "rgba(0,0,0,0.4)",
   },
   backgroundTap: {
@@ -447,11 +454,6 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     color: AppColors.background,
   },
-  headerSubtitle: {
-    fontSize: 12,
-    color: AppColors.textMuted,
-    marginTop: 4,
-  },
   closeButton: {
     padding: 4,
   },
@@ -461,7 +463,7 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
   },
   scrollContent: {
-    paddingBottom: 40, // Added a little extra padding bottom just to be safe
+    paddingBottom: 40,
   },
   imageBanner: {
     width: "100%",

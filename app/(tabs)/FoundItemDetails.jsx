@@ -22,6 +22,39 @@ const ItemDetails = () => {
 
   const [claimModalVisible, setClaimModalVisible] = useState(false);
   const [imageModalVisible, setImageModalVisible] = useState(false);
+  const [claimSteps, setClaimSteps] = useState([]);
+
+useEffect(() => {
+  const fetchPolicies = async () => {
+    try {
+      const response = await fetch(
+        "https://foundnest-backend.onrender.com/api/policies"
+      );
+
+      const data = await response.json();
+
+      const claimPolicy = data.find(
+        (policy) => policy.policy_name === "Item Claim Process"
+      );
+
+      if (claimPolicy) {
+        const steps = JSON.parse(claimPolicy.policy_value);
+
+        setClaimSteps(steps);
+
+        console.log("Claim Steps:", steps);
+      }
+    } catch (error) {
+      console.error("Error fetching policies:", error);
+    }
+  };
+
+  fetchPolicies();
+}, []);
+
+useEffect(() => {
+  console.log("Item:", item);
+}, [item]);
 
   if (!item) {
     return (
@@ -33,9 +66,9 @@ const ItemDetails = () => {
     );
   }
 
-  useEffect(()=>{
-    console.log(`Data: ${item}`)
-  })
+  useEffect(() => {
+  console.log("Item:", item);
+}, [item]);
 
   return (
     
@@ -76,7 +109,7 @@ const ItemDetails = () => {
 
           <View style={styles.infoBlock}>
             <Text style={styles.label}>ITEM ID</Text>
-            <Text style={styles.value}>SI-{item.id.padStart(5,"0")}</Text>
+            <Text style={styles.value}>SI-{String(item.id).padStart(5, "0")}</Text>
           </View>
 
           <View style={styles.infoBlock}>
@@ -152,28 +185,29 @@ const ItemDetails = () => {
           {/* Prevent touches inside the white card from closing the modal */}
           <TouchableWithoutFeedback>
             <View style={styles.modalContent}>
-              <View style={styles.dragHandle} />
-              <Text style={styles.modalTitle}>How to Claim?</Text>
+  <View style={styles.dragHandle} />
 
-              <Text style={styles.stepTitle}>Step 1: Bring Proof</Text>
-              <Text style={styles.stepDescription}>
-                Please bring your BulSU Student ID/COR/or any form of
-                identification and be ready to provide proof of ownership (e.g.,
-                describing a unique detail on an item, showing a photo of you
-                while holding the item, or unlocking the item for devices).
-              </Text>
+  <Text style={styles.modalTitle}>
+    How to Claim?
+  </Text>
 
-              <Text style={styles.stepTitle}>Step 2: Visit the Office</Text>
-              <Text style={styles.stepDescription}>
-                Proceed to the FoundNest Office listed on the item details.
-              </Text>
-
-              <Text style={styles.stepTitle}>Step 3: Final Photo</Text>
-              <Text style={styles.stepDescription}>
-                Our staff will take a quick photo of the turnover for our
-                security records and to finalize the process.
-              </Text>
-            </View>
+  {claimSteps.length > 0 ? (
+    claimSteps.map((step, index) => (
+      <View key={index}>
+        <Text style={styles.stepTitle}>
+          Step {index + 1}: {step.title}
+        </Text>
+        <Text style={styles.stepDescription}>
+          {step.description}
+        </Text>
+      </View>
+    ))
+  ) : (
+    <Text style={styles.stepDescription}>
+      Loading claim process...
+    </Text>
+  )}
+</View>
           </TouchableWithoutFeedback>
         </TouchableOpacity>
       </Modal>

@@ -2,7 +2,7 @@ import { API_BASE_URL, DESCRIBE_ITEM_PATH } from "@/constants/api";
 import { uploadWithAuth } from "@/constants/authApi";
 import { parseApiError } from "@/utils/lostReport";
 
-export async function DescribeItem({ imageUri, categoryOptions = [] }) {
+export async function DescribeItem({ imageUri }) {
   if (!imageUri) {
     throw new Error("Image URI is required for analysis.");
   }
@@ -23,9 +23,7 @@ export async function DescribeItem({ imageUri, categoryOptions = [] }) {
     type: mimeType,
   });
 
-  if (categoryOptions.length > 0) {
-    formData.append("categoryOptions", categoryOptions.join(","));
-  }
+  console.log("Sending image to AI service...");
 
   const response = await uploadWithAuth(
     `${API_BASE_URL}${DESCRIBE_ITEM_PATH}`,
@@ -42,5 +40,7 @@ export async function DescribeItem({ imageUri, categoryOptions = [] }) {
     throw new Error("AI service returned an unexpected response.");
   }
 
-  return response.json();
+  const data = await response.json();
+  console.log("AI service response:", data);
+  return data;
 }

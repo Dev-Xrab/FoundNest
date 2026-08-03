@@ -20,17 +20,16 @@ export default function NotificationsScreen() {
   const insets = useSafeAreaInsets();
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [markingAll, setMarkingAll] = useState(false);
+  const [numberOfUnreadNotifications, setNumberOfUnreadNotifications] = useState(0);
 
-  // Removed the global [isRead, setIsRead] state because it causes bugs inside lists.
-  const [numberOfUnreadNotifications, setNumberOfUnreadNotifications] =
-    useState(0);
   const getNotifications = async () => {
     try {
       const user = await getUser();
       const userId = user ? user.user_id : null;
 
       const response = await fetchWithAuth(
-        `${API_BASE_URL}/api/notifications/user/${userId}`,
+        `${API_BASE_URL}/api/notifications/user/${userId}`
       );
 
       if (!response.ok) {
@@ -53,10 +52,7 @@ export default function NotificationsScreen() {
 
   const markAsRead = async (notificationId) => {
     try {
-      console.log("Marking notification as read, ID:", notificationId);
-
       const token = await getToken();
-      console.log("Using token:", token);
       const response = await fetchWithAuth(
         `${API_BASE_URL}/api/notifications/${notificationId}/read`,
         {
@@ -65,27 +61,56 @@ export default function NotificationsScreen() {
             "Content-Type": "application/json",
             Authorization: `Bearer ${token}`,
           },
-        },
+        }
       );
 
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
-      console.log("Notification successfully marked as read!");
-
-      // Optimistically update local UI state so the gold dot disappears instantly
-      setNotifications((prevNotifications) =>
-        prevNotifications.map((n) =>
-          n.notification_id === notificationId ? { ...n, is_read: true } : n,
-        ),
+      // Optimistically update item locally
+      setNotifications((prev) =>
+        prev.map((n) =>
+          n.notification_id === notificationId ? { ...n, is_read: true } : n
+        )
       );
+      setNumberOfUnreadNotifications((prev) => Math.max(0, prev - 1));
     } catch (error) {
       console.error("Failed to mark notification as read:", error);
     }
   };
 
-  // Helper function to format the date
+  const markAllAsRead = async () => {
+    setMarkingAll(true);
+    try {
+      const token = await getToken();
+      const unreadItems = notifications.filter((n) => !n.is_read);
+
+      // Execute all mark-as-read requests in parallel
+      await Promise.all(
+        unreadItems.map((n) =>
+          fetchWithAuth(
+            `${API_BASE_URL}/api/notifications/${n.notification_id}/read`,
+            {
+              method: "PATCH",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${token}`,
+              },
+            }
+          )
+        )
+      );
+
+      
+    } catch (error) {
+      console.error("Failed to mark all as read:", error);
+      getNotifications(); // Refresh on failure
+    } finally {
+      setMarkingAll(false);
+    }
+  };
+
   const getTimeAgo = (dateString) => {
     if (!dateString) return "Just now";
     const date = new Date(dateString);
@@ -101,7 +126,6 @@ export default function NotificationsScreen() {
   };
 
   const renderNotification = ({ item }) => {
-    // Determine unread status locally for this item from its object property
     const isItemUnread = item.is_read;
 
     return (
@@ -130,7 +154,6 @@ export default function NotificationsScreen() {
                 <Text style={styles.timeText}>
                   {getTimeAgo(item.created_at)}
                 </Text>
-                {/* Fixed: Conditional check uses item specific value instead of global state */}
                 {!isItemUnread && <View style={styles.unreadDot} />}
               </View>
             </View>
@@ -169,7 +192,24 @@ export default function NotificationsScreen() {
       </View>
 
       <View style={styles.content}>
-        <Text style={styles.sectionTitle}>Latest</Text>
+        <View style={styles.sectionRow}>
+          <Text style={styles.sectionTitle}>Latest</Text>
+
+          {/* Interactive Mark All as Read Button */}
+          {numberOfUnreadNotifications > 0 && (
+            <TouchableOpacity
+              onPress={markAllAsRead}
+              disabled={markingAll}
+              activeOpacity={0.7}
+            >
+              {markingAll ? (
+                <ActivityIndicator size="small" color="#900014" />
+              ) : (
+                <Text style={styles.markAsReadText}>Mark All as Read</Text>
+              )}
+            </TouchableOpacity>
+          )}
+        </View>
 
         {loading ? (
           <ActivityIndicator
@@ -228,11 +268,21 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 20,
   },
+  sectionRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 16,
+  },
   sectionTitle: {
     fontSize: 18,
     fontWeight: "600",
     color: "#000000",
-    marginBottom: 16,
+  },
+  markAsReadText: {
+    color: "#900014",
+    fontWeight: "600",
+    fontSize: 14,
   },
   loader: {
     marginTop: 40,

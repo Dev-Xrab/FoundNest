@@ -1,11 +1,12 @@
 import AppColors from "@/constants/AppColors";
 import { getCategories } from "@/constants/category";
-import { router, useLocalSearchParams } from "expo-router"; // Added useLocalSearchParams
-import React, { useEffect, useState } from "react";
+import { router, useLocalSearchParams } from "expo-router";
+import React, { useEffect, useState, useCallback } from "react";
 import {
   ActivityIndicator,
   FlatList,
   Image,
+  RefreshControl, 
   SafeAreaView,
   ScrollView,
   StyleSheet,
@@ -58,10 +59,13 @@ const formatDateTime = (dateString) => {
 
 // --- MAIN COMPONENT ---
 const Find = () => {
-  const { initialQuery } = useLocalSearchParams(); // Extract initial search string from global route params
+  const { initialQuery } = useLocalSearchParams();
   const [searchQuery, setSearchQuery] = useState("");
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
+
+  // <-- 2. REFRESHING STATE
+  const [refreshing, setRefreshing] = useState(false);
 
   const [categories, setCategories] = useState([]);
 
@@ -109,43 +113,36 @@ const Find = () => {
   }, [initialQuery]);
 
   // Fetch Dropdown List Options concurrently
+  const loadDropdownData = async () => {
+    try {
+      const [categoriesData, collegesData, spacesData, gatesData] =
+        await Promise.all([
+          getCategories(),
+          fetchBulsuColleges(),
+          fetchSharedStudentSpaces(),
+          fetchGates(),
+        ]);
+
+      const formattedCategories = categoriesData.map(
+        (cat) => cat.category_name || cat,
+      );
+      setCategories(formattedCategories);
+      setBulsuColleges(collegesData || []);
+      setSharedStudentSpaces(spacesData || []);
+      setGates(gatesData || []);
+    } catch (error) {
+      console.error(
+        "Failed to load backend layout context configurations:",
+        error,
+      );
+    }
+  };
+
   useEffect(() => {
-    const loadDropdownData = async () => {
-      try {
-        const [categoriesData, collegesData, spacesData, gatesData] =
-          await Promise.all([
-            getCategories(),
-            fetchBulsuColleges(),
-            fetchSharedStudentSpaces(),
-            fetchGates(),
-          ]);
-
-        const formattedCategories = categoriesData.map(
-          (cat) => cat.category_name || cat,
-        );
-        setCategories(formattedCategories);
-        setBulsuColleges(collegesData || []);
-        setSharedStudentSpaces(spacesData || []);
-        setGates(gatesData || []);
-
-        console.log("=== 📥 FOUNDNEST ACCORDION DROPDOWN SETUP DATA ===");
-        console.log("- Categories Loaded:", formattedCategories);
-        console.log("- Colleges Loaded:", collegesData);
-        console.log("- Student Spaces Loaded:", spacesData);
-        console.log("- Gates Loaded:", gatesData);
-        console.log("==================================================");
-      } catch (error) {
-        console.error(
-          "Failed to load backend layout context configurations:",
-          error,
-        );
-      }
-    };
     loadDropdownData();
   }, []);
 
-  // Fetch Reports
-useEffect(() => {
+  // <-- 3. ISOLATED REUSABLE FETCH FUNCTION FOR REPORTS
   const fetchReports = async () => {
     try {
       const response = await fetchWithAuth(
@@ -153,12 +150,6 @@ useEffect(() => {
       );
       const json = await response.json();
 
-      console.log("=== 🛰️ RAW FETCHED FOUND-REPORTS API DATALOAD ===");
-     
-      console.log(JSON.stringify(json, null, 2));
-      console.log("==================================================");
-
-      // check if json is an array before processing
       if (Array.isArray(json)) {
         const formattedData = json.map((item) => ({
           id: item.found_report_id.toString(),
@@ -176,18 +167,27 @@ useEffect(() => {
 
         setItems(formattedData);
       } else {
-        console.warn("Backend did not return an array. Check API endpoint error:", json.error || json);
-        setItems([]); 
+        console.warn("Backend did not return an array:", json.error || json);
+        setItems([]);
       }
     } catch (error) {
       console.error("Error fetching data:", error);
     } finally {
-      setLoading(false); // Make sure loader is always turned off
+      setLoading(false);
     }
   };
 
-  fetchReports();
-}, []);
+  useEffect(() => {
+    fetchReports();
+  }, []);
+
+  // <-- 4. PULL TO REFRESH HANDLER
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    // Execute both data fetches when pulled down
+    await Promise.all([fetchReports(), loadDropdownData()]);
+    setRefreshing(false);
+  }, []);
 
   // MULTI-SELECT TOGGLE LOGIC: CATEGORIES
   const toggleCategory = (categoryClicked) => {
@@ -241,24 +241,6 @@ useEffect(() => {
     );
   });
 
-  // Track filter state mutations inside console windows
-  useEffect(() => {
-    if (items.length === 0) return;
-    console.log("=== ⚙️ FIND SCREEN FILTER EXECUTION MATRIX ===");
-    console.log("- Search Query Target:", searchQuery || "(None)");
-    console.log("- Checked Category Arrays:", selectedCategories);
-    console.log("- Checked Location Arrays:", selectedLocations);
-    console.log("- Claimed Status Toggle Enabled:", filterClaimed);
-    console.log("- Output Results Array Length count:", filteredItems.length);
-    console.log("==============================================");
-  }, [
-    searchQuery,
-    selectedCategories,
-    selectedLocations,
-    filterClaimed,
-    items,
-  ]);
-
   // Trigger button label calculations
   let categoryDisplayText = "All Categories";
   if (selectedCategories.length === 1)
@@ -298,7 +280,7 @@ useEffect(() => {
       style={styles.card}
       onPress={() => {
         router.push({
-          pathname: "/foundItemDetails",
+          pathname: "/FoundItemDetails",
           params: { itemString: JSON.stringify(item) },
         });
       }}
@@ -350,7 +332,6 @@ useEffect(() => {
 
       {/* Filter Section */}
       <View style={styles.filters}>
-        {/* Trigger Bar */}
         <View style={styles.filterContainer}>
           <TouchableOpacity
             style={[
@@ -459,6 +440,7 @@ useEffect(() => {
               style={styles.scrollableFilterContainer}
               showsVerticalScrollIndicator={false}
               keyboardShouldPersistTaps="handled"
+              
             >
               <View
                 style={[
@@ -478,13 +460,11 @@ useEffect(() => {
                 />
               </View>
 
-              {/* ROW 1: College & Shared Tabs */}
               <View style={styles.locTabsRow}>
                 <LocationTab group={locationGroups[0]} />
                 <LocationTab group={locationGroups[1]} />
               </View>
 
-              {/* College & Shared Content Area */}
               {(activeLocationGroup === "college" ||
                 activeLocationGroup === "shared") && (
                 <View
@@ -510,12 +490,10 @@ useEffect(() => {
                 </View>
               )}
 
-              {/* ROW 2: Gates Tab */}
               <View style={[styles.locTabsRow, { marginTop: 10 }]}>
                 <LocationTab group={locationGroups[2]} />
               </View>
 
-              {/* ROW 2 CONTENT BOX - Gates content container */}
               {activeLocationGroup === "gates" && (
                 <View style={[styles.locationContentBox, styles.flatTopLeft]}>
                   <View style={styles.filterItemsContainer}>
@@ -556,6 +534,15 @@ useEffect(() => {
             <Text style={styles.emptyText}>
               No items found matching your filter.
             </Text>
+          }
+          /* <-- 5. ATTACH REFRESHCONTROL HERE --> */
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              colors={["#A31D1D"]} // Android spinner color
+              tintColor="#A31D1D" // iOS spinner color
+            />
           }
         />
       )}

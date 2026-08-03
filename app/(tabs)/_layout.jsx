@@ -8,6 +8,7 @@ import CustomTabBar from "@/components/CustomTabBar";
 import ConfirmDiscardModal from "@/components/ConfirmDiscardModal"; 
 import AppColors from "@/constants/AppColors";
 import { getReportDraft, clearReportDraft } from "@/constants/reportDraft";
+import { Platform } from "react-native";
 
 import * as Notifications from "expo-notifications";
 
@@ -16,9 +17,10 @@ Notifications.setNotificationHandler({
   handleNotification: async () => ({
     shouldShowAlert: true,
     shouldPlaySound: true,
-    shouldSetBadge: false,
+    shouldSetBadge: true,
   }),
 });
+
 
 export default function TabLayout() {
   const [authChecked, setAuthChecked] = useState(false);
@@ -31,6 +33,33 @@ export default function TabLayout() {
   const [pendingTargetRoute, setPendingTargetRoute] = useState(null);
   const isResetting = useRef(false); // Prevents the route checker from running when we force go back
   const lastPath = useRef(pathname);
+
+
+  //Notification Listener
+  // Notification Listener
+useEffect(() => {
+  const subscription = Notifications.addNotificationResponseReceivedListener(response => {
+    // 1. Extract custom data payload
+    const data = response.notification.request.content.data;
+    
+    // 2. Extract title & body text if needed
+    const title = response.notification.request.content.title;
+    const body = response.notification.request.content.body;
+
+    console.log("Full Custom Data:", data);
+    console.log("Match ID:", data.matchId);
+    console.log("Type:", data.type);
+
+    // Example handling: Navigate to a specific route when tapped
+    if (data.type === "MATCH_FOUND") {
+      console.log("Navigating to match details for ID:", data.matchId);
+      router.push(`/match/${data.matchId}`);
+    }
+  });
+
+  return () => subscription.remove();
+}, []);
+
 
   // Authentication Check
   useEffect(() => {

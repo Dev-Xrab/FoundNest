@@ -1,7 +1,7 @@
 import AppColors from "@/constants/AppColors";
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Image,
   Modal,
@@ -9,6 +9,7 @@ import {
   StyleSheet,
   Text,
   TouchableOpacity,
+  TouchableWithoutFeedback,
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -76,7 +77,7 @@ function ImageModal({ uri, visible, onClose }) {
       onRequestClose={onClose}
     >
       <TouchableOpacity
-        style={styles.modalOverlay}
+        style={styles.modalOverlay2}
         activeOpacity={1}
         onPress={onClose}
       >
@@ -153,45 +154,47 @@ function TableRow({ label, yourValue, matchValue, isLast }) {
   );
 }
 
-// ── How to Claim bottom sheet ─────────────────────────────────────────────────
-function HowToClaimSheet({ visible, onClose }) {
+// ── How to Claim Modal (matched to ItemDetails.jsx style) ─────────────────────
+function HowToClaimSheet({ visible, onClose, claimSteps }) {
   return (
     <Modal
-      visible={visible}
-      transparent
       animationType="slide"
+      transparent={true}
+      visible={visible}
       onRequestClose={onClose}
     >
+      {/* Pressing the dark background will close the modal */}
       <TouchableOpacity
-        style={styles.sheetOverlay}
+        style={styles.modalOverlay}
         activeOpacity={1}
-        onPress={onClose}
-      />
-      <View style={styles.sheet}>
-        <View style={styles.sheetHandle} />
-        <ScrollView showsVerticalScrollIndicator={false}>
-          <Text style={styles.sheetTitle}>How to Claim?</Text>
+        onPressOut={onClose}
+      >
+        {/* Prevent touches inside the white card from closing the modal */}
+        <TouchableWithoutFeedback>
+          <View style={styles.modalContent}>
+            <View style={styles.dragHandle} />
 
-          <Text style={styles.stepTitle}>Step 1: Bring Proof</Text>
-          <Text style={styles.stepBody}>
-            Please bring your BulSU Student ID/COR/or any form of identification
-            and be ready to provide proof of ownership (e.g., describing a
-            unique detail on an item, showing a photo of you while holding the
-            item, or unlocking the item for devices).
-          </Text>
+            <Text style={styles.modalTitle}>How to Claim?</Text>
 
-          <Text style={styles.stepTitle}>Step 2: Visit the Office</Text>
-          <Text style={styles.stepBody}>
-            Proceed to the FoundNest Office listed on the item details.
-          </Text>
-
-          <Text style={styles.stepTitle}>Step 3: Final Photo</Text>
-          <Text style={styles.stepBody}>
-            Our staff will take a quick photo of the turnover for our security
-            records and to finalize the process.
-          </Text>
-        </ScrollView>
-      </View>
+            {claimSteps.length > 0 ? (
+              claimSteps.map((step, index) => (
+                <View key={index}>
+                  <Text style={styles.stepTitle}>
+                    Step {index + 1}: {step.title}
+                  </Text>
+                  <Text style={styles.stepDescription}>
+                    {step.description}
+                  </Text>
+                </View>
+              ))
+            ) : (
+              <Text style={styles.stepDescription}>
+                Loading claim process...
+              </Text>
+            )}
+          </View>
+        </TouchableWithoutFeedback>
+      </TouchableOpacity>
     </Modal>
   );
 }
@@ -202,6 +205,36 @@ export default function ProfileReportHistoryView() {
   const insets = useSafeAreaInsets();
   const { match: matchParam } = useLocalSearchParams();
   const match = matchParam ? JSON.parse(matchParam) : {};
+  const [claimSteps, setClaimSteps] = useState([]);
+
+  useEffect(() => {
+    const fetchClaimPolicy = async () => {
+      try {
+        const response = await fetch(
+          "https://foundnest-backend.onrender.com/api/policies"
+        );
+
+        if (!response.ok) {
+          throw new Error("Failed to fetch policies");
+        }
+
+        const data = await response.json();
+
+        const claimPolicy = data.find(
+          (policy) => policy.policy_name === "Item Claim Process"
+        );
+
+        if (claimPolicy) {
+          const steps = JSON.parse(claimPolicy.policy_value);
+          setClaimSteps(steps);
+        }
+      } catch (error) {
+        console.error("Error fetching claim policy:", error);
+      }
+    };
+
+    fetchClaimPolicy();
+  }, []);
 
   const [claimSheetVisible, setClaimSheetVisible] = useState(false);
 
@@ -215,6 +248,7 @@ export default function ProfileReportHistoryView() {
       <HowToClaimSheet
         visible={claimSheetVisible}
         onClose={() => setClaimSheetVisible(false)}
+        claimSteps={claimSteps}
       />
 
       {/* ── Red header ─────────────────────────────────────────────────── */}
@@ -567,51 +601,50 @@ const styles = StyleSheet.create({
     color: AppColors.background,
   },
 
-  // ── How to Claim sheet
-  sheetOverlay: {
+  // ── How to Claim modal (matched to ItemDetails.jsx) ──────────────────────
+  modalOverlay: {
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.4)",
+    justifyContent: "flex-end",
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
   },
-  sheet: {
-    backgroundColor: "#FFFFFF",
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    paddingHorizontal: 24,
-    paddingBottom: 40,
-    paddingTop: 12,
-    maxHeight: "65%",
+  modalContent: {
+    backgroundColor: "#fff",
+    borderTopLeftRadius: 30,
+    borderTopRightRadius: 30,
+    padding: 25,
+    paddingBottom: 80,
+    width: "100%",
   },
-  sheetHandle: {
-    width: 40,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: "rgba(0,0,0,0.15)",
+  dragHandle: {
+    width: 50,
+    height: 5,
+    backgroundColor: "#EBEBEB",
+    borderRadius: 3,
     alignSelf: "center",
-    marginBottom: 16,
-  },
-  sheetTitle: {
-    fontSize: 20,
-    fontWeight: "800",
-    color: AppColors.textOnLight,
-    textAlign: "center",
     marginBottom: 20,
   },
-  stepTitle: {
-    fontSize: 15,
-    fontWeight: "700",
-    color: AppColors.textOnLight,
-    marginBottom: 6,
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: "bold",
+    color: "#000",
+    marginBottom: 15,
+    textAlign: "center",
   },
-  stepBody: {
+  stepTitle: {
     fontSize: 14,
-    color: AppColors.textMuted,
-    lineHeight: 22,
-    marginBottom: 18,
-    textAlign: "justify",
+    fontWeight: "bold",
+    color: "#000",
+    marginTop: 15,
+    marginBottom: 5,
+  },
+  stepDescription: {
+    fontSize: 14,
+    color: "#333",
+    lineHeight: 20,
   },
 
-  // ── Full image modal
-  modalOverlay: {
+  // ── Full image modal (unchanged from original)
+  modalOverlay2: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.88)",
     justifyContent: "center",
