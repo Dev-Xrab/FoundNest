@@ -1,6 +1,8 @@
 import ConfirmDiscardModal from '@/components/ConfirmDiscardModal';
 import ChangePhotoModal from '@/components/InsertEditImage';
 import AppColors from '@/constants/AppColors';
+import { API_BASE_URL } from '@/constants/api';
+import { fetchWithAuth } from '@/constants/authApi';
 import { getCategories, matchCategoryFromAi } from '@/constants/category';
 import { DescribeItem } from '@/constants/geminiAI';
 import { clearReportDraft, getReportDraft, setReportDraft } from '@/constants/reportDraft';
@@ -68,15 +70,41 @@ export default function ProfileReportHistoryEdit() {
   useFocusEffect(
     useCallback(() => {
       if (isViewOnly) {
+        const applyReportData = (data) => {
+          setSelectedImage(null);
+          setIsImageRemoved(false);
+          setExistingImageUrl(data.lost_item_image ?? null);
+          setSelectedCategoryId(data.category_id ? String(data.category_id) : '');
+          setItemName(data.item_name ?? '');
+          setDetailedDescription(data.description ?? '');
+          setContents(data.contents ?? '');
+          setErrors({});
+        };
+
         const fresh = reportParam ? JSON.parse(reportParam) : {};
-        setSelectedImage(null);
-        setIsImageRemoved(false);
-        setExistingImageUrl(fresh.lost_item_image ?? null);
-        setSelectedCategoryId(fresh.category_id ? String(fresh.category_id) : '');
-        setItemName(fresh.item_name ?? '');
-        setDetailedDescription(fresh.description ?? '');
-        setContents(fresh.contents ?? '');
-        setErrors({});
+        applyReportData(fresh);
+
+        // Silently refresh with live server data so edits made
+        // elsewhere aren't shown as a stale snapshot forever
+        const reportId = fresh.lost_report_id;
+        if (reportId) {
+          (async () => {
+            try {
+              const response = await fetchWithAuth(
+                `${API_BASE_URL}/api/lost-reports/${reportId}/detail`,
+              );
+              if (!response.ok) return; // keep showing cached data, fail silently
+              const data = await response.json();
+              applyReportData({
+                ...data,
+                lost_item_image: data.image_url,
+              });
+            } catch (err) {
+              console.warn('Background report refresh failed:', err.message);
+            }
+          })();
+        }
+
         return;
       }
 
