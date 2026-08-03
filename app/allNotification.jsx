@@ -2,6 +2,7 @@ import { API_BASE_URL } from "@/constants/api";
 import AppColors from "@/constants/AppColors";
 import { fetchWithAuth } from "@/constants/authApi";
 import { getToken, getUser } from "@/constants/StudentData";
+import { setupAndSavePushToken } from "@/utils/pushNotifications";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import React, { useEffect, useState } from "react";
@@ -31,12 +32,15 @@ export default function NotificationsScreen() {
       const response = await fetchWithAuth(
         `${API_BASE_URL}/api/notifications/user/${userId}`
       );
+      
+      console.log("Fetching notifications for user:", userId);
 
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
       const data = await response.json();
+      console.log("Fetched notifications:", data);
       setNumberOfUnreadNotifications(data.filter((n) => !n.is_read).length);
       setNotifications(data);
     } catch (error) {
@@ -47,6 +51,8 @@ export default function NotificationsScreen() {
   };
 
   useEffect(() => {
+    // Ask for notification permission and save push token when user opens this page
+    setupAndSavePushToken();
     getNotifications();
   }, []);
 

@@ -1,12 +1,10 @@
-import { router } from "expo-router";
-import { clearPageHistory } from "./previousPage";
 import { API_BASE_URL } from "./api";
 import {
-  clearSession,
   getRefreshToken,
   getToken,
   updateAccessToken,
 } from "./StudentData";
+import { logoutUser } from "@/utils/pushNotifications";
 
 export async function fetchWithAuth(url, options = {}) {
   let token = await getToken();
@@ -27,9 +25,7 @@ export async function fetchWithAuth(url, options = {}) {
 
     if (!refreshToken) {
       // No refresh token (rememberMe was false) → force logout
-      await clearSession();
-      clearPageHistory();
-      router.replace('/login');
+      await logoutUser();
       return response;
     }
 
@@ -41,9 +37,7 @@ export async function fetchWithAuth(url, options = {}) {
 
     if (!refreshResponse.ok) {
       // Refresh token expired or invalid → force logout
-      await clearSession();
-      clearPageHistory();
-      router.replace('/login');
+      await logoutUser();
       return response;
     }
 
@@ -83,9 +77,7 @@ export async function uploadWithAuth(url, formData, method = "POST") {
 
     if (!refreshToken) {
       // No refresh token → force logout
-      await clearSession();
-      clearPageHistory();
-      router.replace('/login');
+      await logoutUser();
       return response;
     }
 
@@ -97,9 +89,7 @@ export async function uploadWithAuth(url, formData, method = "POST") {
 
     if (!refreshResponse.ok) {
       // Refresh token expired or invalid → force logout
-      await clearSession();
-      clearPageHistory();
-      router.replace('/login');
+      await logoutUser();
       return response;
     }
 

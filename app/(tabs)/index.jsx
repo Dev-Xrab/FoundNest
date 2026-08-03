@@ -8,16 +8,13 @@ import {
   TextInput,
   TouchableOpacity,
   View,
-  Platform,
 } from "react-native";
 
 import { API_BASE_URL } from "@/constants/api";
 import AppColors from "@/constants/AppColors";
 import { fetchWithAuth } from "@/constants/authApi";
 import { getUser } from "@/constants/StudentData";
-import registerForPushNotificationsAsync from "@/utils/tokenMaker";
 import { Ionicons } from "@expo/vector-icons";
-import * as Notifications from "expo-notifications";
 import { useRouter } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
 import Alert from "react-native/Libraries/Alert/Alert";
@@ -165,58 +162,10 @@ export default function HomeScreen() {
   const [activeFindIndex, setActiveFindIndex] = useState(0);
   const [currentUser, setCurrentUser] = useState(null);
   const router = useRouter();
-  const [expoPushToken, setExpoPushToken] = useState("");
 
   // Targets the report item determined by priority logic rules
   const [displayReport, setDisplayReport] = useState(null);
   const [loadingReport, setLoadingReport] = useState(true);
-
-  // Push Notifications Setup
-  useEffect(() => {
-    
-  async function setupNotifications() {
-    if (Platform.OS === "android") {
-    await Notifications.setNotificationChannelAsync("default", {
-      name: "Default",
-      importance: Notifications.AndroidImportance.HIGH,
-      sound: "default",
-      vibrationPattern: [0, 250, 250, 250],
-    });
-  }
-
-    // 1. Check current permission status
-    const { status: existingStatus } = await Notifications.getPermissionsAsync();
-    let finalStatus = existingStatus;
-
-    // 2. Only ask if it hasn't been granted yet
-    if (existingStatus !== "granted") {
-      const { status } = await Notifications.requestPermissionsAsync();
-      finalStatus = status;
-    }
-
-    // 3. Handle a hard denial gracefully 
-    if (finalStatus !== "granted") {
-      console.log("Notification permissions were denied/not granted.");
-      return; 
-    }
-
-    // 4. Retrieve the token safely if granted
-    try {
-      const token = await registerForPushNotificationsAsync();
-      if (token) {
-        setExpoPushToken(token);
-        console.log("MY EXPO PUSH TOKEN:", token);
-        
-        // TODO: Make an API call here to save this token to your database!
-        // e.g., fetchWithAuth(`${API_BASE_URL}/api/users/push-token`, { method: 'POST', body: JSON.stringify({ token }) })
-      }
-    } catch (error) {
-      console.error("Error fetching push token:", error);
-    }
-  }
-
-  setupNotifications();
-}, []);
 
   // Fetch Current Session User
   useEffect(() => {

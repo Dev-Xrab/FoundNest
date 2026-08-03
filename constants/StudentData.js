@@ -3,12 +3,14 @@ import * as SecureStore from "expo-secure-store";
 const TOKEN_KEY = "session_token";
 const USER_KEY = "session_user";
 const REFRESH_TOKEN_KEY = "session_refresh_token";
+const PUSH_TOKEN_ID_KEY = "push_token_id";
 export const EMAIL_KEY = "saved_email";
 
 // In-memory fallback for when rememberMe is false
 let _token = null;
 let _user = null;
 let _refreshToken = null;
+let _pushTokenId = null;
 
 export async function saveSession(
   accessToken,
@@ -64,6 +66,22 @@ export async function updateAccessToken(newAccessToken) {
   }
 }
 
+// Remember the push token id so we can update/delete it later
+export async function savePushTokenId(id) {
+  _pushTokenId = String(id);
+  await SecureStore.setItemAsync(PUSH_TOKEN_ID_KEY, String(id));
+}
+
+export async function getPushTokenId() {
+  if (_pushTokenId) return _pushTokenId;
+  return await SecureStore.getItemAsync(PUSH_TOKEN_ID_KEY);
+}
+
+export async function clearPushTokenId() {
+  _pushTokenId = null;
+  await SecureStore.deleteItemAsync(PUSH_TOKEN_ID_KEY);
+}
+
 export async function clearSession() {
   _token = null;
   _user = null;
@@ -71,6 +89,7 @@ export async function clearSession() {
   await SecureStore.deleteItemAsync(TOKEN_KEY);
   await SecureStore.deleteItemAsync(USER_KEY);
   await SecureStore.deleteItemAsync(REFRESH_TOKEN_KEY);
+  await clearPushTokenId();
 }
 
 export async function isLoggedIn() {

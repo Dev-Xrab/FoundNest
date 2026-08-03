@@ -2,8 +2,8 @@ import ConfirmDiscardModal from '@/components/ConfirmDiscardModal';
 import { API_BASE_URL } from '@/constants/api';
 import AppColors from '@/constants/AppColors';
 import { fetchWithAuth } from '@/constants/authApi';
-import { clearSession, getUser } from '@/constants/StudentData';
-import { clearPageHistory } from '@/constants/previousPage';
+import { getUser } from '@/constants/StudentData';
+import { logoutUser } from '@/utils/pushNotifications';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
@@ -92,9 +92,7 @@ export default function ProfileScreen() {
 
   const confirmLogout = async () => {
     setLogoutVisible(false);
-    await clearSession();
-    clearPageHistory();
-    router.replace('/login');
+    await logoutUser();
   };
 
   const handleSettingPress = (key) => {

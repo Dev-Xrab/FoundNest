@@ -2,15 +2,16 @@ import { isLoggedIn } from "@/constants/StudentData";
 import { Redirect, Tabs, usePathname, useRouter } from "expo-router";
 import { useEffect, useState, useRef } from "react";
 import { ActivityIndicator, View } from "react-native";
+import { API_BASE_URL } from "@/constants/api";
 
 import CustomHeader from "@/components/CustomHeader";
 import CustomTabBar from "@/components/CustomTabBar";
 import ConfirmDiscardModal from "@/components/ConfirmDiscardModal"; 
 import AppColors from "@/constants/AppColors";
 import { getReportDraft, clearReportDraft } from "@/constants/reportDraft";
-import { Platform } from "react-native";
-
+import { getToken, getUser } from "@/constants/StudentData";
 import * as Notifications from "expo-notifications";
+import { fetchWithAuth } from "@/constants/authApi";
 
 // Set the handler OUTSIDE of your component
 Notifications.setNotificationHandler({
@@ -34,30 +35,74 @@ export default function TabLayout() {
   const isResetting = useRef(false); // Prevents the route checker from running when we force go back
   const lastPath = useRef(pathname);
 
-
-  //Notification Listener
-  // Notification Listener
 useEffect(() => {
-  const subscription = Notifications.addNotificationResponseReceivedListener(response => {
-    // 1. Extract custom data payload
-    const data = response.notification.request.content.data;
-    
-    // 2. Extract title & body text if needed
-    const title = response.notification.request.content.title;
-    const body = response.notification.request.content.body;
+  // Shared logic: look up match details and navigate
+  const handleMatchNavigation = async (data) => {
+    const { matchId, type } = data;
 
-    console.log("Full Custom Data:", data);
-    console.log("Match ID:", data.matchId);
-    console.log("Type:", data.type);
-
-    // Example handling: Navigate to a specific route when tapped
-    if (data.type === "MATCH_FOUND") {
-      console.log("Navigating to match details for ID:", data.matchId);
-      router.push(`/match/${data.matchId}`);
+    if (type !== "MATCH_FOUND" || !matchId) {
+      console.warn("Unhandled or incomplete notification payload:", data);
+      return;
     }
-  });
 
-  return () => subscription.remove();
+    try {
+      const user = await getUser();
+      if (!user) return;
+
+      const res = await fetchWithAuth(
+        `${API_BASE_URL}/api/notifications/user/${user.user_id}`
+      );
+
+      if (!res.ok) {
+        throw new Error(`Failed to fetch notifications, status ${res.status}`);
+      }
+
+      const allNotifications = await res.json();
+      const matchData = allNotifications.find(
+        (n) => n.match_id === Number(matchId)
+      );
+
+      if (!matchData) {
+        console.warn("No notification found for matchId:", matchId);
+        return;
+      }
+
+      router.push({
+        pathname: "/profileReportHistoryView",
+        params: { match: JSON.stringify(matchData) },
+      });
+    } catch (err) {
+      console.error("Failed to handle match notification:", err);
+    }
+  };
+
+  // 1. Fires when a notification arrives while the app is foregrounded.
+  //    Do NOT navigate here — this fires for every incoming push regardless
+  //    of user action. Just log/refresh state (e.g. unread count) if needed.
+  const foregroundSubscription = Notifications.addNotificationReceivedListener(
+    (notification) => {
+      const data = notification.request.content.data;
+      console.log(
+        "Foreground Notification Data:", data
+      );
+      handleMatchNavigation(data);
+    }
+  );
+
+  // 2. Fires ONLY when the user taps the notification (foreground, background,
+  //    or killed state). This is where navigation belongs.
+  const responseSubscription = Notifications.addNotificationResponseReceivedListener(
+    (response) => {
+      const data = response.notification.request.content.data;
+      console.log("Notification Response Data (Tapped):", data);
+      handleMatchNavigation(data);
+    }
+  );
+
+  return () => {
+    foregroundSubscription.remove();
+    responseSubscription.remove();
+  };
 }, []);
 
 

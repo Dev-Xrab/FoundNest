@@ -5,6 +5,7 @@ import { API_BASE_URL } from '@/constants/api';
 import AppColors from '@/constants/AppColors';
 import { fetchWithAuth } from '@/constants/authApi';
 import { clearSession, getUser } from '@/constants/StudentData';
+import { deletePushToken } from '@/utils/pushNotifications';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
@@ -164,6 +165,7 @@ export default function ProfileChangePassword() {
         return;
       }
 
+      await deletePushToken();
       await clearSession();
       router.replace({
         pathname: '/login',
