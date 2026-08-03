@@ -1,7 +1,9 @@
+import { API_BASE_URL } from "@/constants/api";
 import AppColors from "@/constants/AppColors";
+import { fetchWithAuth } from "@/constants/authApi";
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import {
   Image,
   Modal,
@@ -9,7 +11,6 @@ import {
   StyleSheet,
   Text,
   TouchableOpacity,
-  TouchableWithoutFeedback,
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -77,7 +78,7 @@ function ImageModal({ uri, visible, onClose }) {
       onRequestClose={onClose}
     >
       <TouchableOpacity
-        style={styles.modalOverlay2}
+        style={styles.modalOverlay}
         activeOpacity={1}
         onPress={onClose}
       >
@@ -154,47 +155,45 @@ function TableRow({ label, yourValue, matchValue, isLast }) {
   );
 }
 
-// ── How to Claim Modal (matched to ItemDetails.jsx style) ─────────────────────
-function HowToClaimSheet({ visible, onClose, claimSteps }) {
+// ── How to Claim bottom sheet ─────────────────────────────────────────────────
+function HowToClaimSheet({ visible, onClose }) {
   return (
     <Modal
-      animationType="slide"
-      transparent={true}
       visible={visible}
+      transparent
+      animationType="slide"
       onRequestClose={onClose}
     >
-      {/* Pressing the dark background will close the modal */}
       <TouchableOpacity
-        style={styles.modalOverlay}
+        style={styles.sheetOverlay}
         activeOpacity={1}
-        onPressOut={onClose}
-      >
-        {/* Prevent touches inside the white card from closing the modal */}
-        <TouchableWithoutFeedback>
-          <View style={styles.modalContent}>
-            <View style={styles.dragHandle} />
+        onPress={onClose}
+      />
+      <View style={styles.sheet}>
+        <View style={styles.sheetHandle} />
+        <ScrollView showsVerticalScrollIndicator={false}>
+          <Text style={styles.sheetTitle}>How to Claim?</Text>
 
-            <Text style={styles.modalTitle}>How to Claim?</Text>
+          <Text style={styles.stepTitle}>Step 1: Bring Proof</Text>
+          <Text style={styles.stepBody}>
+            Please bring your BulSU Student ID/COR/or any form of identification
+            and be ready to provide proof of ownership (e.g., describing a
+            unique detail on an item, showing a photo of you while holding the
+            item, or unlocking the item for devices).
+          </Text>
 
-            {claimSteps.length > 0 ? (
-              claimSteps.map((step, index) => (
-                <View key={index}>
-                  <Text style={styles.stepTitle}>
-                    Step {index + 1}: {step.title}
-                  </Text>
-                  <Text style={styles.stepDescription}>
-                    {step.description}
-                  </Text>
-                </View>
-              ))
-            ) : (
-              <Text style={styles.stepDescription}>
-                Loading claim process...
-              </Text>
-            )}
-          </View>
-        </TouchableWithoutFeedback>
-      </TouchableOpacity>
+          <Text style={styles.stepTitle}>Step 2: Visit the Office</Text>
+          <Text style={styles.stepBody}>
+            Proceed to the FoundNest Office listed on the item details.
+          </Text>
+
+          <Text style={styles.stepTitle}>Step 3: Final Photo</Text>
+          <Text style={styles.stepBody}>
+            Our staff will take a quick photo of the turnover for our security
+            records and to finalize the process.
+          </Text>
+        </ScrollView>
+      </View>
     </Modal>
   );
 }
@@ -204,39 +203,36 @@ export default function ProfileReportHistoryView() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { match: matchParam } = useLocalSearchParams();
-  const match = matchParam ? JSON.parse(matchParam) : {};
-  const [claimSteps, setClaimSteps] = useState([]);
 
+  // Instant render from the passed-in object — unchanged behavior
+  const [match, setMatch] = useState(matchParam ? JSON.parse(matchParam) : {});
+
+  const [claimSheetVisible, setClaimSheetVisible] = useState(false);
+
+  // Silently refresh in the background once the screen is up, so the
+  // cached/passed-in snapshot never goes stale without the user knowing.
   useEffect(() => {
-    const fetchClaimPolicy = async () => {
+    if (!match.match_id) return;
+
+    const refreshMatch = async () => {
       try {
-        const response = await fetch(
-          "https://foundnest-backend.onrender.com/api/policies"
+        const response = await fetchWithAuth(
+          `${API_BASE_URL}/api/match-records/${match.match_id}/match`,
         );
 
-        if (!response.ok) {
-          throw new Error("Failed to fetch policies");
-        }
+        if (!response.ok) return; // keep showing cached data, fail silently
 
-        const data = await response.json();
-
-        const claimPolicy = data.find(
-          (policy) => policy.policy_name === "Item Claim Process"
-        );
-
-        if (claimPolicy) {
-          const steps = JSON.parse(claimPolicy.policy_value);
-          setClaimSteps(steps);
-        }
-      } catch (error) {
-        console.error("Error fetching claim policy:", error);
+        const fresh = await response.json();
+        setMatch(fresh);
+      } catch (err) {
+        console.warn("Background match refresh failed:", err.message);
+        // no user-facing error — cached data stays on screen
       }
     };
 
-    fetchClaimPolicy();
-  }, []);
-
-  const [claimSheetVisible, setClaimSheetVisible] = useState(false);
+    refreshMatch();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [match.match_id]);
 
   // Derived display values
   const officeDisplay = orNA(match.office_name)
@@ -248,7 +244,6 @@ export default function ProfileReportHistoryView() {
       <HowToClaimSheet
         visible={claimSheetVisible}
         onClose={() => setClaimSheetVisible(false)}
-        claimSteps={claimSteps}
       />
 
       {/* ── Red header ─────────────────────────────────────────────────── */}
@@ -398,8 +393,6 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#FFF1E0",
   },
-
-  // ── Header
   redHeader: {
     backgroundColor: AppColors.background,
     paddingHorizontal: 16,
@@ -420,15 +413,11 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
     marginLeft: 4,
   },
-
-  // ── Content
   content: {
     paddingHorizontal: 16,
     paddingTop: 6,
     paddingBottom: 48,
   },
-
-  // ── Section divider row (lines + title)
   sectionDividerRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -446,8 +435,6 @@ const styles = StyleSheet.create({
     color: AppColors.textOnLight,
     textAlign: "center",
   },
-
-  // ── Image comparison white card
   imageCard: {
     backgroundColor: "#FFFFFF",
     borderRadius: 16,
@@ -500,8 +487,6 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     padding: 4,
   },
-
-  // ── Table
   table: {
     backgroundColor: "#FFFFFF",
     borderRadius: 12,
@@ -566,16 +551,12 @@ const styles = StyleSheet.create({
     color: AppColors.textMuted,
     fontStyle: "italic",
   },
-
-  // ── Button divider
   buttonDivider: {
     height: 1,
     backgroundColor: "rgba(0,0,0,0.1)",
     marginTop: 20,
     marginBottom: 20,
   },
-
-  // ── Action buttons
   claimButton: {
     backgroundColor: AppColors.background,
     borderRadius: 12,
@@ -600,51 +581,48 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: AppColors.background,
   },
-
-  // ── How to Claim modal (matched to ItemDetails.jsx) ──────────────────────
-  modalOverlay: {
+  sheetOverlay: {
     flex: 1,
-    justifyContent: "flex-end",
-    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    backgroundColor: "rgba(0,0,0,0.4)",
   },
-  modalContent: {
-    backgroundColor: "#fff",
-    borderTopLeftRadius: 30,
-    borderTopRightRadius: 30,
-    padding: 25,
-    paddingBottom: 80,
-    width: "100%",
+  sheet: {
+    backgroundColor: "#FFFFFF",
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingHorizontal: 24,
+    paddingBottom: 40,
+    paddingTop: 12,
+    maxHeight: "65%",
   },
-  dragHandle: {
-    width: 50,
-    height: 5,
-    backgroundColor: "#EBEBEB",
-    borderRadius: 3,
+  sheetHandle: {
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: "rgba(0,0,0,0.15)",
     alignSelf: "center",
+    marginBottom: 16,
+  },
+  sheetTitle: {
+    fontSize: 20,
+    fontWeight: "800",
+    color: AppColors.textOnLight,
+    textAlign: "center",
     marginBottom: 20,
   },
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: "bold",
-    color: "#000",
-    marginBottom: 15,
-    textAlign: "center",
-  },
   stepTitle: {
-    fontSize: 14,
-    fontWeight: "bold",
-    color: "#000",
-    marginTop: 15,
-    marginBottom: 5,
+    fontSize: 15,
+    fontWeight: "700",
+    color: AppColors.textOnLight,
+    marginBottom: 6,
   },
-  stepDescription: {
+  stepBody: {
     fontSize: 14,
-    color: "#333",
-    lineHeight: 20,
+    color: AppColors.textMuted,
+    lineHeight: 22,
+    marginBottom: 18,
+    textAlign: "justify",
   },
-
-  // ── Full image modal (unchanged from original)
-  modalOverlay2: {
+  modalOverlay: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.88)",
     justifyContent: "center",

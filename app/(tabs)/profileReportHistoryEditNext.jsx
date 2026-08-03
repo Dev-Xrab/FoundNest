@@ -1,7 +1,7 @@
 import ConfirmDiscardModal from '@/components/ConfirmDiscardModal';
 import { API_BASE_URL } from "@/constants/api";
 import AppColors from "@/constants/AppColors";
-import { uploadWithAuth } from '@/constants/authApi';
+import { fetchWithAuth, uploadWithAuth } from '@/constants/authApi';
 import fetchBulsuColleges from "@/constants/CollegeBuildings";
 import fetchGates from "@/constants/Gates";
 import {
@@ -231,26 +231,52 @@ export default function ProfileReportHistoryEditNext() {
   useFocusEffect(
     useCallback(() => {
       if (isViewOnly) {
+        const applyReportData = (data) => {
+          setDraft({
+            reportId: data.lost_report_id,
+            itemName: data.item_name ?? "",
+            description: data.description ?? "",
+            contents: data.contents ?? "",
+            categoryId: data.category_id ?? "",
+            locationLost: data.location_lost ?? "",
+            lostDate: data.actual_lost_date ?? data.lost_date ?? null,
+            imageUri: null,
+          });
+
+          const d = parseLostDateToDate(data.actual_lost_date ?? data.lost_date);
+          if (d) {
+            setDate(d);
+            setTime(d);
+          }
+
+          setErrors({});
+        };
+
+        // Instant paint from the passed-in snapshot — same as before
         const fresh = reportParam ? JSON.parse(reportParam) : {};
+        applyReportData(fresh);
 
-        setDraft({
-          reportId: fresh.lost_report_id,
-          itemName: fresh.item_name ?? "",
-          description: fresh.description ?? "",
-          contents: fresh.contents ?? "",
-          categoryId: fresh.category_id ?? "",
-          locationLost: fresh.location_lost ?? "",
-          lostDate: fresh.actual_lost_date ?? fresh.lost_date ?? null,
-          imageUri: null,
-        });
-
-        const d = parseLostDateToDate(fresh.actual_lost_date ?? fresh.lost_date);
-        if (d) {
-          setDate(d);
-          setTime(d);
+        // Then silently refresh with live server data
+        const reportId = fresh.lost_report_id;
+        if (reportId) {
+          (async () => {
+            try {
+              const response = await fetchWithAuth(
+                `${API_BASE_URL}/api/lost-reports/${reportId}/detail`,
+              );
+              if (!response.ok) return;
+              const data = await response.json();
+              applyReportData({
+                ...data,
+                lost_date: data.date_reported,
+                actual_lost_date: data.lost_date,
+              });
+            } catch (err) {
+              console.warn('Background report refresh failed:', err.message);
+            }
+          })();
         }
 
-        setErrors({});
         return;
       }
 
@@ -531,28 +557,26 @@ export default function ProfileReportHistoryEditNext() {
         throw new Error(data.error ?? "Failed to update report.");
       }
 
-    
-      const resolvedDisplayImage = draft.isImageRemoved 
-        ? null 
-        : (draft.imageUri || draft.existingImageUrl || backupReport.lost_item_image || null);
-      console.log(`Resolved: ${resolvedDisplayImage}`)
+      const { report: savedReport } = await res.json();
+
       const updatedReportPackage = {
-        lost_report_id: draft.reportId,
-        item_name: finalItemName,
-        description: finalDescription,
-        contents: finalContents,
-        category_id: finalCategoryId,
-        location_lost: locationLost, 
-        lost_date: localISO,
-        lost_item_image: resolvedDisplayImage,
+        lost_report_id: savedReport.lost_report_id,
+        item_name: savedReport.item_name,
+        description: savedReport.description,
+        contents: savedReport.contents,
+        category_id: savedReport.category_id,
+        location_lost: savedReport.location_lost,
+        lost_date: savedReport.date_reported,
+        actual_lost_date: savedReport.lost_date,
+        lost_item_image: savedReport.image_url,
         matches: backupReport.matches || [],
       };
 
       clearReportDraft();
-      
+
       router.replace({
         pathname: "/(tabs)/reportSuccess",
-        params: { 
+        params: {
           source: "edit",
           reportObject: JSON.stringify(updatedReportPackage),
         },
