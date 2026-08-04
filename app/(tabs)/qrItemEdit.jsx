@@ -5,11 +5,12 @@ import { fetchWithAuth, uploadWithAuth } from '@/constants/authApi';
 import { getCategories } from '@/constants/category';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
-import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
+import { useFocusEffect, useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  BackHandler,
   Image,
   ScrollView,
   StyleSheet,
@@ -47,6 +48,7 @@ function RequiredLabel({ label }) {
 
 export default function QrItemEdit() {
   const router = useRouter();
+  const navigation = useNavigation();
   const insets = useSafeAreaInsets();
   const { item: itemParam, editSession } = useLocalSearchParams();
 
@@ -55,10 +57,6 @@ export default function QrItemEdit() {
   const item = JSON.parse(itemParam || '{}');
 
   // ── State ──────────────────────────────────────────────────────────────────
-
-  const [qrData, setQrData] = useState(() => {
-    try { return JSON.parse(item.qr_data || '{}'); } catch { return {}; }
-  });
 
   const [itemName, setItemName]                     = useState(item.item_name || '');
   const [description, setDescription]               = useState(item.description || '');
@@ -104,12 +102,6 @@ export default function QrItemEdit() {
     setContents(currentItem.contents || '');
     setSelectedImage(null);
     setErrors({});
-
-    try {
-      setQrData(JSON.parse(currentItem.qr_data || '{}'));
-    } catch {
-      setQrData({});
-    }
   }, [itemParam, editSession]);
 
   // ── Focus effect: re-fetch latest data from server on every focus ──────────
@@ -131,12 +123,6 @@ export default function QrItemEdit() {
           if (!res.ok || !isActive) return;
 
           const fresh = await res.json();
-
-          try {
-            setQrData(JSON.parse(fresh.qr_data || '{}'));
-          } catch {
-            setQrData({});
-          }
 
           // Update base values to match server state
           setBaseItemName(fresh.item_name || '');
@@ -222,12 +208,14 @@ export default function QrItemEdit() {
     if (hasChanges) {
       setDiscardVisible(true);
     } else {
+      bypassRef.current = true;
       router.replace('/(tabs)/qrItemList');
     }
   };
 
   const handleDiscard = () => {
     setDiscardVisible(false);
+    bypassRef.current = true;
     router.replace({
       pathname: '/(tabs)/qrItemList',
       params: {
@@ -237,6 +225,42 @@ export default function QrItemEdit() {
       },
     });
   };
+
+  const handleCancelRef = useRef(() => {});
+  useEffect(() => {
+    handleCancelRef.current = handleCancel;
+  });
+
+  const bypassRef = useRef(false);
+
+  useFocusEffect(
+    useCallback(() => {
+      bypassRef.current = false;
+      return () => {
+        bypassRef.current = false;
+      };
+    }, [])
+  );
+
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('beforeRemove', (e) => {
+      if (bypassRef.current) return;
+      e.preventDefault();
+      handleCancelRef.current();
+    });
+    return unsubscribe;
+  }, [navigation]);
+
+  useFocusEffect(
+    useCallback(() => {
+      const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+        if (bypassRef.current) return false;
+        handleCancelRef.current();
+        return true;
+      });
+      return () => subscription.remove();
+    }, [])
+  );
 
   // ── Save ───────────────────────────────────────────────────────────────────
 
@@ -376,11 +400,12 @@ export default function QrItemEdit() {
         automaticallyAdjustKeyboardInsets={true}
         showsVerticalScrollIndicator={false}
       >
-        {/* OWNER INFO — read only, sourced from state so it updates per item */}
-        <ReadOnlyField label="Owner Name"         value={qrData.ownerName} />
-        <ReadOnlyField label="Student Number"     value={qrData.studentNumber} />
-        <ReadOnlyField label="Course and Section" value={qrData.courseSection} />
-        <ReadOnlyField label="Contact Number"     value={qrData.contactNumber} />
+        {/* OWNER INFO — read only, comes from the user_profiles join now,
+            not from qr_data (qr_data is just an opaque scan key) */}
+        <ReadOnlyField label="Owner Name"         value={item.owner_name} />
+        <ReadOnlyField label="Student Number"     value={item.student_number} />
+        <ReadOnlyField label="Course and Section" value={item.course_section} />
+        <ReadOnlyField label="Contact Number"     value={item.contact_number} />
 
         {/* ITEM DESCRIPTION */}
         <Text style={styles.sectionHeading}>Item Description</Text>

@@ -1,7 +1,9 @@
 import AppColors from '@/constants/AppColors';
 import { Ionicons } from '@expo/vector-icons';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
+import { useCallback, useEffect, useRef } from 'react';
 import {
+  BackHandler,
   Image,
   ScrollView,
   StyleSheet,
@@ -24,17 +26,19 @@ function ReadOnlyField({ label, value, multiline = false }) {
 
 export default function QrItemView() {
   const router = useRouter();
+  const navigation = useNavigation();
   const insets = useSafeAreaInsets();
   const { item: itemParam, fromScan } = useLocalSearchParams();
   const item = JSON.parse(itemParam || '{}');
   const isFromScan = fromScan === 'true';
 
-  let qrData = {};
-  try {
-    qrData = JSON.parse(item.qr_data || '{}');
-  } catch {
-    qrData = {};
-  }
+  useFocusEffect(
+    useCallback(() => {
+      if (!itemParam || !item?.qr_code_id) {
+        router.replace('/(tabs)/qrItemList');
+      }
+    }, [itemParam])
+  );
 
   const handleBack = () => {
     if (isFromScan) {
@@ -43,6 +47,44 @@ export default function QrItemView() {
       router.navigate('/(tabs)/qrItemList');
     }
   };
+
+  const handleBackRef = useRef(() => {});
+  useEffect(() => {
+    handleBackRef.current = handleBack;
+  });
+
+  const bypassRef = useRef(false);
+
+  useFocusEffect(
+    useCallback(() => {
+      bypassRef.current = false;
+      return () => {
+        bypassRef.current = false;
+      };
+    }, [])
+  );
+
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('beforeRemove', (e) => {
+      if (bypassRef.current) return;
+      e.preventDefault();
+      bypassRef.current = true;
+      handleBackRef.current();
+    });
+    return unsubscribe;
+  }, [navigation]);
+
+  useFocusEffect(
+    useCallback(() => {
+      const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+        if (bypassRef.current) return false;
+        bypassRef.current = true;
+        handleBackRef.current();
+        return true;
+      });
+      return () => subscription.remove();
+    }, [])
+  );
 
   return (
     <View style={styles.screen}>
@@ -66,11 +108,12 @@ export default function QrItemView() {
         contentContainerStyle={styles.container}
         showsVerticalScrollIndicator={false}
       >
-        {/* OWNER INFO */}
-        <ReadOnlyField label="Owner Name"          value={qrData.ownerName} />
-        <ReadOnlyField label="Student Number"      value={qrData.studentNumber} />
-        <ReadOnlyField label="Course and Section"  value={qrData.courseSection} />
-        <ReadOnlyField label="Contact Number"      value={qrData.contactNumber} />
+        {/* OWNER INFO — comes from the user_profiles join now, not from
+            qr_data (qr_data is just an opaque scan key) */}
+        <ReadOnlyField label="Owner Name"          value={item.owner_name} />
+        <ReadOnlyField label="Student Number"      value={item.student_number} />
+        <ReadOnlyField label="Course and Section"  value={item.course_section} />
+        <ReadOnlyField label="Contact Number"      value={item.contact_number} />
 
         {/* ITEM DESCRIPTION */}
         <Text style={styles.sectionHeading}>Item Description</Text>

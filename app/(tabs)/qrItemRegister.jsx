@@ -7,11 +7,12 @@ import { DescribeItem } from "@/constants/geminiAI";
 import { getUser } from "@/constants/StudentData";
 import { Ionicons, MaterialIcons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
-import { useFocusEffect, useRouter } from "expo-router";
-import { useCallback, useEffect, useState } from "react";
+import { useFocusEffect, useNavigation, useRouter } from "expo-router";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  BackHandler,
   Image,
   ScrollView,
   StyleSheet,
@@ -51,6 +52,7 @@ function ReadOnlyField({ label, value }) {
 
 export default function QrItemRegister() {
   const router = useRouter();
+  const navigation = useNavigation();
   const insets = useSafeAreaInsets();
 
   // Session / owner info
@@ -242,16 +244,9 @@ export default function QrItemRegister() {
     setIsSubmitting(true);
 
     try {
-      const qr_data = JSON.stringify({
-        ownerName: `${user.first_name} ${user.last_name}`,
-        studentNumber: user.student_number,
-        courseSection: user.course_section ?? "",
-        contactNumber: contactNumber.trim(),
-        itemName: itemName.trim(),
-        category: selectedCategoryName,
-      });
-
-      // Build multipart/form-data so the backend receives req.file for Cloudinary upload
+      // Build multipart/form-data so the backend receives req.file for Cloudinary upload.
+      // qr_data is no longer built here — the server generates an opaque UUID
+      // for it so the printed QR never carries owner PII in plain text.
       const formData = new FormData();
 
       formData.append("user_id", String(user.user_id));
@@ -261,7 +256,6 @@ export default function QrItemRegister() {
         selectedCategoryId ? String(selectedCategoryId) : "",
       );
       formData.append("description", description.trim());
-      formData.append("qr_data", qr_data);
 
       if (selectedImage) {
         const fileName = selectedImage.split("/").pop() || "item-photo.jpg";
@@ -296,11 +290,11 @@ export default function QrItemRegister() {
         return;
       }
 
-      // Navigate to success screen
+      // Navigate to success screen — qr_data comes back from the server now
       router.replace({
         pathname: "/(tabs)/qrItemSuccess",
         params: {
-          qr_data,
+          qr_data: data.qr_code?.qr_data,
           itemName: itemName.trim(),
         },
       });
@@ -317,14 +311,52 @@ export default function QrItemRegister() {
     if (hasChanges) {
       setDiscardVisible(true);
     } else {
+      bypassRef.current = true;
       router.replace("/(tabs)/qrItem");
     }
   };
 
   const handleDiscard = () => {
     setDiscardVisible(false);
+    bypassRef.current = true;
     router.replace("/(tabs)/qrItem");
   };
+
+  const handleCancelRef = useRef(() => {});
+  useEffect(() => {
+    handleCancelRef.current = handleCancel;
+  });
+
+  const bypassRef = useRef(false);
+
+  useFocusEffect(
+    useCallback(() => {
+      bypassRef.current = false;
+      return () => {
+        bypassRef.current = false;
+      };
+    }, [])
+  );
+
+  useEffect(() => {
+    const unsubscribe = navigation.addListener("beforeRemove", (e) => {
+      if (bypassRef.current) return;
+      e.preventDefault();
+      handleCancelRef.current();
+    });
+    return unsubscribe;
+  }, [navigation]);
+
+  useFocusEffect(
+    useCallback(() => {
+      const subscription = BackHandler.addEventListener("hardwareBackPress", () => {
+        if (bypassRef.current) return false;
+        handleCancelRef.current();
+        return true;
+      });
+      return () => subscription.remove();
+    }, [])
+  );
 
   return (
     <View style={styles.screen}>

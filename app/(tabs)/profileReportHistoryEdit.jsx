@@ -5,15 +5,16 @@ import { API_BASE_URL } from '@/constants/api';
 import { fetchWithAuth } from '@/constants/authApi';
 import { getCategories, matchCategoryFromAi } from '@/constants/category';
 import { DescribeItem } from '@/constants/geminiAI';
-import { clearReportDraft, getReportDraft, setReportDraft } from '@/constants/reportDraft';
+import { clearReportDraft, getReportDraft, getReportDraftFor, setReportDraft } from '@/constants/reportDraft';
 import { validateReportPage1 } from '@/utils/lostReport';
 import { MaterialIcons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
-import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  BackHandler,
   Image,
   KeyboardAvoidingView,
   Platform,
@@ -33,6 +34,7 @@ function FieldError({ message }) {
 
 export default function ProfileReportHistoryEdit() {
   const router = useRouter();
+  const navigation = useNavigation();
   const { report: reportParam, editSession, fromBack, viewOnly } = useLocalSearchParams();
   const report = reportParam ? JSON.parse(reportParam) : {};
   const isViewOnly = viewOnly === 'true';
@@ -66,6 +68,39 @@ export default function ProfileReportHistoryEdit() {
   useEffect(() => {
     isFirstFocus.current = true;
   }, [editSession]);
+
+  const handleCancelPressRef = useRef(() => {});
+  const bypassRef = useRef(false);
+
+  useFocusEffect(
+    useCallback(() => {
+      bypassRef.current = false;
+      return () => {
+        bypassRef.current = false;
+      };
+    }, [])
+  );
+
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('beforeRemove', (e) => {
+      if (bypassRef.current) return;
+      e.preventDefault();
+      handleCancelPressRef.current();
+    });
+    return unsubscribe;
+  }, [navigation]);
+
+  useFocusEffect(
+    useCallback(() => {
+      const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+        if (bypassRef.current) return false;
+        handleCancelPressRef.current();
+        return true;
+      });
+
+      return () => subscription.remove();
+    }, []),
+  );
 
   useFocusEffect(
     useCallback(() => {
@@ -238,10 +273,14 @@ export default function ProfileReportHistoryEdit() {
       return;
     }
 
-    const existingDraft = getReportDraft();
+    // Only reuse a previously-saved draft if it belongs to THIS report.
+    // Otherwise a draft left behind by editing a different report (e.g. via
+    // the swipe-back gesture, which skips our cleanup) would leak its
+    // location/date into this session.
+    const existingDraft = getReportDraftFor(report.lost_report_id);
 
     setErrors({});
-    setReportDraft({
+    const nextDraft = {
       reportId:         report.lost_report_id,
       reportParam:      reportParam,
       editSession:      editSession,
@@ -254,9 +293,10 @@ export default function ProfileReportHistoryEdit() {
       contents:         contents.trim(),
       locationLost:     existingDraft?.locationLost ?? report.location_lost ?? '',
       lostDate:         existingDraft?.lostDate ?? report.actual_lost_date ?? report.lost_date ?? null,
-    });
+    };
+    setReportDraft(nextDraft);
 
-    router.navigate({
+    router.push({
       pathname: '/(tabs)/profileReportHistoryEditNext',
       params: {
         report: reportParam,
@@ -300,8 +340,9 @@ export default function ProfileReportHistoryEdit() {
     if (currentPhoto !== originalPhoto) return true;
 
     // Location/date only matter if page 2 was already visited this session —
-    // otherwise the draft simply mirrors the untouched original.
-    const existingDraft = getReportDraft();
+    // otherwise the draft simply mirrors the untouched original. Scoped to
+    // this report so a leftover draft from a different report never counts.
+    const existingDraft = getReportDraftFor(report.lost_report_id);
 
     const originalLocationLost = report.location_lost ?? '';
     const currentLocationLost = existingDraft?.locationLost ?? originalLocationLost;
@@ -317,13 +358,25 @@ export default function ProfileReportHistoryEdit() {
   };
 
   const handleCancelPress = () => {
-    if (isSessionDirty()) {
-      setDiscardModalVisible(true);
-    } else {
+    if (isViewOnly) {
+      bypassRef.current = true;
+      router.navigate('/(tabs)/profileReportHistory');
+      return;
+    }
+
+    if (!isSessionDirty()) {
+      bypassRef.current = true;
       clearReportDraft();
       router.navigate('/(tabs)/profileReportHistory');
+      return;
     }
+
+    setDiscardModalVisible(true);
   };
+
+  useEffect(() => {
+    handleCancelPressRef.current = handleCancelPress;
+  });
 
   return (
     <KeyboardAvoidingView
@@ -332,9 +385,12 @@ export default function ProfileReportHistoryEdit() {
     >
       <ConfirmDiscardModal
         visible={discardModalVisible}
-        onKeepEditing={() => setDiscardModalVisible(false)}
+        onKeepEditing={() => {
+          setDiscardModalVisible(false);
+        }}
         onDiscard={() => {
           setDiscardModalVisible(false);
+          bypassRef.current = true;
           clearReportDraft();
           router.navigate({
             pathname: '/(tabs)/profileReportHistory',
@@ -355,7 +411,7 @@ export default function ProfileReportHistoryEdit() {
       <ScrollView contentContainerStyle={styles.container}>
         {isViewOnly ? (
           <View style={styles.titleRow}>
-            <TouchableOpacity onPress={() => router.navigate('/(tabs)/profileReportHistory')} style={styles.backButton}>
+            <TouchableOpacity onPress={handleCancelPress} style={styles.backButton}>
               <MaterialIcons name="arrow-back" size={24} color={AppColors.surface} />
             </TouchableOpacity>
             <Text style={styles.titleInRow}>Report Details</Text>

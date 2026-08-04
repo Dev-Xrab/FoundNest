@@ -7,16 +7,18 @@ import fetchGates from "@/constants/Gates";
 import {
   clearReportDraft,
   getReportDraft,
+  getReportDraftFor,
   setReportDraft,
 } from "@/constants/reportDraft";
 import fetchSharedStudentSpaces from "@/constants/SharedStudentSpaces";
 import { buildLocationLost, validateReportPage2 } from "@/utils/lostReport";
 import { Feather, MaterialIcons } from "@expo/vector-icons";
-import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
+import { useFocusEffect, useLocalSearchParams, useNavigation, useRouter } from "expo-router";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  BackHandler,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -174,8 +176,9 @@ function parseLostDateToDate(lostDate) {
   return isNaN(d.getTime()) ? null : d;
 }
 
-export default function ProfileReportHistoryEditNext() {
+function EditNextScreen() {
   const router = useRouter();
+  const navigation = useNavigation();
   const { report: reportParam, viewOnly } = useLocalSearchParams();
   const isViewOnly = viewOnly === "true";
   const scrollRef = useRef(null);
@@ -227,6 +230,60 @@ export default function ProfileReportHistoryEditNext() {
 
     loadDropdownData();
   }, []);
+
+  const handleBackRef = useRef(() => {});
+
+  const bypassRef = useRef(false);
+
+  useFocusEffect(
+    useCallback(() => {
+      bypassRef.current = false;
+      return () => {
+        bypassRef.current = false;
+      };
+    }, [])
+  );
+
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('beforeRemove', (e) => {
+      if (bypassRef.current) return;
+      e.preventDefault();
+      bypassRef.current = true;
+
+      if (isViewOnly) {
+        router.navigate({
+          pathname: "/(tabs)/profileReportHistoryEdit",
+          params: { report: reportParam, viewOnly: "true" },
+        });
+        return;
+      }
+
+      handleBackRef.current();
+    });
+    return unsubscribe;
+  }, [navigation, isViewOnly, reportParam]);
+
+  useFocusEffect(
+    useCallback(() => {
+      const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+        if (bypassRef.current) return false;
+        bypassRef.current = true;
+
+        if (isViewOnly) {
+          router.navigate({
+            pathname: "/(tabs)/profileReportHistoryEdit",
+            params: { report: reportParam, viewOnly: "true" },
+          });
+          return true;
+        }
+
+        handleBackRef.current();
+        return true;
+      });
+
+      return () => subscription.remove();
+    }, [isViewOnly, reportParam]),
+  );
 
   useFocusEffect(
     useCallback(() => {
@@ -280,12 +337,16 @@ export default function ProfileReportHistoryEditNext() {
         return;
       }
 
-      const saved = getReportDraft();
+      const fresh = reportParam ? JSON.parse(reportParam) : {};
+      const saved = getReportDraftFor(fresh.lost_report_id);
       if (!saved) {
         Alert.alert("Incomplete form", "Please start from page 1.", [
           {
             text: "OK",
-            onPress: () => router.replace("/(tabs)/profileReportHistory"),
+            onPress: () => {
+              bypassRef.current = true;
+              router.replace("/(tabs)/profileReportHistory");
+            },
           },
         ]);
         return;
@@ -440,6 +501,8 @@ export default function ProfileReportHistoryEditNext() {
   };
 
   const handleBack = () => {
+    bypassRef.current = true;
+
     const saved = getReportDraft();
 
     const combined = new Date(date);
@@ -470,8 +533,13 @@ export default function ProfileReportHistoryEditNext() {
     });
   };
 
+  useEffect(() => {
+    handleBackRef.current = handleBack;
+  });
+
   const handleSubmit = async () => {
     if (!draft) {
+      bypassRef.current = true;
       router.replace("/(tabs)/profileReportHistory");
       return;
     }
@@ -573,6 +641,7 @@ export default function ProfileReportHistoryEditNext() {
       };
 
       clearReportDraft();
+      bypassRef.current = true;
 
       router.replace({
         pathname: "/(tabs)/reportSuccess",
@@ -610,6 +679,7 @@ export default function ProfileReportHistoryEditNext() {
         onKeepEditing={() => setDiscardModalVisible(false)}
         onDiscard={() => {
           setDiscardModalVisible(false);
+          bypassRef.current = true;
           clearReportDraft();
           router.navigate({
             pathname: '/(tabs)/profileReportHistory',
@@ -650,10 +720,12 @@ export default function ProfileReportHistoryEditNext() {
           <TouchableOpacity
             onPress={() => {
               if (isViewOnly) {
+                bypassRef.current = true;
                 router.navigate('/(tabs)/profileReportHistory');
               } else if (isSessionDirty()) {
                 setDiscardModalVisible(true);
               } else {
+                bypassRef.current = true;
                 clearReportDraft();
                 router.navigate('/(tabs)/profileReportHistory');
               }
@@ -750,12 +822,17 @@ export default function ProfileReportHistoryEditNext() {
           <Text style={styles.pageIndicator}>Page 2 out of 2</Text>
           <View style={styles.buttonSection}>
             {isViewOnly ? (
-              <TouchableOpacity style={styles.cancelButton} onPress={() => router.navigate({ pathname: "/(tabs)/profileReportHistoryEdit", params: { report: reportParam, viewOnly: "true" } })}>
+              <TouchableOpacity style={styles.cancelButton} onPress={() => {
+                bypassRef.current = true;
+                router.navigate({ pathname: "/(tabs)/profileReportHistoryEdit", params: { report: reportParam, viewOnly: "true" } });
+              }}>
                 <Text style={styles.backButtonText}>Back to Page 1</Text>
               </TouchableOpacity>
             ) : (
               <>
-                <TouchableOpacity style={styles.cancelButton} disabled={isSubmitting} onPress={handleBack}>
+                <TouchableOpacity style={styles.cancelButton} disabled={isSubmitting} onPress={() => {
+                  handleBack();
+                }}>
                   <Text style={styles.backButtonText}>Back to Page 1</Text>
                 </TouchableOpacity>
 
@@ -769,6 +846,11 @@ export default function ProfileReportHistoryEditNext() {
       </ScrollView>
     </KeyboardAvoidingView>
   );
+}
+
+export default function ProfileReportHistoryEditNext() {
+  const { report: reportParam, editSession } = useLocalSearchParams();
+  return <EditNextScreen key={`${reportParam}-${editSession}`} />;
 }
 
 const styles = StyleSheet.create({
