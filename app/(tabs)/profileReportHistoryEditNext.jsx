@@ -7,6 +7,7 @@ import fetchGates from "@/constants/Gates";
 import {
   clearReportDraft,
   getReportDraft,
+  getReportDraftFor,
   setReportDraft,
 } from "@/constants/reportDraft";
 import fetchSharedStudentSpaces from "@/constants/SharedStudentSpaces";
@@ -17,6 +18,7 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  BackHandler,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -174,7 +176,7 @@ function parseLostDateToDate(lostDate) {
   return isNaN(d.getTime()) ? null : d;
 }
 
-export default function ProfileReportHistoryEditNext() {
+function EditNextScreen() {
   const router = useRouter();
   const { report: reportParam, viewOnly } = useLocalSearchParams();
   const isViewOnly = viewOnly === "true";
@@ -228,6 +230,35 @@ export default function ProfileReportHistoryEditNext() {
     loadDropdownData();
   }, []);
 
+  // handleBack is defined further down (needs draft/date/time/selection
+  // state that lives later in this component). The BackHandler listener
+  // below is registered once and never recreated (its deps don't include
+  // date/time/draft/selections), so it must never close over handleBack
+  // directly — that would freeze it at whatever handleBack looked like on
+  // first render, before the draft had even loaded. Routing through a ref
+  // that's updated every render guarantees the listener always calls the
+  // CURRENT handleBack, with current state, no matter when it fires.
+  const handleBackRef = useRef(() => {});
+
+  useFocusEffect(
+    useCallback(() => {
+      const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+        if (isViewOnly) {
+          router.navigate({
+            pathname: "/(tabs)/profileReportHistoryEdit",
+            params: { report: reportParam, viewOnly: "true" },
+          });
+          return true;
+        }
+
+        handleBackRef.current();
+        return true;
+      });
+
+      return () => subscription.remove();
+    }, [isViewOnly, reportParam]),
+  );
+
   useFocusEffect(
     useCallback(() => {
       if (isViewOnly) {
@@ -280,7 +311,8 @@ export default function ProfileReportHistoryEditNext() {
         return;
       }
 
-      const saved = getReportDraft();
+      const fresh = reportParam ? JSON.parse(reportParam) : {};
+      const saved = getReportDraftFor(fresh.lost_report_id);
       if (!saved) {
         Alert.alert("Incomplete form", "Please start from page 1.", [
           {
@@ -469,6 +501,10 @@ export default function ProfileReportHistoryEditNext() {
       },
     });
   };
+
+  useEffect(() => {
+    handleBackRef.current = handleBack;
+  });
 
   const handleSubmit = async () => {
     if (!draft) {
@@ -750,12 +786,16 @@ export default function ProfileReportHistoryEditNext() {
           <Text style={styles.pageIndicator}>Page 2 out of 2</Text>
           <View style={styles.buttonSection}>
             {isViewOnly ? (
-              <TouchableOpacity style={styles.cancelButton} onPress={() => router.navigate({ pathname: "/(tabs)/profileReportHistoryEdit", params: { report: reportParam, viewOnly: "true" } })}>
+              <TouchableOpacity style={styles.cancelButton} onPress={() => {
+                router.navigate({ pathname: "/(tabs)/profileReportHistoryEdit", params: { report: reportParam, viewOnly: "true" } });
+              }}>
                 <Text style={styles.backButtonText}>Back to Page 1</Text>
               </TouchableOpacity>
             ) : (
               <>
-                <TouchableOpacity style={styles.cancelButton} disabled={isSubmitting} onPress={handleBack}>
+                <TouchableOpacity style={styles.cancelButton} disabled={isSubmitting} onPress={() => {
+                  handleBack();
+                }}>
                   <Text style={styles.backButtonText}>Back to Page 1</Text>
                 </TouchableOpacity>
 
@@ -769,6 +809,20 @@ export default function ProfileReportHistoryEditNext() {
       </ScrollView>
     </KeyboardAvoidingView>
   );
+}
+
+/**
+ * react-native-screens/react-navigation don't always destroy a popped
+ * screen — after a swipe-back gesture especially, the old screen instance
+ * (with its date/time/location useState still holding the PREVIOUS report's
+ * values) can be reused instead of freshly mounted the next time this route
+ * is navigated to. Keying on report+editSession forces React to unmount and
+ * remount the whole subtree — wiping every local state value — any time
+ * either changes, independent of whatever the navigator does internally.
+ */
+export default function ProfileReportHistoryEditNext() {
+  const { report: reportParam, editSession } = useLocalSearchParams();
+  return <EditNextScreen key={`${reportParam}-${editSession}`} />;
 }
 
 const styles = StyleSheet.create({
