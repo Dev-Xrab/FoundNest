@@ -7,10 +7,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 // Imports needed for your API logic
 import FoundNestLogo from "@/assets/images/app-logo.png";
-import { API_BASE_URL } from "@/constants/api";
 import AppColors from "@/constants/AppColors";
-import { fetchWithAuth } from "@/constants/authApi";
-import { getUser } from "@/constants/StudentData";
+import { getUserNotifications } from "@/constants/notifications";
 
 export default function CustomHeader({ title }) {
   const insets = useSafeAreaInsets();
@@ -53,20 +51,7 @@ export default function CustomHeader({ title }) {
 
   const getNotifications = async () => {
     try {
-      const user = await getUser();
-      const userId = user ? user.user_id : null;
-
-      if (!userId) return;
-
-      const response = await fetchWithAuth(
-        `${API_BASE_URL}/api/notifications/user/${userId}`
-      );
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const data = await response.json();
+      const data = await getUserNotifications();
       setNumberOfUnreadNotifications(data.filter((n) => !n.is_read).length);
       setNotifications(data);
     } catch (error) {

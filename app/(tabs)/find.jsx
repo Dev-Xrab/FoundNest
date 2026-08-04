@@ -16,8 +16,7 @@ import {
   View,
 } from "react-native";
 import Icon from "react-native-vector-icons/Ionicons";
-
-import { fetchWithAuth } from "@/constants/authApi";
+import { getUserFoundItems} from "@/constants/foundItems";
 import fetchBulsuColleges from "@/constants/CollegeBuildings";
 import fetchGates from "@/constants/Gates";
 import fetchSharedStudentSpaces from "@/constants/SharedStudentSpaces";
@@ -145,13 +144,11 @@ const Find = () => {
   // <-- 3. ISOLATED REUSABLE FETCH FUNCTION FOR REPORTS
   const fetchReports = async () => {
     try {
-      const response = await fetchWithAuth(
-        "https://foundnest-backend.onrender.com/api/found-reports/public",
-      );
-      const json = await response.json();
+      const response = await getUserFoundItems();
+      
 
-      if (Array.isArray(json)) {
-        const formattedData = json.map((item) => ({
+      if (Array.isArray(response)) {
+        const formattedData = response.map((item) => ({
           id: item.found_report_id.toString(),
           title: item.item_name,
           category: item.category_name,

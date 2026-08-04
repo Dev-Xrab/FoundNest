@@ -13,6 +13,7 @@ import {
 import { API_BASE_URL } from "@/constants/api";
 import AppColors from "@/constants/AppColors";
 import { fetchWithAuth } from "@/constants/authApi";
+import { getReportHistory } from "@/constants/lostReports";
 import { getUser } from "@/constants/StudentData";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
@@ -39,36 +40,6 @@ function formatFoundDate(iso) {
     })
     .toLowerCase();
   return `${datePart} | ${timePart}`;
-}
-
-/**
- * Merges lost reports with notification rows (matches).
- * Replicated from history file to perfectly parse reports for editing.
- */
-function mergeReportsAndNotifs(reportsData, notifsData) {
-  const notifMap = new Map();
-  for (const n of notifsData) {
-    if (!n.found_report_id) continue;
-    if (!notifMap.has(n.lost_report_id)) {
-      notifMap.set(n.lost_report_id, []);
-    }
-    notifMap.get(n.lost_report_id).push(n);
-  }
-
-  return reportsData.map((r) => ({
-    lost_report_id: r.lost_report_id,
-    lost_item_name: r.item_name,
-    lost_item_image: r.image_url,
-    lost_date: r.date_reported,
-    actual_lost_date: r.lost_date,
-    location_lost: r.location_lost,
-    status: r.status,
-    item_name: r.item_name,
-    description: r.description,
-    contents: r.contents,
-    category_id: r.category_id,
-    matches: notifMap.get(r.lost_report_id) ?? [],
-  }));
 }
 
 function RecentFindsCarousel({ items, activeIndex, onIndexChange }) {
@@ -179,21 +150,9 @@ export default function HomeScreen() {
 
     async function determineActiveDisplayCard() {
       try {
-        const [reportsRes, notifsRes] = await Promise.all([
-          fetchWithAuth(`${API_BASE_URL}/api/lost-reports/user/${currentUser.user_id}`),
-          fetchWithAuth(`${API_BASE_URL}/api/notifications/user/${currentUser.user_id}`),
-        ]);
-
-        if (!reportsRes.ok || !notifsRes.ok) throw new Error("Sync failure checking profiles");
-
-        const [reportsData, notifsData] = await Promise.all([
-          reportsRes.json(),
-          notifsRes.json(),
-        ]);
+        const mergedReports = await getReportHistory();
 
         if (cancelled) return;
-
-        const mergedReports = mergeReportsAndNotifs(reportsData, notifsData);
 
         if (mergedReports.length === 0) {
           setDisplayReport(null);

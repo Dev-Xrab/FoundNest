@@ -3,7 +3,7 @@ import Toast from '@/components/Toast';
 import { API_BASE_URL } from '@/constants/api';
 import AppColors from '@/constants/AppColors';
 import { fetchWithAuth } from '@/constants/authApi';
-import { getUser } from '@/constants/StudentData';
+import { getUserQrItems, removeQrItemFromCache } from '@/constants/qrItems';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -121,17 +121,8 @@ export default function QrItemList() {
   const loadItems = async () => {
     setIsLoading(true);
     try {
-      const user = await getUser();
-      if (!user) return;
-
-      const res = await fetchWithAuth(`${API_BASE_URL}/api/qr-items/${user.user_id}`);
-      const data = await res.json();
-
-      if (res.ok) {
-        setItems(data);
-      } else {
-        console.error('Failed to load QR items:', data.message);
-      }
+      const data = await getUserQrItems();
+      setItems(data);
     } catch (err) {
       console.error('Load QR items error:', err);
     } finally {
@@ -155,6 +146,7 @@ export default function QrItemList() {
       );
       if (res.ok) {
         setItems((prev) => prev.filter((i) => i.qr_code_id !== itemToDelete.qr_code_id));
+        await removeQrItemFromCache(itemToDelete.qr_code_id);
       } else {
         const data = await res.json();
         Alert.alert('Error', data.message || 'Failed to delete item.');

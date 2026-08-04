@@ -30,7 +30,10 @@
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
       "package": "com.dev_xrab.FoundNest",
-      "permissions": ["ACCESS_COARSE_LOCATION", "ACCESS_FINE_LOCATION"],
+      "permissions": [
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION"
+      ],
       "googleServicesFile": "./google-services.json"
     },
     "web": {
@@ -43,12 +46,13 @@
       "@maplibre/maplibre-react-native",
       "expo-secure-store",
       [
-    "expo-notifications",
-    {
-      "icon": "./assets/images/app-logo.png",
-      "color": "#FFFFFF"
-    }
-  ]
+        "expo-notifications",
+        {
+          "icon": "./assets/images/app-logo.png",
+          "color": "#FFFFFF"
+        }
+      ],
+      "expo-sqlite"
     ],
     "experiments": {
       "typedRoutes": true

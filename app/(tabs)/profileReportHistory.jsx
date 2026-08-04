@@ -4,6 +4,7 @@ import { API_BASE_URL } from "@/constants/api";
 import AppColors from "@/constants/AppColors";
 import { fetchWithAuth } from "@/constants/authApi";
 import { getCategories } from "@/constants/category";
+import { getReportHistory } from "@/constants/lostReports";
 import { getToken, getUser } from "@/constants/StudentData";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
@@ -74,41 +75,6 @@ function formatReportId(id) {
 function formatFoundId(id) {
   if (id === null || id === undefined) return "—";
   return `SI-${String(id).padStart(5, "0")}`;
-}
-
-/**
- * Merges lost reports (base list) with notification rows (matches).
- * Every lost report appears as a card regardless of match status.
- * Notifications are attached to their respective report via lost_report_id.
- */
-function mergeReportsAndNotifs(reportsData, notifsData) {
-  // Build a map of lost_report_id → notification rows (matches only)
-  const notifMap = new Map();
-  for (const n of notifsData) {
-    if (!n.found_report_id) continue;
-    if (!notifMap.has(n.lost_report_id)) {
-      notifMap.set(n.lost_report_id, []);
-    }
-    notifMap.get(n.lost_report_id).push(n);
-  }
-
-  // Every lost report becomes a card; matches attached if any exist
-  return reportsData.map((r) => ({
-    lost_report_id: r.lost_report_id,
-    lost_item_name: r.item_name,
-    lost_item_image: r.image_url,
-    lost_date: r.date_reported,
-    actual_lost_date: r.lost_date,
-    location_lost: r.location_lost,
-    status: r.status,
-    cancel_reason: r.cancel_reason ?? null,
-    category_name: r.category_name,
-    item_name: r.item_name,
-    description: r.description,
-    contents: r.contents,
-    category_id: r.category_id,
-    matches: notifMap.get(r.lost_report_id) ?? [],
-  }));
 }
 
 // ── Match card (shown when expanded) — vertical grid tile ────────────────────
@@ -395,30 +361,8 @@ export default function ProfileReportHistory() {
       const token = await getToken();
       if (!token) return;
 
-      // Fetch lost reports + notifications in parallel
-      const [reportsRes, notifsRes] = await Promise.all([
-        fetchWithAuth(`${API_BASE_URL}/api/lost-reports/user/${user.user_id}`),
-        fetchWithAuth(`${API_BASE_URL}/api/notifications/user/${user.user_id}`),
-      ]);
-
-      if (!reportsRes.ok) {
-        const text = await reportsRes.text();
-        console.error("Failed to load lost reports:", reportsRes.status, text);
-        setReports([]);
-        return;
-      }
-      if (!notifsRes.ok) {
-        const text = await notifsRes.text();
-        console.error("Failed to load notifications:", notifsRes.status, text);
-        return;
-      }
-
-      const [reportsData, notifsData] = await Promise.all([
-        reportsRes.json(),
-        notifsRes.json(),
-      ]);
-
-      setReports(mergeReportsAndNotifs(reportsData, notifsData));
+      const data = await getReportHistory();
+      setReports(data);
     } catch (err) {
       console.error("Load report history error:", err?.message ?? err);
     } finally {
