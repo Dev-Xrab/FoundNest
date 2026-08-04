@@ -4,6 +4,10 @@ import { API_BASE_URL } from "@/constants/api";
 import AppColors from "@/constants/AppColors";
 import { fetchWithAuth } from "@/constants/authApi";
 import { getCategories } from "@/constants/category";
+import {
+  getReportHistoryFilters,
+  setReportHistoryFilters,
+} from "@/constants/reportHistoryFilters";
 import { getToken, getUser } from "@/constants/StudentData";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
@@ -351,14 +355,30 @@ export default function ProfileReportHistory() {
   const [toastVisible, setToastVisible] = useState(false);
   const [toastMessage, setToastMessage] = useState("");
 
-  // ── Filter state
-  const [searchQuery, setSearchQuery] = useState("");
+  // ── Filter state (seeded from the external store so it survives a
+  // remount of this screen, e.g. after viewing/editing a report)
+  const savedFilters = getReportHistoryFilters();
+  const [searchQuery, setSearchQuery] = useState(savedFilters?.searchQuery ?? "");
   const [categories, setCategories] = useState([]);
-  const [selectedCategory, setSelectedCategory] = useState(null);
-  const [selectedStatus, setSelectedStatus] = useState(null);
-  const [activeMenu, setActiveMenu] = useState(null); // 'category' | 'status' | null
+  const [selectedCategories, setSelectedCategories] = useState(savedFilters?.selectedCategories ?? []);
+  const [selectedStatuses, setSelectedStatuses] = useState(savedFilters?.selectedStatuses ?? []);
+  const [activeMenu, setActiveMenu] = useState(savedFilters?.activeMenu ?? null); // 'category' | 'status' | null
 
   const STATUS_OPTIONS = ["open", "cancelled", "resolved"];
+
+  // MULTI-SELECT TOGGLE LOGIC: CATEGORIES
+  const toggleCategory = (cat) => {
+    setSelectedCategories((prev) =>
+      prev.includes(cat) ? prev.filter((c) => c !== cat) : [...prev, cat],
+    );
+  };
+
+  // MULTI-SELECT TOGGLE LOGIC: STATUSES
+  const toggleStatus = (status) => {
+    setSelectedStatuses((prev) =>
+      prev.includes(status) ? prev.filter((s) => s !== status) : [...prev, status],
+    );
+  };
 
   useEffect(() => {
     getCategories()
@@ -377,14 +397,13 @@ export default function ProfileReportHistory() {
   useFocusEffect(
     useCallback(() => {
       loadReports();
-      return () => {
-        setSearchQuery("");
-        setSelectedCategory(null);
-        setSelectedStatus(null);
-        setActiveMenu(null);
-      };
     }, []),
   );
+
+  // Keep the external store in sync so filters survive a remount
+  useEffect(() => {
+    setReportHistoryFilters({ searchQuery, selectedCategories, selectedStatuses, activeMenu });
+  }, [searchQuery, selectedCategories, selectedStatuses, activeMenu]);
 
   const loadReports = async () => {
     setIsLoading(true);
@@ -470,17 +489,29 @@ export default function ProfileReportHistory() {
   const filteredReports = reports.filter((r) => {
     const matchesSearch = !searchQuery.trim() ||
       (r.lost_item_name ?? "").toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesCategory = !selectedCategory ||
-      (r.category_name ?? "").toLowerCase() === selectedCategory.toLowerCase();
-    const matchesStatus = !selectedStatus || r.status === selectedStatus;
+    const matchesCategory = selectedCategories.length === 0 ||
+      selectedCategories.some(
+        (cat) => (r.category_name ?? "").toLowerCase() === cat.toLowerCase(),
+      );
+    const matchesStatus = selectedStatuses.length === 0 ||
+      selectedStatuses.includes(r.status);
     return matchesSearch && matchesCategory && matchesStatus;
   });
 
-  const categoryDisplayText = selectedCategory ?? "Category";
-  const statusDisplayText = selectedStatus
-    ? selectedStatus.charAt(0).toUpperCase() + selectedStatus.slice(1)
-    : "Status";
-  const hasActiveFilters = !!searchQuery || !!selectedCategory || !!selectedStatus;
+  let categoryDisplayText = "Category";
+  if (selectedCategories.length === 1) categoryDisplayText = selectedCategories[0];
+  else if (selectedCategories.length > 1) categoryDisplayText = `${selectedCategories.length} Selected`;
+
+  let statusDisplayText = "Status";
+  if (selectedStatuses.length === 1) {
+    statusDisplayText =
+      selectedStatuses[0].charAt(0).toUpperCase() + selectedStatuses[0].slice(1);
+  } else if (selectedStatuses.length > 1) {
+    statusDisplayText = `${selectedStatuses.length} Selected`;
+  }
+
+  const hasActiveFilters =
+    !!searchQuery || selectedCategories.length > 0 || selectedStatuses.length > 0;
 
   return (
     <View style={styles.screen}>
@@ -491,13 +522,6 @@ export default function ProfileReportHistory() {
           setReportToCancel(null);
         }}
         onConfirmCancel={confirmCancel}
-      />
-
-      <Toast
-        visible={toastVisible}
-        type="info"
-        message={toastMessage}
-        onHide={() => setToastVisible(false)}
       />
 
       {/* ── Red header ─────────────────────────────────────────────────── */}
@@ -539,12 +563,12 @@ export default function ProfileReportHistory() {
             <View style={styles.filterContainer}>
               {/* Category trigger */}
               <TouchableOpacity
-                style={[styles.filterTrigger, (!!selectedCategory || activeMenu === "category") && styles.filterTriggerActive]}
+                style={[styles.filterTrigger, (selectedCategories.length > 0 || activeMenu === "category") && styles.filterTriggerActive]}
                 onPress={() => setActiveMenu(activeMenu === "category" ? null : "category")}
                 activeOpacity={0.7}
               >
                 <Text
-                  style={[styles.filterTriggerText, !!selectedCategory && styles.filterTriggerTextActive]}
+                  style={[styles.filterTriggerText, selectedCategories.length > 0 && styles.filterTriggerTextActive]}
                   numberOfLines={1}
                 >
                   {categoryDisplayText}
@@ -552,18 +576,18 @@ export default function ProfileReportHistory() {
                 <Ionicons
                   name={activeMenu === "category" ? "chevron-up" : "chevron-down"}
                   size={13}
-                  color={selectedCategory ? AppColors.background : AppColors.background}
+                  color={AppColors.background}
                 />
               </TouchableOpacity>
 
               {/* Status trigger */}
               <TouchableOpacity
-                style={[styles.filterTrigger, (!!selectedStatus || activeMenu === "status") && styles.filterTriggerActive]}
+                style={[styles.filterTrigger, (selectedStatuses.length > 0 || activeMenu === "status") && styles.filterTriggerActive]}
                 onPress={() => setActiveMenu(activeMenu === "status" ? null : "status")}
                 activeOpacity={0.7}
               >
                 <Text
-                  style={[styles.filterTriggerText, !!selectedStatus && styles.filterTriggerTextActive]}
+                  style={[styles.filterTriggerText, selectedStatuses.length > 0 && styles.filterTriggerTextActive]}
                   numberOfLines={1}
                 >
                   {statusDisplayText}
@@ -571,7 +595,7 @@ export default function ProfileReportHistory() {
                 <Ionicons
                   name={activeMenu === "status" ? "chevron-up" : "chevron-down"}
                   size={13}
-                  color={selectedStatus ? AppColors.background : AppColors.background}
+                  color={AppColors.background}
                 />
               </TouchableOpacity>
 
@@ -581,8 +605,8 @@ export default function ProfileReportHistory() {
                   style={styles.clearButton}
                   onPress={() => {
                     setSearchQuery("");
-                    setSelectedCategory(null);
-                    setSelectedStatus(null);
+                    setSelectedCategories([]);
+                    setSelectedStatuses([]);
                     setActiveMenu(null);
                   }}
                   activeOpacity={0.7}
@@ -600,15 +624,15 @@ export default function ProfileReportHistory() {
               <View style={styles.chipRow}>
                 <FilterChip
                   label="All"
-                  isActive={!selectedCategory}
-                  onPress={() => { setSelectedCategory(null); setActiveMenu(null); }}
+                  isActive={selectedCategories.length === 0}
+                  onPress={() => { setSelectedCategories([]); setActiveMenu(null); }}
                 />
                 {categories.map((cat, i) => (
                   <FilterChip
                     key={`cat-${i}`}
                     label={cat}
-                    isActive={selectedCategory === cat}
-                    onPress={() => { setSelectedCategory(cat); setActiveMenu(null); }}
+                    isActive={selectedCategories.includes(cat)}
+                    onPress={() => toggleCategory(cat)}
                   />
                 ))}
               </View>
@@ -620,15 +644,15 @@ export default function ProfileReportHistory() {
               <View style={styles.chipRow}>
                 <FilterChip
                   label="All"
-                  isActive={!selectedStatus}
-                  onPress={() => { setSelectedStatus(null); setActiveMenu(null); }}
+                  isActive={selectedStatuses.length === 0}
+                  onPress={() => { setSelectedStatuses([]); setActiveMenu(null); }}
                 />
                 {STATUS_OPTIONS.map((s) => (
                   <FilterChip
                     key={s}
                     label={s.charAt(0).toUpperCase() + s.slice(1)}
-                    isActive={selectedStatus === s}
-                    onPress={() => { setSelectedStatus(s); setActiveMenu(null); }}
+                    isActive={selectedStatuses.includes(s)}
+                    onPress={() => toggleStatus(s)}
                   />
                 ))}
               </View>
@@ -672,6 +696,13 @@ export default function ProfileReportHistory() {
           ))}
         </ScrollView>
       )}
+
+      <Toast
+        visible={toastVisible}
+        type="info"
+        message={toastMessage}
+        onHide={() => setToastVisible(false)}
+      />
     </View>
   );
 }
