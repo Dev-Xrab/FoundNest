@@ -7,8 +7,8 @@ import { setReportDraft, getReportDraft } from "@/constants/reportDraft";
 import { validateReportPage1 } from "@/utils/lostReport";
 import { MaterialIcons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
-import { useRouter } from "expo-router";
-import React, { useEffect, useState } from "react";
+import { useFocusEffect, useRouter } from "expo-router";
+import React, { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -41,7 +41,6 @@ export default function Report() {
   const [errors, setErrors] = useState({});
   const [modalVisible, setModalVisible] = useState(false);
   const router = useRouter();
-  
 
   const categoryDropdownData = categories.map((cat) => ({
     label: cat.category_name,
@@ -52,18 +51,31 @@ export default function Report() {
     getCategories().then(setCategories);
   }, []);
 
-  // ── RESET FIELDS IF NO ACTIVE DRAFT EXISTS ──
-  useEffect(() => {
-    const currentDraft = getReportDraft();
-    if (!currentDraft) {
-      setSelectedImage(null);
-      setSelectedCategoryId("");
-      setItemName("");
-      setDetailedDescription("");
-      setContents("");
-      setErrors({});
-    }
-  }, [getReportDraft()]); // Listens directly to shifts in your state cache
+  // ── RESET OR HYDRATE FIELDS WHENEVER SCREEN GAINS FOCUS ──
+  useFocusEffect(
+    useCallback(() => {
+      const currentDraft = getReportDraft();
+
+      if (!currentDraft) {
+        // Clear all inputs when starting a fresh report
+        setSelectedImage(null);
+        setSelectedCategoryId("");
+        setItemName("");
+        setDetailedDescription("");
+        setContents("");
+        setErrors({});
+      } else {
+        // Hydrate inputs if returning back from Page 2
+        setSelectedImage(currentDraft.imageUri || null);
+        setSelectedCategoryId(
+          currentDraft.categoryId ? String(currentDraft.categoryId) : ""
+        );
+        setItemName(currentDraft.itemName || "");
+        setDetailedDescription(currentDraft.description || "");
+        setContents(currentDraft.contents || "");
+      }
+    }, [])
+  );
 
   const analyzeImage = async (uri) => {
     setIsLoading(true);
@@ -92,38 +104,39 @@ export default function Report() {
       console.error("AI Analysis Failed:", error);
       Alert.alert(
         "AI Error",
-        "Failed to auto-fill details. Please fill them out manually.",
+        "Failed to auto-fill details. Please fill them out manually."
       );
     } finally {
       setIsLoading(false);
     }
   };
 
-const handleClearAll = () => {
-  setClearModalVisible(true);
-};
+  const handleClearAll = () => {
+    setClearModalVisible(true);
+  };
 
-const confirmClearAll = () => {
-  setSelectedImage(null);
-  setSelectedCategoryId("");
-  setItemName("");
-  setDetailedDescription("");
-  setContents("");
-  setErrors({});
+  const confirmClearAll = () => {
+    setSelectedImage(null);
+    setSelectedCategoryId("");
+    setItemName("");
+    setDetailedDescription("");
+    setContents("");
+    setErrors({});
 
-  // Clear the saved draft
-  setReportDraft(null);
+    // Wipe global draft cache
+    setReportDraft(null);
 
-  setClearModalVisible(false);
-};
+    setClearModalVisible(false);
+  };
 
   const handleTakePhoto = async () => {
     setModalVisible(false);
-    const permissionResult = await ImagePicker.requestCameraPermissionsAsync();
+    const permissionResult =
+      await ImagePicker.requestCameraPermissionsAsync();
     if (!permissionResult.granted) {
       Alert.alert(
         "Permission Denied",
-        "You need to allow camera access to take photos.",
+        "You need to allow camera access to take photos."
       );
       return;
     }
@@ -148,7 +161,7 @@ const confirmClearAll = () => {
     if (!permissionResult.granted) {
       Alert.alert(
         "Permission Denied",
-        "You need to allow library access to select files.",
+        "You need to allow library access to select files."
       );
       return;
     }
@@ -182,7 +195,7 @@ const confirmClearAll = () => {
       setErrors(validation.errors);
       Alert.alert(
         "Missing information",
-        "Please fix the highlighted fields before continuing.",
+        "Please fix the highlighted fields before continuing."
       );
       return;
     }
@@ -194,6 +207,7 @@ const confirmClearAll = () => {
       itemName: itemName.trim(),
       description: detailedDescription.trim(),
       contents: contents.trim(),
+      createdAt: Date.now(),
     });
 
     router.push("/(tabs)/reportNextPage");
@@ -367,17 +381,17 @@ const confirmClearAll = () => {
             </TouchableOpacity>
           </View>
         </View>
+
         <ConfirmDiscardModal
-  visible={clearModalVisible}
-  message="Clear all entered data? This action cannot be undone."
-  cancelLabel="Cancel"
-  confirmLabel="Clear"
-  onKeepEditing={() => setClearModalVisible(false)}
-  onDiscard={confirmClearAll}
-/>
+          visible={clearModalVisible}
+          message="Clear all entered data? This action cannot be undone."
+          cancelLabel="Cancel"
+          confirmLabel="Clear"
+          onKeepEditing={() => setClearModalVisible(false)}
+          onDiscard={confirmClearAll}
+        />
       </ScrollView>
     </KeyboardAvoidingView>
-    
   );
 }
 
@@ -551,20 +565,18 @@ const styles = StyleSheet.create({
   },
   buttonText: { color: AppColors.surface },
   actionButtons: {
-  flexDirection: "row",
-  gap: 10,
-},
-
-clearButton: {
-  paddingVertical: 10,
-  paddingHorizontal: 20,
-  borderRadius: 10,
-  borderWidth: 1,
-  borderColor: "#C62828",
-},
-
-clearButtonText: {
-  color: "#C62828",
-  fontWeight: "600",
-},
+    flexDirection: "row",
+    gap: 10,
+  },
+  clearButton: {
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "#C62828",
+  },
+  clearButtonText: {
+    color: "#C62828",
+    fontWeight: "600",
+  },
 });
