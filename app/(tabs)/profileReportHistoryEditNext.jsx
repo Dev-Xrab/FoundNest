@@ -13,7 +13,7 @@ import {
 import fetchSharedStudentSpaces from "@/constants/SharedStudentSpaces";
 import { buildLocationLost, validateReportPage2 } from "@/utils/lostReport";
 import { Feather, MaterialIcons } from "@expo/vector-icons";
-import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
+import { useFocusEffect, useLocalSearchParams, useNavigation, useRouter } from "expo-router";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -178,6 +178,7 @@ function parseLostDateToDate(lostDate) {
 
 function EditNextScreen() {
   const router = useRouter();
+  const navigation = useNavigation();
   const { report: reportParam, viewOnly } = useLocalSearchParams();
   const isViewOnly = viewOnly === "true";
   const scrollRef = useRef(null);
@@ -230,19 +231,44 @@ function EditNextScreen() {
     loadDropdownData();
   }, []);
 
-  // handleBack is defined further down (needs draft/date/time/selection
-  // state that lives later in this component). The BackHandler listener
-  // below is registered once and never recreated (its deps don't include
-  // date/time/draft/selections), so it must never close over handleBack
-  // directly — that would freeze it at whatever handleBack looked like on
-  // first render, before the draft had even loaded. Routing through a ref
-  // that's updated every render guarantees the listener always calls the
-  // CURRENT handleBack, with current state, no matter when it fires.
   const handleBackRef = useRef(() => {});
+
+  const bypassRef = useRef(false);
+
+  useFocusEffect(
+    useCallback(() => {
+      bypassRef.current = false;
+      return () => {
+        bypassRef.current = false;
+      };
+    }, [])
+  );
+
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('beforeRemove', (e) => {
+      if (bypassRef.current) return;
+      e.preventDefault();
+      bypassRef.current = true;
+
+      if (isViewOnly) {
+        router.navigate({
+          pathname: "/(tabs)/profileReportHistoryEdit",
+          params: { report: reportParam, viewOnly: "true" },
+        });
+        return;
+      }
+
+      handleBackRef.current();
+    });
+    return unsubscribe;
+  }, [navigation, isViewOnly, reportParam]);
 
   useFocusEffect(
     useCallback(() => {
       const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+        if (bypassRef.current) return false;
+        bypassRef.current = true;
+
         if (isViewOnly) {
           router.navigate({
             pathname: "/(tabs)/profileReportHistoryEdit",
@@ -317,7 +343,10 @@ function EditNextScreen() {
         Alert.alert("Incomplete form", "Please start from page 1.", [
           {
             text: "OK",
-            onPress: () => router.replace("/(tabs)/profileReportHistory"),
+            onPress: () => {
+              bypassRef.current = true;
+              router.replace("/(tabs)/profileReportHistory");
+            },
           },
         ]);
         return;
@@ -472,6 +501,8 @@ function EditNextScreen() {
   };
 
   const handleBack = () => {
+    bypassRef.current = true;
+
     const saved = getReportDraft();
 
     const combined = new Date(date);
@@ -508,6 +539,7 @@ function EditNextScreen() {
 
   const handleSubmit = async () => {
     if (!draft) {
+      bypassRef.current = true;
       router.replace("/(tabs)/profileReportHistory");
       return;
     }
@@ -609,6 +641,7 @@ function EditNextScreen() {
       };
 
       clearReportDraft();
+      bypassRef.current = true;
 
       router.replace({
         pathname: "/(tabs)/reportSuccess",
@@ -646,6 +679,7 @@ function EditNextScreen() {
         onKeepEditing={() => setDiscardModalVisible(false)}
         onDiscard={() => {
           setDiscardModalVisible(false);
+          bypassRef.current = true;
           clearReportDraft();
           router.navigate({
             pathname: '/(tabs)/profileReportHistory',
@@ -686,10 +720,12 @@ function EditNextScreen() {
           <TouchableOpacity
             onPress={() => {
               if (isViewOnly) {
+                bypassRef.current = true;
                 router.navigate('/(tabs)/profileReportHistory');
               } else if (isSessionDirty()) {
                 setDiscardModalVisible(true);
               } else {
+                bypassRef.current = true;
                 clearReportDraft();
                 router.navigate('/(tabs)/profileReportHistory');
               }
@@ -787,6 +823,7 @@ function EditNextScreen() {
           <View style={styles.buttonSection}>
             {isViewOnly ? (
               <TouchableOpacity style={styles.cancelButton} onPress={() => {
+                bypassRef.current = true;
                 router.navigate({ pathname: "/(tabs)/profileReportHistoryEdit", params: { report: reportParam, viewOnly: "true" } });
               }}>
                 <Text style={styles.backButtonText}>Back to Page 1</Text>
@@ -811,15 +848,6 @@ function EditNextScreen() {
   );
 }
 
-/**
- * react-native-screens/react-navigation don't always destroy a popped
- * screen — after a swipe-back gesture especially, the old screen instance
- * (with its date/time/location useState still holding the PREVIOUS report's
- * values) can be reused instead of freshly mounted the next time this route
- * is navigated to. Keying on report+editSession forces React to unmount and
- * remount the whole subtree — wiping every local state value — any time
- * either changes, independent of whatever the navigator does internally.
- */
 export default function ProfileReportHistoryEditNext() {
   const { report: reportParam, editSession } = useLocalSearchParams();
   return <EditNextScreen key={`${reportParam}-${editSession}`} />;

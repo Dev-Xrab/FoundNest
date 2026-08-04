@@ -9,7 +9,7 @@ import { clearReportDraft, getReportDraft, getReportDraftFor, setReportDraft } f
 import { validateReportPage1 } from '@/utils/lostReport';
 import { MaterialIcons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
-import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -34,6 +34,7 @@ function FieldError({ message }) {
 
 export default function ProfileReportHistoryEdit() {
   const router = useRouter();
+  const navigation = useNavigation();
   const { report: reportParam, editSession, fromBack, viewOnly } = useLocalSearchParams();
   const report = reportParam ? JSON.parse(reportParam) : {};
   const isViewOnly = viewOnly === 'true';
@@ -68,26 +69,37 @@ export default function ProfileReportHistoryEdit() {
     isFirstFocus.current = true;
   }, [editSession]);
 
+  const handleCancelPressRef = useRef(() => {});
+  const bypassRef = useRef(false);
+
+  useFocusEffect(
+    useCallback(() => {
+      bypassRef.current = false;
+      return () => {
+        bypassRef.current = false;
+      };
+    }, [])
+  );
+
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('beforeRemove', (e) => {
+      if (bypassRef.current) return;
+      e.preventDefault();
+      handleCancelPressRef.current();
+    });
+    return unsubscribe;
+  }, [navigation]);
+
   useFocusEffect(
     useCallback(() => {
       const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
-        if (isViewOnly) {
-          router.navigate('/(tabs)/profileReportHistory');
-          return true;
-        }
-
-        if (!isSessionDirty()) {
-          clearReportDraft();
-          router.navigate('/(tabs)/profileReportHistory');
-          return true;
-        }
-
-        setDiscardModalVisible(true);
+        if (bypassRef.current) return false;
+        handleCancelPressRef.current();
         return true;
       });
 
       return () => subscription.remove();
-    }, [isViewOnly, selectedCategoryId, itemName, detailedDescription, contents, selectedImage, existingImageUrl, isImageRemoved]),
+    }, []),
   );
 
   useFocusEffect(
@@ -347,11 +359,13 @@ export default function ProfileReportHistoryEdit() {
 
   const handleCancelPress = () => {
     if (isViewOnly) {
+      bypassRef.current = true;
       router.navigate('/(tabs)/profileReportHistory');
       return;
     }
 
     if (!isSessionDirty()) {
+      bypassRef.current = true;
       clearReportDraft();
       router.navigate('/(tabs)/profileReportHistory');
       return;
@@ -359,6 +373,10 @@ export default function ProfileReportHistoryEdit() {
 
     setDiscardModalVisible(true);
   };
+
+  useEffect(() => {
+    handleCancelPressRef.current = handleCancelPress;
+  });
 
   return (
     <KeyboardAvoidingView
@@ -372,6 +390,7 @@ export default function ProfileReportHistoryEdit() {
         }}
         onDiscard={() => {
           setDiscardModalVisible(false);
+          bypassRef.current = true;
           clearReportDraft();
           router.navigate({
             pathname: '/(tabs)/profileReportHistory',
@@ -392,7 +411,7 @@ export default function ProfileReportHistoryEdit() {
       <ScrollView contentContainerStyle={styles.container}>
         {isViewOnly ? (
           <View style={styles.titleRow}>
-            <TouchableOpacity onPress={() => router.navigate('/(tabs)/profileReportHistory')} style={styles.backButton}>
+            <TouchableOpacity onPress={handleCancelPress} style={styles.backButton}>
               <MaterialIcons name="arrow-back" size={24} color={AppColors.surface} />
             </TouchableOpacity>
             <Text style={styles.titleInRow}>Report Details</Text>
