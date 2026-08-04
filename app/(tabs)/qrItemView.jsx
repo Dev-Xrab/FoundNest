@@ -1,7 +1,9 @@
 import AppColors from '@/constants/AppColors';
 import { Ionicons } from '@expo/vector-icons';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
+import { useCallback, useEffect, useRef } from 'react';
 import {
+  BackHandler,
   Image,
   ScrollView,
   StyleSheet,
@@ -24,10 +26,19 @@ function ReadOnlyField({ label, value, multiline = false }) {
 
 export default function QrItemView() {
   const router = useRouter();
+  const navigation = useNavigation();
   const insets = useSafeAreaInsets();
   const { item: itemParam, fromScan } = useLocalSearchParams();
   const item = JSON.parse(itemParam || '{}');
   const isFromScan = fromScan === 'true';
+
+  useFocusEffect(
+    useCallback(() => {
+      if (!itemParam || !item?.qr_code_id) {
+        router.replace('/(tabs)/qrItemList');
+      }
+    }, [itemParam])
+  );
 
   let qrData = {};
   try {
@@ -43,6 +54,44 @@ export default function QrItemView() {
       router.navigate('/(tabs)/qrItemList');
     }
   };
+
+  const handleBackRef = useRef(() => {});
+  useEffect(() => {
+    handleBackRef.current = handleBack;
+  });
+
+  const bypassRef = useRef(false);
+
+  useFocusEffect(
+    useCallback(() => {
+      bypassRef.current = false;
+      return () => {
+        bypassRef.current = false;
+      };
+    }, [])
+  );
+
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('beforeRemove', (e) => {
+      if (bypassRef.current) return;
+      e.preventDefault();
+      bypassRef.current = true;
+      handleBackRef.current();
+    });
+    return unsubscribe;
+  }, [navigation]);
+
+  useFocusEffect(
+    useCallback(() => {
+      const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+        if (bypassRef.current) return false;
+        bypassRef.current = true;
+        handleBackRef.current();
+        return true;
+      });
+      return () => subscription.remove();
+    }, [])
+  );
 
   return (
     <View style={styles.screen}>

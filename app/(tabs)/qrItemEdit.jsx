@@ -5,11 +5,12 @@ import { fetchWithAuth, uploadWithAuth } from '@/constants/authApi';
 import { getCategories } from '@/constants/category';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
-import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
+import { useFocusEffect, useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  BackHandler,
   Image,
   ScrollView,
   StyleSheet,
@@ -47,6 +48,7 @@ function RequiredLabel({ label }) {
 
 export default function QrItemEdit() {
   const router = useRouter();
+  const navigation = useNavigation();
   const insets = useSafeAreaInsets();
   const { item: itemParam, editSession } = useLocalSearchParams();
 
@@ -222,12 +224,14 @@ export default function QrItemEdit() {
     if (hasChanges) {
       setDiscardVisible(true);
     } else {
+      bypassRef.current = true;
       router.replace('/(tabs)/qrItemList');
     }
   };
 
   const handleDiscard = () => {
     setDiscardVisible(false);
+    bypassRef.current = true;
     router.replace({
       pathname: '/(tabs)/qrItemList',
       params: {
@@ -237,6 +241,42 @@ export default function QrItemEdit() {
       },
     });
   };
+
+  const handleCancelRef = useRef(() => {});
+  useEffect(() => {
+    handleCancelRef.current = handleCancel;
+  });
+
+  const bypassRef = useRef(false);
+
+  useFocusEffect(
+    useCallback(() => {
+      bypassRef.current = false;
+      return () => {
+        bypassRef.current = false;
+      };
+    }, [])
+  );
+
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('beforeRemove', (e) => {
+      if (bypassRef.current) return;
+      e.preventDefault();
+      handleCancelRef.current();
+    });
+    return unsubscribe;
+  }, [navigation]);
+
+  useFocusEffect(
+    useCallback(() => {
+      const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+        if (bypassRef.current) return false;
+        handleCancelRef.current();
+        return true;
+      });
+      return () => subscription.remove();
+    }, [])
+  );
 
   // ── Save ───────────────────────────────────────────────────────────────────
 

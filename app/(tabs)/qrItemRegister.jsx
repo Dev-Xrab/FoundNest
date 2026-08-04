@@ -7,11 +7,12 @@ import { DescribeItem } from "@/constants/geminiAI";
 import { getUser } from "@/constants/StudentData";
 import { Ionicons, MaterialIcons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
-import { useFocusEffect, useRouter } from "expo-router";
-import { useCallback, useEffect, useState } from "react";
+import { useFocusEffect, useNavigation, useRouter } from "expo-router";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  BackHandler,
   Image,
   ScrollView,
   StyleSheet,
@@ -51,6 +52,7 @@ function ReadOnlyField({ label, value }) {
 
 export default function QrItemRegister() {
   const router = useRouter();
+  const navigation = useNavigation();
   const insets = useSafeAreaInsets();
 
   // Session / owner info
@@ -317,14 +319,52 @@ export default function QrItemRegister() {
     if (hasChanges) {
       setDiscardVisible(true);
     } else {
+      bypassRef.current = true;
       router.replace("/(tabs)/qrItem");
     }
   };
 
   const handleDiscard = () => {
     setDiscardVisible(false);
+    bypassRef.current = true;
     router.replace("/(tabs)/qrItem");
   };
+
+  const handleCancelRef = useRef(() => {});
+  useEffect(() => {
+    handleCancelRef.current = handleCancel;
+  });
+
+  const bypassRef = useRef(false);
+
+  useFocusEffect(
+    useCallback(() => {
+      bypassRef.current = false;
+      return () => {
+        bypassRef.current = false;
+      };
+    }, [])
+  );
+
+  useEffect(() => {
+    const unsubscribe = navigation.addListener("beforeRemove", (e) => {
+      if (bypassRef.current) return;
+      e.preventDefault();
+      handleCancelRef.current();
+    });
+    return unsubscribe;
+  }, [navigation]);
+
+  useFocusEffect(
+    useCallback(() => {
+      const subscription = BackHandler.addEventListener("hardwareBackPress", () => {
+        if (bypassRef.current) return false;
+        handleCancelRef.current();
+        return true;
+      });
+      return () => subscription.remove();
+    }, [])
+  );
 
   return (
     <View style={styles.screen}>

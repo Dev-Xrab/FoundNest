@@ -2,10 +2,11 @@ import FoundNestLogo from '@/assets/images/app-logo.png';
 import AppColors from '@/constants/AppColors';
 import { Ionicons } from '@expo/vector-icons';
 import * as MediaLibrary from 'expo-media-library';
-import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useRef } from 'react';
+import { useFocusEffect, useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
+import { useCallback, useEffect, useRef } from 'react';
 import {
   Alert,
+  BackHandler,
   Image,
   ScrollView,
   StyleSheet,
@@ -19,6 +20,7 @@ import ViewShot from 'react-native-view-shot';
 
 export default function QrItemSuccess() {
   const router = useRouter();
+  const navigation = useNavigation();
   const insets = useSafeAreaInsets();
   const { qr_data, itemName, mode, item, fromScan } = useLocalSearchParams();
   const isEditMode = mode === 'edit';
@@ -60,6 +62,44 @@ export default function QrItemSuccess() {
       router.replace('/(tabs)/qrItemRegister');
     }
   };
+
+  const handleBottomButtonRef = useRef(() => {});
+  useEffect(() => {
+    handleBottomButtonRef.current = handleBottomButton;
+  });
+
+  const bypassRef = useRef(false);
+
+  useFocusEffect(
+    useCallback(() => {
+      bypassRef.current = false;
+      return () => {
+        bypassRef.current = false;
+      };
+    }, [])
+  );
+
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('beforeRemove', (e) => {
+      if (bypassRef.current) return; // already redirecting — let it proceed
+      e.preventDefault();
+      bypassRef.current = true;
+      handleBottomButtonRef.current();
+    });
+    return unsubscribe;
+  }, [navigation]);
+
+  useFocusEffect(
+    useCallback(() => {
+      const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+        if (bypassRef.current) return false;
+        bypassRef.current = true;
+        handleBottomButtonRef.current();
+        return true;
+      });
+      return () => subscription.remove();
+    }, [])
+  );
 
   return (
     <ScrollView
