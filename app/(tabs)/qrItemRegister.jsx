@@ -244,16 +244,9 @@ export default function QrItemRegister() {
     setIsSubmitting(true);
 
     try {
-      const qr_data = JSON.stringify({
-        ownerName: `${user.first_name} ${user.last_name}`,
-        studentNumber: user.student_number,
-        courseSection: user.course_section ?? "",
-        contactNumber: contactNumber.trim(),
-        itemName: itemName.trim(),
-        category: selectedCategoryName,
-      });
-
-      // Build multipart/form-data so the backend receives req.file for Cloudinary upload
+      // Build multipart/form-data so the backend receives req.file for Cloudinary upload.
+      // qr_data is no longer built here — the server generates an opaque UUID
+      // for it so the printed QR never carries owner PII in plain text.
       const formData = new FormData();
 
       formData.append("user_id", String(user.user_id));
@@ -263,7 +256,6 @@ export default function QrItemRegister() {
         selectedCategoryId ? String(selectedCategoryId) : "",
       );
       formData.append("description", description.trim());
-      formData.append("qr_data", qr_data);
 
       if (selectedImage) {
         const fileName = selectedImage.split("/").pop() || "item-photo.jpg";
@@ -298,11 +290,11 @@ export default function QrItemRegister() {
         return;
       }
 
-      // Navigate to success screen
+      // Navigate to success screen — qr_data comes back from the server now
       router.replace({
         pathname: "/(tabs)/qrItemSuccess",
         params: {
-          qr_data,
+          qr_data: data.qr_code?.qr_data,
           itemName: itemName.trim(),
         },
       });
