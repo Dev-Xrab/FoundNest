@@ -58,10 +58,6 @@ export default function QrItemEdit() {
 
   // ── State ──────────────────────────────────────────────────────────────────
 
-  const [qrData, setQrData] = useState(() => {
-    try { return JSON.parse(item.qr_data || '{}'); } catch { return {}; }
-  });
-
   const [itemName, setItemName]                     = useState(item.item_name || '');
   const [description, setDescription]               = useState(item.description || '');
   const [selectedCategoryId, setSelectedCategoryId] = useState(
@@ -106,12 +102,6 @@ export default function QrItemEdit() {
     setContents(currentItem.contents || '');
     setSelectedImage(null);
     setErrors({});
-
-    try {
-      setQrData(JSON.parse(currentItem.qr_data || '{}'));
-    } catch {
-      setQrData({});
-    }
   }, [itemParam, editSession]);
 
   // ── Focus effect: re-fetch latest data from server on every focus ──────────
@@ -133,12 +123,6 @@ export default function QrItemEdit() {
           if (!res.ok || !isActive) return;
 
           const fresh = await res.json();
-
-          try {
-            setQrData(JSON.parse(fresh.qr_data || '{}'));
-          } catch {
-            setQrData({});
-          }
 
           // Update base values to match server state
           setBaseItemName(fresh.item_name || '');
@@ -416,11 +400,12 @@ export default function QrItemEdit() {
         automaticallyAdjustKeyboardInsets={true}
         showsVerticalScrollIndicator={false}
       >
-        {/* OWNER INFO — read only, sourced from state so it updates per item */}
-        <ReadOnlyField label="Owner Name"         value={qrData.ownerName} />
-        <ReadOnlyField label="Student Number"     value={qrData.studentNumber} />
-        <ReadOnlyField label="Course and Section" value={qrData.courseSection} />
-        <ReadOnlyField label="Contact Number"     value={qrData.contactNumber} />
+        {/* OWNER INFO — read only, comes from the user_profiles join now,
+            not from qr_data (qr_data is just an opaque scan key) */}
+        <ReadOnlyField label="Owner Name"         value={item.owner_name} />
+        <ReadOnlyField label="Student Number"     value={item.student_number} />
+        <ReadOnlyField label="Course and Section" value={item.course_section} />
+        <ReadOnlyField label="Contact Number"     value={item.contact_number} />
 
         {/* ITEM DESCRIPTION */}
         <Text style={styles.sectionHeading}>Item Description</Text>

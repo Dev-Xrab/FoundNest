@@ -40,13 +40,6 @@ export default function QrItemView() {
     }, [itemParam])
   );
 
-  let qrData = {};
-  try {
-    qrData = JSON.parse(item.qr_data || '{}');
-  } catch {
-    qrData = {};
-  }
-
   const handleBack = () => {
     if (isFromScan) {
       router.navigate('/(tabs)/qrItemScan');
@@ -115,11 +108,12 @@ export default function QrItemView() {
         contentContainerStyle={styles.container}
         showsVerticalScrollIndicator={false}
       >
-        {/* OWNER INFO */}
-        <ReadOnlyField label="Owner Name"          value={qrData.ownerName} />
-        <ReadOnlyField label="Student Number"      value={qrData.studentNumber} />
-        <ReadOnlyField label="Course and Section"  value={qrData.courseSection} />
-        <ReadOnlyField label="Contact Number"      value={qrData.contactNumber} />
+        {/* OWNER INFO — comes from the user_profiles join now, not from
+            qr_data (qr_data is just an opaque scan key) */}
+        <ReadOnlyField label="Owner Name"          value={item.owner_name} />
+        <ReadOnlyField label="Student Number"      value={item.student_number} />
+        <ReadOnlyField label="Course and Section"  value={item.course_section} />
+        <ReadOnlyField label="Contact Number"      value={item.contact_number} />
 
         {/* ITEM DESCRIPTION */}
         <Text style={styles.sectionHeading}>Item Description</Text>
