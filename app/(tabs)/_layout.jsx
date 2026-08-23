@@ -32,7 +32,7 @@ export default function TabLayout() {
   // ── MODAL & NAVIGATION BLOCKER STATES ──
   const [modalVisible, setModalVisible] = useState(false);
   const [pendingTargetRoute, setPendingTargetRoute] = useState(null);
-  const isResetting = useRef(false); // Prevents the route checker from running when we force go back
+  const isResetting = useRef(false); 
   const lastPath = useRef(pathname);
 
 useEffect(() => {
@@ -75,10 +75,7 @@ useEffect(() => {
       console.error("Failed to handle match notification:", err);
     }
   };
-
-  // 1. Fires when a notification arrives while the app is foregrounded.
-  //    Do NOT navigate here — this fires for every incoming push regardless
-  //    of user action. Just log/refresh state (e.g. unread count) if needed.
+  
   const foregroundSubscription = Notifications.addNotificationReceivedListener(
     (notification) => {
       const data = notification.request.content.data;

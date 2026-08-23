@@ -337,6 +337,9 @@ export default function MapScreen() {
           center={cameraConfig.center}
           zoom={cameraConfig.zoom}
           animationDuration={cameraConfig.animationDuration}
+          minZoom={15}
+          maxZoom={20}
+
         />
 
         {hasPermission && !isWakingGPS && <NativeUserLocation />}
