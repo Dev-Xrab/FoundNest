@@ -4,7 +4,7 @@ import Toast from '@/components/Toast';
 import { API_BASE_URL } from '@/constants/api';
 import AppColors from '@/constants/AppColors';
 import { fetchWithAuth, uploadWithAuth } from '@/constants/authApi';
-import { getUser, updateUser } from '@/constants/StudentData';
+import { getUserProfile, saveProfileCache } from '@/constants/profile';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
@@ -40,18 +40,8 @@ export default function ProfileAccountDetails() {
   useEffect(() => {
     async function loadProfile() {
       try {
-        const sessionUser = await getUser();
-        if (!sessionUser) return;
-
-        const res = await fetchWithAuth(
-          `${API_BASE_URL}/api/profile/${sessionUser.user_id}`
-        );
-        const data = await res.json();
-
-        if (!res.ok) {
-          console.error('Failed to load profile:', data.message);
-          return;
-        }
+        const data = await getUserProfile();
+        if (!data) return;
 
         setUser(data);
         setContactNumber(data.contact_number ?? '');
@@ -120,8 +110,9 @@ export default function ProfileAccountDetails() {
       }
 
       const trimmedContact = contactNumber.trim();
-      setUser((prev) => ({ ...prev, contact_number: trimmedContact }));
-      await updateUser({ contact_number: trimmedContact });
+      const updated = { ...user, contact_number: trimmedContact };
+      setUser(updated);
+      await saveProfileCache(updated);
       setIsEditing(false);
       showToast('success', 'Changes saved successfully.');
     } catch (err) {
@@ -164,8 +155,9 @@ export default function ProfileAccountDetails() {
         return;
       }
 
-      setUser((prev) => ({ ...prev, profile_image_url: data.profile_image_url }));
-      await updateUser({ profile_image_url: data.profile_image_url });
+      const updated = { ...user, profile_image_url: data.profile_image_url };
+      setUser(updated);
+      await saveProfileCache(updated);
       showToast('success', 'Profile picture updated.');
     } catch (err) {
       console.error('Upload profile image error:', err);
@@ -190,8 +182,9 @@ export default function ProfileAccountDetails() {
         return;
       }
 
-      setUser((prev) => ({ ...prev, profile_image_url: null }));
-      await updateUser({ profile_image_url: null });
+      const updated = { ...user, profile_image_url: null };
+      setUser(updated);
+      await saveProfileCache(updated);
       showToast('success', 'Profile picture removed.');
     } catch (err) {
       console.error('Remove profile image error:', err);

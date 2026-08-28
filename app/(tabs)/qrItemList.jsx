@@ -1,9 +1,7 @@
 import ConfirmDiscardModal from '@/components/ConfirmDiscardModal';
 import Toast from '@/components/Toast';
-import { API_BASE_URL } from '@/constants/api';
 import AppColors from '@/constants/AppColors';
-import { fetchWithAuth } from '@/constants/authApi';
-import { getUserQrItems, removeQrItemFromCache } from '@/constants/qrItems';
+import { deleteQrItem, getUserQrItems } from '@/constants/qrItems';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -140,13 +138,9 @@ export default function QrItemList() {
     setDeleteModalVisible(false);
 
     try {
-      const res = await fetchWithAuth(
-        `${API_BASE_URL}/api/qr-items/${itemToDelete.qr_code_id}`,
-        { method: 'DELETE' }
-      );
+      const res = await deleteQrItem(itemToDelete.qr_code_id);
       if (res.ok) {
         setItems((prev) => prev.filter((i) => i.qr_code_id !== itemToDelete.qr_code_id));
-        await removeQrItemFromCache(itemToDelete.qr_code_id);
       } else {
         const data = await res.json();
         Alert.alert('Error', data.message || 'Failed to delete item.');

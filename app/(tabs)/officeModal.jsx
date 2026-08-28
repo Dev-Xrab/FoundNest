@@ -1,27 +1,35 @@
 import ConfirmDiscardModal from "@/components/ConfirmDiscardModal";
 import AppColors from "@/constants/AppColors";
+import { isOnline } from "@/constants/offlineDb";
 import { getUser } from "@/constants/StudentData";
+import NetInfo from "@react-native-community/netinfo";
 import { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
+  Animated,
+  Dimensions,
   Image,
   KeyboardAvoidingView,
   Modal,
+  PanResponder,
   ScrollView,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
+  TouchableWithoutFeedback,
   View,
 } from "react-native";
+
+const SCREEN_HEIGHT = Dimensions.get("window").height;
+const DISMISS_THRESHOLD = 120;
 
 function OfficeBanner({ office }) {
   const [imageFailed, setImageFailed] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Fallback checks
-  const imageUri = typeof office.image_url === "string" ? office.image_url.trim() : null;
+  const imageUri =
+    typeof office.image_url === "string" ? office.image_url.trim() : null;
   const localImage = typeof office.image === "number" ? office.image : null;
 
   useEffect(() => {
@@ -58,13 +66,13 @@ function OfficeBanner({ office }) {
             }}
           />
 
-          {/* Text Overlay */}
           <View style={styles.imageOverlay}>
             <Text style={styles.imageTextHeader}>{office.floor}</Text>
-            <Text style={styles.imageTextSub}>Hours: {office.operating_hours}</Text>
+            <Text style={styles.imageTextSub}>
+              Hours: {office.operating_hours}
+            </Text>
           </View>
 
-          {/* Loading Overlay */}
           {isLoading && (
             <View style={styles.loadingOverlay}>
               <ActivityIndicator
@@ -95,17 +103,78 @@ export default function OfficeModal({ visible, onClose, office }) {
   const [reviews, setReviews] = useState([]);
   const [isLoadingReviews, setIsLoadingReviews] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-
   const [existingReviewId, setExistingReviewId] = useState(null);
+  const [online, setOnline] = useState(true);
 
-  // Modal State for custom confirmation popup
   const [alertModalVisible, setAlertModalVisible] = useState(false);
   const [alertModalMessage, setAlertModalMessage] = useState("");
 
   const scrollViewRef = useRef(null);
 
+  // ── Animated drag-down offset ──
+  const translateY = useRef(new Animated.Value(0)).current;
+
+  // Reset slide offset when modal opens
+  useEffect(() => {
+    if (visible) {
+      translateY.setValue(0);
+    }
+  }, [visible]);
+
+  // PanResponder to handle drag-down gestures on the top header/handle
+  const panResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: (_, gestureState) => gestureState.dy > 5,
+      onPanResponderMove: (_, gestureState) => {
+        if (gestureState.dy > 0) {
+          translateY.setValue(gestureState.dy);
+        }
+      },
+      onPanResponderRelease: (_, gestureState) => {
+        if (gestureState.dy > DISMISS_THRESHOLD || gestureState.vy > 0.8) {
+          Animated.timing(translateY, {
+            toValue: SCREEN_HEIGHT,
+            duration: 200,
+            useNativeDriver: true,
+          }).start(() => {
+            onClose();
+          });
+        } else {
+          Animated.spring(translateY, {
+            toValue: 0,
+            useNativeDriver: true,
+            bounciness: 4,
+          }).start();
+        }
+      },
+    })
+  ).current;
+
+  // ── Live network listener ──
+  useEffect(() => {
+    isOnline().then(setOnline);
+
+    const unsubscribe = NetInfo.addEventListener((state) => {
+      const isConnected = Boolean(
+        state.isConnected && state.isInternetReachable !== false
+      );
+      setOnline(isConnected);
+    });
+
+    return () => unsubscribe();
+  }, []);
+
   const fetchReviewsAndCheckExisting = async () => {
     if (!office || !office.office_id) return;
+
+    const currentlyOnline = await isOnline();
+    if (!currentlyOnline) {
+      setOnline(false);
+      setIsLoadingReviews(false);
+      return;
+    }
+
     setIsLoadingReviews(true);
 
     try {
@@ -149,6 +218,14 @@ export default function OfficeModal({ visible, onClose, office }) {
   }, [office, visible]);
 
   const handlePostReview = async () => {
+    const currentlyOnline = await isOnline();
+    if (!currentlyOnline) {
+      setOnline(false);
+      setAlertModalMessage("You are currently offline. Cannot post review.");
+      setAlertModalVisible(true);
+      return;
+    }
+
     if (rating === 0) {
       setAlertModalMessage("Please select a star rating before posting.");
       setAlertModalVisible(true);
@@ -231,23 +308,29 @@ export default function OfficeModal({ visible, onClose, office }) {
         onRequestClose={onClose}
       >
         <KeyboardAvoidingView behavior="padding" style={styles.overlay}>
-          <TouchableOpacity
-            style={styles.backgroundTap}
-            onPress={onClose}
-            activeOpacity={1}
-          />
+          <TouchableWithoutFeedback onPress={onClose}>
+            <View style={styles.backgroundTap} />
+          </TouchableWithoutFeedback>
 
-          <View style={styles.sheetContainer}>
-            <View style={styles.dragHandle} />
-            <View style={styles.header}>
-              <View style={styles.headerTextWrap}>
-                <Text style={styles.headerTitle} numberOfLines={2}>
-                  {headerTitle}
-                </Text>
+          <Animated.View
+            style={[
+              styles.sheetContainer,
+              { transform: [{ translateY }] },
+            ]}
+          >
+            {/* Draggable header container */}
+            <View {...panResponder.panHandlers} style={styles.dragHeaderContainer}>
+              <View style={styles.dragHandle} />
+              <View style={styles.header}>
+                <View style={styles.headerTextWrap}>
+                  <Text style={styles.headerTitle} numberOfLines={2}>
+                    {headerTitle}
+                  </Text>
+                </View>
+                <TouchableOpacity onPress={onClose} style={styles.closeButton}>
+                  <Text style={styles.closeText}>✕</Text>
+                </TouchableOpacity>
               </View>
-              <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-                <Text style={styles.closeText}>✕</Text>
-              </TouchableOpacity>
             </View>
 
             <ScrollView
@@ -290,69 +373,86 @@ export default function OfficeModal({ visible, onClose, office }) {
 
                 <View style={styles.divider} />
 
-                <Text style={styles.sectionTitle}>
-                  {existingReviewId ? "Edit Your Review" : "Rate and Review"}
-                </Text>
+                {/* ── Rate and review interactive area (locked when offline) ── */}
+                <View pointerEvents={!online ? "none" : "auto"}>
+                  <Text
+                    style={[
+                      styles.sectionTitle,
+                      !online && styles.disabledText,
+                    ]}
+                  >
+                    {existingReviewId ? "Edit Your Review" : "Rate and Review"}
+                  </Text>
 
-                <View style={styles.starSelector}>
-                  {[1, 2, 3, 4, 5].map((star) => (
-                    <TouchableOpacity
-                      key={star}
-                      onPress={() => setRating(star)}
-                      disabled={isLoadingReviews}
-                    >
-                      <Text
-                        style={[
-                          styles.starIcon,
-                          rating >= star && styles.starSelected,
-                        ]}
+                  <View
+                    style={[
+                      styles.starSelector,
+                      !online && styles.disabledStarSelector,
+                    ]}
+                  >
+                    {[1, 2, 3, 4, 5].map((star) => (
+                      <TouchableOpacity
+                        key={star}
+                        onPress={() => setRating(star)}
+                        disabled={isLoadingReviews || !online}
                       >
-                        ★
+                        <Text
+                          style={[
+                            styles.starIcon,
+                            rating >= star && styles.starSelected,
+                            !online && styles.disabledStarIcon,
+                          ]}
+                        >
+                          ★
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+
+                  <TextInput
+                    style={[
+                      styles.textInput,
+                      (isLoadingReviews || !online) && styles.disabledInput,
+                    ]}
+                    placeholder="Tell others about your experience at this office."
+                    placeholderTextColor={!online ? "#A0A0A0" : "#999"}
+                    multiline
+                    numberOfLines={4}
+                    value={reviewText}
+                    onChangeText={setReviewText}
+                    textAlignVertical="top"
+                    editable={!isLoadingReviews && online}
+                    onFocus={() => {
+                      setTimeout(() => {
+                        scrollViewRef.current?.scrollToEnd({ animated: true });
+                      }, 150);
+                    }}
+                  />
+
+                  <TouchableOpacity
+                    style={[
+                      styles.postButton,
+                      (reviewText.length > 0 || rating > 0) &&
+                        !isLoadingReviews &&
+                        online &&
+                        styles.postButtonActive,
+                      !online && styles.disabledPostButton,
+                    ]}
+                    onPress={handlePostReview}
+                    disabled={isSubmitting || isLoadingReviews || !online}
+                  >
+                    {isSubmitting ? (
+                      <ActivityIndicator
+                        size="small"
+                        color={AppColors.surface}
+                      />
+                    ) : (
+                      <Text style={styles.postButtonText}>
+                        {existingReviewId ? "Update Review" : "Post Review"}
                       </Text>
-                    </TouchableOpacity>
-                  ))}
+                    )}
+                  </TouchableOpacity>
                 </View>
-
-                <TextInput
-                  style={[
-                    styles.textInput,
-                    isLoadingReviews && {
-                      opacity: 0.6,
-                      backgroundColor: "#EFEFEF",
-                    },
-                  ]}
-                  placeholder="Tell others about your experience at this office."
-                  multiline
-                  numberOfLines={4}
-                  value={reviewText}
-                  onChangeText={setReviewText}
-                  textAlignVertical="top"
-                  editable={!isLoadingReviews}
-                  onFocus={() => {
-                    setTimeout(() => {
-                      scrollViewRef.current?.scrollToEnd({ animated: true });
-                    }, 150);
-                  }}
-                />
-
-                <TouchableOpacity
-                  style={[
-                    styles.postButton,
-                    (reviewText.length > 0 || rating > 0) &&
-                      !isLoadingReviews &&
-                      styles.postButtonActive,
-                  ]}
-                  onPress={handlePostReview}
-                  disabled={isSubmitting || isLoadingReviews}
-                >
-                  {isSubmitting ? (
-                    <ActivityIndicator size="small" color={AppColors.surface} />
-                  ) : (
-                    <Text style={styles.postButtonText}>
-                      {existingReviewId ? "Update Review" : "Post Review"}
-                    </Text>
-                  )}
-                </TouchableOpacity>
 
                 <View style={styles.divider} />
 
@@ -375,7 +475,9 @@ export default function OfficeModal({ visible, onClose, office }) {
                         <View style={styles.reviewHeader}>
                           <View style={styles.avatar} />
                           <View style={styles.reviewerInfo}>
-                            <Text style={styles.reviewerId}>{reviewerName}</Text>
+                            <Text style={styles.reviewerId}>
+                              {reviewerName}
+                            </Text>
                             <Text style={styles.smallStars}>
                               {"⭐".repeat(review.rating || 0)}
                             </Text>
@@ -397,18 +499,17 @@ export default function OfficeModal({ visible, onClose, office }) {
                 )}
               </View>
             </ScrollView>
-          </View>
+          </Animated.View>
         </KeyboardAvoidingView>
       </Modal>
 
-      {/* Rendered ConfirmDiscardModal controlled by local state */}
       <ConfirmDiscardModal
         visible={alertModalVisible}
         onKeepEditing={() => setAlertModalVisible(false)}
         onDiscard={() => setAlertModalVisible(false)}
         message={alertModalMessage}
         cancelLabel="OK"
-        confirmLabel= {null}
+        confirmLabel={null}
       />
     </>
   );
@@ -417,11 +518,11 @@ export default function OfficeModal({ visible, onClose, office }) {
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    justify: "flex-end",
+    justifyContent: "flex-end",
     backgroundColor: "rgba(0,0,0,0.4)",
   },
   backgroundTap: {
-    flex: 1,
+    ...StyleSheet.absoluteFillObject,
   },
   sheetContainer: {
     backgroundColor: AppColors.surface,
@@ -430,6 +531,10 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 24,
     overflow: "hidden",
     elevation: 10,
+  },
+  dragHeaderContainer: {
+    width: "100%",
+    backgroundColor: AppColors.surface,
   },
   dragHandle: {
     width: 40,
@@ -637,5 +742,23 @@ const styles = StyleSheet.create({
     color: "#888",
     marginTop: 20,
     fontStyle: "italic",
+  },
+  disabledText: {
+    color: "#888888",
+  },
+  disabledStarSelector: {
+    opacity: 0.5,
+  },
+  disabledStarIcon: {
+    color: "#D0D0D0",
+  },
+  disabledInput: {
+    backgroundColor: "#EFEFEF",
+    borderColor: "#E0E0E0",
+    color: "#888888",
+  },
+  disabledPostButton: {
+    backgroundColor: "#C5C5C5",
+    opacity: 0.6,
   },
 });

@@ -3,6 +3,7 @@ import { API_BASE_URL } from '@/constants/api';
 import AppColors from '@/constants/AppColors';
 import { fetchWithAuth, uploadWithAuth } from '@/constants/authApi';
 import { getCategories } from '@/constants/category';
+import { getQrItemDetail } from '@/constants/qrItems';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { useFocusEffect, useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
@@ -116,22 +117,15 @@ export default function QrItemEdit() {
         if (!currentItem.qr_code_id) return;
 
         try {
-          const res = await fetchWithAuth(
-            `${API_BASE_URL}/api/qr-items/detail/${currentItem.qr_code_id}`
-          );
+          const fresh = await getQrItemDetail(currentItem.qr_code_id);
+          if (!fresh || !isActive) return;
 
-          if (!res.ok || !isActive) return;
-
-          const fresh = await res.json();
-
-          // Update base values to match server state
           setBaseItemName(fresh.item_name || '');
           setBaseDescription(fresh.description || '');
           setBaseCategoryId(fresh.category_id ? String(fresh.category_id) : '');
           setBaseContents(fresh.contents || '');
           setBaseImageUrl(fresh.image_url || null);
 
-          // Update editable fields with latest server data
           setItemName(fresh.item_name || '');
           setDescription(fresh.description || '');
           setSelectedCategoryId(fresh.category_id ? String(fresh.category_id) : '');
@@ -331,24 +325,12 @@ export default function QrItemEdit() {
 
       console.log('qr_code_id for detail fetch:', item.qr_code_id);
 
-      // Re-fetch the updated item to get the fresh qr_data from the DB
-      let freshQrData = item.qr_data; // fallback if re-fetch fails
+      let freshQrData = item.qr_data;
 
       if (item.qr_code_id) {
-        const detailRes = await fetchWithAuth(
-          `${API_BASE_URL}/api/qr-items/detail/${item.qr_code_id}`
-        );
-
-        const contentType = detailRes.headers.get('content-type') || '';
-
-        if (detailRes.ok && contentType.includes('application/json')) {
-          const updatedItem = await detailRes.json();
+        const updatedItem = await getQrItemDetail(item.qr_code_id);
+        if (updatedItem?.qr_data) {
           freshQrData = updatedItem.qr_data;
-        } else {
-          console.warn(
-            'Detail re-fetch failed or returned non-JSON:',
-            detailRes.status
-          );
         }
       }
 

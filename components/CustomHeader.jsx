@@ -1,11 +1,11 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
+import NetInfo from "@react-native-community/netinfo";
 import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import React, { useEffect, useState } from "react";
 import { Image, Pressable, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-// Imports needed for your API logic
 import FoundNestLogo from "@/assets/images/app-logo.png";
 import AppColors from "@/constants/AppColors";
 import { getUserNotifications } from "@/constants/notifications";
@@ -17,32 +17,16 @@ export default function CustomHeader({ title }) {
   const [numberOfUnreadNotifications, setNumberOfUnreadNotifications] = useState(0);
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [isOnline, setIsOnline] = useState(true);
+  const [online, setOnline] = useState(true);
 
-  // Checks real internet access by attempting a lightweight ping
-  const checkConnection = async () => {
-    try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 3000);
-
-      const response = await fetch("https://www.google.com/");
-
-      clearTimeout(timeoutId);
-      setIsOnline(response.status === 204 || response.ok);
-    } catch (error) {
-      setIsOnline(false);
-    }
-  };
-
+  // Listen to network state changes reactively instead of polling every 5 seconds
   useEffect(() => {
-    checkConnection();
+    const unsubscribe = NetInfo.addEventListener((state) => {
+      const isConnected = Boolean(state.isConnected && state.isInternetReachable !== false);
+      setOnline(isConnected);
+    });
 
-    // Re-verify network status every 5 seconds
-    const interval = setInterval(() => {
-      checkConnection();
-    }, 5000);
-
-    return () => clearInterval(interval);
+    return () => unsubscribe();
   }, []);
 
   function openNotifications() {
@@ -52,8 +36,10 @@ export default function CustomHeader({ title }) {
   const getNotifications = async () => {
     try {
       const data = await getUserNotifications();
-      setNumberOfUnreadNotifications(data.filter((n) => !n.is_read).length);
-      setNotifications(data);
+      if (Array.isArray(data)) {
+        setNumberOfUnreadNotifications(data.filter((n) => !n.is_read).length);
+        setNotifications(data);
+      }
     } catch (error) {
       console.error("Failed to fetch notifications:", error);
     } finally {
@@ -83,11 +69,11 @@ export default function CustomHeader({ title }) {
         <View
           style={[
             styles.statusBadge,
-            { backgroundColor: isOnline ? "#22C55E" : "#EF4444" },
+            { backgroundColor: online ? "#22C55E" : "#EF4444" },
           ]}
         >
           <Text style={styles.statusText}>
-            {isOnline ? "Online" : "Offline"}
+            {online ? "Online" : "Offline"}
           </Text>
         </View>
 

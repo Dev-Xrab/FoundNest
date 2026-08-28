@@ -1,24 +1,31 @@
-// centerLocation.js
+// Offices / college buildings: fetch online, store offline in SQLite
+import { API_BASE_URL } from "./api";
+import { fetchWithAuth } from "./authApi";
+import { getCache, isOnline, saveCache } from "./offlineDb";
 
-const fetchBulsuColleges = async () => {
-  try {
-    const response = await fetch(
-      "https://foundnest-backend.onrender.com/api/offices",
-    );
+const CACHE_KEY = "college_offices";
 
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
+/**
+ * Get campus offices (full objects for the map).
+ * Online: fetches from API and saves to SQLite.
+ * Offline: returns last saved data from SQLite.
+ */
+export async function fetchBulsuColleges() {
+  const online = await isOnline();
+
+  if (online) {
+    try {
+      const res = await fetchWithAuth(`${API_BASE_URL}/api/offices`);
+      if (res.ok) {
+        const data = await res.json();
+        await saveCache(CACHE_KEY, data);
+        return data;
+      }
+    } catch (err) {
+      console.error("Failed to fetch colleges:", err);
     }
-
-    const data = await response.json();
-
-    // Extract only the college_name from each object
-    return data.map((college) => college.office_name);
-  } catch (error) {
-    console.error("Error fetching BulSU colleges:", error);
-    // Fallback array so the UI stays stable if the API fails
-    return ["College of Information and Communications Technology"];
   }
-};
 
-export default fetchBulsuColleges;
+  const cached = await getCache(CACHE_KEY);
+  return cached ?? [];
+}

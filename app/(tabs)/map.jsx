@@ -106,7 +106,6 @@ export default function MapScreen() {
         const { status } = await Location.requestForegroundPermissionsAsync();
 
         if (status !== "granted") {
-          // Replaced native Alert with Custom Modal
           showCustomAlert({
             message:
               "Location Access Needed: FoundNest can still show campus offices, but enable location to view your live distance.",
@@ -236,20 +235,11 @@ export default function MapScreen() {
     setIsDropdownVisible(false);
   }
 
-  // Clear search with Modal Prompt
+  // Directly clears the search input without confirmation dialog
   function requestClearSearch() {
-    if (searchQuery.length > 0) {
-      showCustomAlert({
-        message: "Clear current search filter?",
-        cancelLabel: "Keep Editing",
-        confirmLabel: "Clear",
-        onConfirm: () => {
-          setSearchQuery("");
-          setFilteredColleges([]);
-          setIsDropdownVisible(false);
-        },
-      });
-    }
+    setSearchQuery("");
+    setFilteredColleges([]);
+    setIsDropdownVisible(false);
   }
 
   function handleMarkerPress(college) {
@@ -339,7 +329,6 @@ export default function MapScreen() {
           animationDuration={cameraConfig.animationDuration}
           minZoom={15}
           maxZoom={20}
-
         />
 
         {hasPermission && !isWakingGPS && <NativeUserLocation />}

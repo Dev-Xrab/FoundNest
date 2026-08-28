@@ -1,7 +1,8 @@
 import AppColors from '@/constants/AppColors';
+import { getQrItemDetail } from '@/constants/qrItems';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   BackHandler,
   Image,
@@ -29,15 +30,37 @@ export default function QrItemView() {
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
   const { item: itemParam, fromScan } = useLocalSearchParams();
-  const item = JSON.parse(itemParam || '{}');
+  const parsedItem = JSON.parse(itemParam || '{}');
+  const [item, setItem] = useState(parsedItem);
   const isFromScan = fromScan === 'true';
 
   useFocusEffect(
     useCallback(() => {
-      if (!itemParam || !item?.qr_code_id) {
+      let isActive = true;
+      const current = JSON.parse(itemParam || '{}');
+
+      if (!current?.qr_code_id) {
         router.replace('/(tabs)/qrItemList');
+        return;
       }
-    }, [itemParam])
+
+      setItem(current);
+
+      async function loadItem() {
+        try {
+          const fresh = await getQrItemDetail(current.qr_code_id);
+          if (isActive && fresh) setItem(fresh);
+        } catch (err) {
+          console.error('Load QR item error:', err);
+        }
+      }
+
+      loadItem();
+
+      return () => {
+        isActive = false;
+      };
+    }, [itemParam, router])
   );
 
   const handleBack = () => {
@@ -160,7 +183,7 @@ export default function QrItemView() {
                 qr_data: item.qr_data ?? '',
                 itemName: item.item_name,
                 mode: 'view',
-                item: itemParam,
+                item: JSON.stringify(item),
                 fromScan,
               },
             })

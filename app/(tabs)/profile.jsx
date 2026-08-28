@@ -1,8 +1,6 @@
 import ConfirmDiscardModal from '@/components/ConfirmDiscardModal';
-import { API_BASE_URL } from '@/constants/api';
 import AppColors from '@/constants/AppColors';
-import { fetchWithAuth } from '@/constants/authApi';
-import { getUser } from '@/constants/StudentData';
+import { getUserProfile } from '@/constants/profile';
 import { logoutUser } from '@/utils/pushNotifications';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
@@ -58,23 +56,8 @@ export default function ProfileScreen() {
 
       async function loadProfile() {
         try {
-          const sessionUser = await getUser();
-          if (!sessionUser) return;
-
-          // Show cached data immediately while we fetch the latest
-          if (isActive) setUser(sessionUser);
-
-          const res = await fetchWithAuth(
-            `${API_BASE_URL}/api/profile/${sessionUser.user_id}`
-          );
-          const data = await res.json();
-
-          if (!res.ok) {
-            console.error('Failed to load profile:', data.message);
-            return;
-          }
-
-          if (isActive) setUser(data);
+          const data = await getUserProfile();
+          if (isActive && data) setUser(data);
         } catch (err) {
           console.error('Load profile error:', err);
         }

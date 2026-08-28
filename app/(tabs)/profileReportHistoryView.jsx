@@ -14,6 +14,7 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { goBack } from "@/constants/previousPage";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function formatReportId(id) {
@@ -211,6 +212,18 @@ export default function ProfileReportHistoryView() {
 
   // Silently refresh in the background once the screen is up, so the
   // cached/passed-in snapshot never goes stale without the user knowing.
+
+// ── Sync state when new params arrive ──
+  useEffect(() => {
+    if (matchParam) {
+      try {
+        setMatch(JSON.parse(matchParam));
+      } catch (e) {
+        console.error("Failed to parse match param:", e);
+      }
+    }
+  }, [matchParam]);
+  
   useEffect(() => {
     if (!match.match_id) return;
 
@@ -223,6 +236,7 @@ export default function ProfileReportHistoryView() {
         if (!response.ok) return; // keep showing cached data, fail silently
 
         const fresh = await response.json();
+        console.log(fresh)
         setMatch(fresh);
       } catch (err) {
         console.warn("Background match refresh failed:", err.message);
@@ -241,6 +255,9 @@ export default function ProfileReportHistoryView() {
 
   return (
     <View style={styles.screen}>
+      {
+        console.log("ImageLink: ",match.lost_image_url)
+      }
       <HowToClaimSheet
         visible={claimSheetVisible}
         onClose={() => setClaimSheetVisible(false)}
@@ -250,7 +267,7 @@ export default function ProfileReportHistoryView() {
       <View style={[styles.redHeader, { paddingTop: insets.top }]}>
         <View style={styles.headerRow}>
           <TouchableOpacity
-            onPress={() => router.navigate("/(tabs)/profileReportHistory")}
+            onPress={() => goBack(router)}
             activeOpacity={0.7}
             style={styles.backButton}
           >
@@ -275,9 +292,9 @@ export default function ProfileReportHistoryView() {
 
         <View style={styles.imageCard}>
           <View style={styles.imageRow}>
-            <CompareImage uri={match.lost_item_image} label="Your Image" />
+            <CompareImage uri={match.lost_image_url} label="Your Image" />
             <CompareImage
-              uri={match.found_item_image}
+              uri={match.found_image_url}
               label="Potential Match"
             />
           </View>

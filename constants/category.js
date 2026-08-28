@@ -1,4 +1,9 @@
-// @/constants/category.js
+// Categories: fetch online, store offline in SQLite
+import { API_BASE_URL } from "./api";
+import { fetchWithAuth } from "./authApi";
+import { getCache, isOnline, saveCache } from "./offlineDb";
+
+const CACHE_KEY = "categories";
 
 export const category = [
   "Academic Material",
@@ -9,24 +14,30 @@ export const category = [
   "Equipments",
 ];
 
-// FETCH CATEGORIES
-export const getCategories = async () => {
-  try {
-    const response = await fetch("https://foundnest-backend.onrender.com/api/categories");
-    
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
+/**
+ * Get all item categories.
+ * Online: fetches from API and saves to SQLite.
+ * Offline: returns last saved data from SQLite.
+ */
+export async function getCategories() {
+  const online = await isOnline();
 
-    const data = await response.json();
-    console.log("Fetched categories:", data);
-    return data;
-    
-  } catch (error) {
-    console.error("Failed to fetch categories:", error);
-    return [];
+  if (online) {
+    try {
+      const res = await fetchWithAuth(`${API_BASE_URL}/api/categories`);
+      if (res.ok) {
+        const data = await res.json();
+        await saveCache(CACHE_KEY, data);
+        return data;
+      }
+    } catch (err) {
+      console.error("Failed to fetch categories:", err);
+    }
   }
-};
+
+  const cached = await getCache(CACHE_KEY);
+  return cached ?? [];
+}
 
 /**
  * Matches an AI-returned category string to the closest item in the
@@ -41,13 +52,11 @@ export const matchCategoryFromAi = (aiCategory, categoryList) => {
 
   const normalized = aiCategory.trim().toLowerCase();
 
-  // 1. Exact match (case-insensitive)
   const exact = categoryList.find(
     (c) => c.category_name.toLowerCase() === normalized
   );
   if (exact) return exact;
 
-  // 2. Partial match — AI string contains the category name or vice versa
   const partial = categoryList.find(
     (c) =>
       normalized.includes(c.category_name.toLowerCase()) ||

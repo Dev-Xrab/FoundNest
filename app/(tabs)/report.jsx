@@ -3,9 +3,11 @@ import ConfirmDiscardModal from "@/components/ConfirmDiscardModal";
 import AppColors from "@/constants/AppColors";
 import { getCategories, matchCategoryFromAi } from "@/constants/category";
 import { DescribeItem } from "@/constants/geminiAI";
+import { isOnline } from "@/constants/offlineDb";
 import { setReportDraft, getReportDraft } from "@/constants/reportDraft";
 import { validateReportPage1 } from "@/utils/lostReport";
 import { MaterialIcons } from "@expo/vector-icons";
+import NetInfo from "@react-native-community/netinfo";
 import * as ImagePicker from "expo-image-picker";
 import { useFocusEffect, useRouter } from "expo-router";
 import React, { useCallback, useEffect, useState } from "react";
@@ -40,7 +42,24 @@ export default function Report() {
   const [categories, setCategories] = useState([]);
   const [errors, setErrors] = useState({});
   const [modalVisible, setModalVisible] = useState(false);
+  const [online, setOnline] = useState(true);
   const router = useRouter();
+
+  // ── LIVE NETWORK LISTENER ──
+  useEffect(() => {
+    // Initial fetch check
+    isOnline().then(setOnline);
+
+    // Dynamic live subscription
+    const unsubscribe = NetInfo.addEventListener((state) => {
+      const isConnected = Boolean(
+        state.isConnected && state.isInternetReachable !== false
+      );
+      setOnline(isConnected);
+    });
+
+    return () => unsubscribe();
+  }, []);
 
   const categoryDropdownData = categories.map((cat) => ({
     label: cat.category_name,
@@ -51,13 +70,13 @@ export default function Report() {
     getCategories().then(setCategories);
   }, []);
 
-  // ── RESET OR HYDRATE FIELDS WHENEVER SCREEN GAINS FOCUS ──
+  // Reset or hydrate fields whenever screen gains focus
   useFocusEffect(
     useCallback(() => {
+      isOnline().then(setOnline);
       const currentDraft = getReportDraft();
 
       if (!currentDraft) {
-        // Clear all inputs when starting a fresh report
         setSelectedImage(null);
         setSelectedCategoryId("");
         setItemName("");
@@ -65,7 +84,6 @@ export default function Report() {
         setContents("");
         setErrors({});
       } else {
-        // Hydrate inputs if returning back from Page 2
         setSelectedImage(currentDraft.imageUri || null);
         setSelectedCategoryId(
           currentDraft.categoryId ? String(currentDraft.categoryId) : ""
@@ -112,6 +130,7 @@ export default function Report() {
   };
 
   const handleClearAll = () => {
+    if (!online) return;
     setClearModalVisible(true);
   };
 
@@ -122,10 +141,7 @@ export default function Report() {
     setDetailedDescription("");
     setContents("");
     setErrors({});
-
-    // Wipe global draft cache
     setReportDraft(null);
-
     setClearModalVisible(false);
   };
 
@@ -184,7 +200,14 @@ export default function Report() {
     setSelectedImage(null);
   };
 
-  const handleNext = () => {
+  const handleNext = async () => {
+    const currentlyOnline = await isOnline();
+    if (!currentlyOnline) {
+      setOnline(false);
+      Alert.alert("Offline", "Form submission is unavailable while offline.");
+      return;
+    }
+
     const validation = validateReportPage1({
       categoryId: selectedCategoryId,
       itemName,
@@ -237,148 +260,189 @@ export default function Report() {
 
       <ScrollView contentContainerStyle={styles.container}>
         <Text style={styles.title}>Lost Item Report Form</Text>
-        <Text style={styles.subTitle}>Item Description</Text>
 
-        <View style={styles.uploadCardWrapper}>
-          <View style={styles.card}>
-            <TouchableOpacity
-              style={styles.uploadTarget}
-              activeOpacity={0.7}
-              onPress={() => setModalVisible(true)}
-              disabled={isLoading}
-            >
-              {isLoading ? (
-                <View style={[styles.dashedRing, { borderColor: "#CCC" }]}>
-                  <ActivityIndicator size="large" color="#900000" />
-                </View>
-              ) : selectedImage ? (
-                <View style={styles.imagePreviewContainer}>
-                  <Image
-                    source={{ uri: selectedImage }}
-                    style={styles.previewImage}
-                  />
-                  <View style={styles.changeBadge}>
-                    <MaterialIcons name="edit" size={16} color="#FFFFFF" />
-                  </View>
-                </View>
-              ) : (
-                <View style={styles.dashedRing}>
-                  <View style={styles.solidCircle}>
-                    <MaterialIcons name="add" size={32} color="#FFFFFF" />
-                  </View>
-                </View>
-              )}
-            </TouchableOpacity>
 
-            <Text style={styles.titleText}>
-              {isLoading
-                ? "Analyzing image..."
-                : "Upload Item Photo (Optional)"}
-            </Text>
-            <Text style={styles.subText}>
-              *FoundNest AI will help auto-fill details based on your photo.
-            </Text>
+
+        {/* ── Native lock on all input interaction when offline ── */}
+        <View pointerEvents={!online ? "none" : "auto"}>
+          <Text style={styles.subTitle}>Item Description</Text>
+
+          <View style={styles.uploadCardWrapper}>
+            <View style={[styles.card, !online && styles.disabledOpacity]}>
+              <TouchableOpacity
+                style={styles.uploadTarget}
+                activeOpacity={0.7}
+                onPress={() => setModalVisible(true)}
+                disabled={isLoading || !online}
+              >
+                {isLoading ? (
+                  <View style={[styles.dashedRing, { borderColor: "#CCC" }]}>
+                    <ActivityIndicator size="large" color="#900000" />
+                  </View>
+                ) : selectedImage ? (
+                  <View style={styles.imagePreviewContainer}>
+                    <Image
+                      source={{ uri: selectedImage }}
+                      style={styles.previewImage}
+                    />
+                    {online && (
+                      <View style={styles.changeBadge}>
+                        <MaterialIcons name="edit" size={16} color="#FFFFFF" />
+                      </View>
+                    )}
+                  </View>
+                ) : (
+                  <View
+                    style={[
+                      styles.dashedRing,
+                      !online && { borderColor: "#A0A0A0" },
+                    ]}
+                  >
+                    <View
+                      style={[
+                        styles.solidCircle,
+                        !online && { backgroundColor: "#A0A0A0" },
+                      ]}
+                    >
+                      <MaterialIcons name="add" size={32} color="#FFFFFF" />
+                    </View>
+                  </View>
+                )}
+              </TouchableOpacity>
+
+              <Text style={styles.titleText}>
+                {isLoading
+                  ? "Analyzing image..."
+                  : "Upload Item Photo (Optional)"}
+              </Text>
+              <Text style={styles.subText}>
+                *FoundNest AI will help auto-fill details based on your photo.
+              </Text>
+            </View>
           </View>
-        </View>
 
-        <Text style={styles.sectionTitle}>Category</Text>
+          <Text style={styles.sectionTitle}>Category</Text>
 
-        <Dropdown
-          style={[
-            styles.categoryDropdown,
-            errors.category && styles.inputErrorBorder,
-          ]}
-          placeholderStyle={styles.categoryPlaceholder}
-          selectedTextStyle={styles.categorySelectedText}
-          containerStyle={styles.categoryDropdownContainer}
-          data={categoryDropdownData}
-          maxHeight={280}
-          labelField="label"
-          valueField="value"
-          placeholder={
-            categoryDropdownData.length === 0
-              ? "Loading categories..."
-              : "Select Category"
-          }
-          disable={categoryDropdownData.length === 0}
-          value={selectedCategoryId || null}
-          onChange={(item) => {
-            setSelectedCategoryId(item.value);
-            if (errors.category)
-              setErrors((prev) => ({ ...prev, category: undefined }));
-          }}
-          renderItem={renderDropdownItem}
-          dropdownPosition="bottom"
-          autoScroll={false}
-          renderRightIcon={() => (
-            <MaterialIcons
-              name="keyboard-arrow-down"
-              size={24}
-              color={AppColors.background}
-            />
-          )}
-        />
-        <FieldError message={errors.category} />
+          <Dropdown
+            style={[
+              styles.categoryDropdown,
+              errors.category && styles.inputErrorBorder,
+              !online && styles.disabledInput,
+            ]}
+            placeholderStyle={styles.categoryPlaceholder}
+            selectedTextStyle={styles.categorySelectedText}
+            containerStyle={styles.categoryDropdownContainer}
+            data={categoryDropdownData}
+            maxHeight={280}
+            labelField="label"
+            valueField="value"
+            placeholder={
+              !online
+                ? "Unavailable offline"
+                : categoryDropdownData.length === 0
+                ? "Loading categories..."
+                : "Select Category"
+            }
+            disable={categoryDropdownData.length === 0 || !online}
+            value={selectedCategoryId || null}
+            onChange={(item) => {
+              setSelectedCategoryId(item.value);
+              if (errors.category)
+                setErrors((prev) => ({ ...prev, category: undefined }));
+            }}
+            renderItem={renderDropdownItem}
+            dropdownPosition="bottom"
+            autoScroll={false}
+            renderRightIcon={() => (
+              <MaterialIcons
+                name="keyboard-arrow-down"
+                size={24}
+                color={online ? AppColors.background : "#A0A0A0"}
+              />
+            )}
+          />
+          <FieldError message={errors.category} />
 
-        <Text style={styles.sectionTitle}>Item Name</Text>
-        <TextInput
-          style={[styles.picker, errors.itemName && styles.inputErrorBorder]}
-          placeholder="e.g., iPhone 13 Pro Max, Bag, Umbrella"
-          placeholderTextColor="#8C7A70"
-          value={itemName}
-          onChangeText={(text) => {
-            setItemName(text);
-            if (errors.itemName)
-              setErrors((prev) => ({ ...prev, itemName: undefined }));
-          }}
-        />
-        <FieldError message={errors.itemName} />
+          <Text style={styles.sectionTitle}>Item Name</Text>
+          <TextInput
+            editable={online}
+            style={[
+              styles.picker,
+              errors.itemName && styles.inputErrorBorder,
+              !online && styles.disabledInput,
+            ]}
+            placeholder="e.g., iPhone 13 Pro Max, Bag, Umbrella"
+            placeholderTextColor="#8C7A70"
+            value={itemName}
+            onChangeText={(text) => {
+              setItemName(text);
+              if (errors.itemName)
+                setErrors((prev) => ({ ...prev, itemName: undefined }));
+            }}
+          />
+          <FieldError message={errors.itemName} />
 
-        <Text style={styles.sectionTitle}>Detailed Description</Text>
-        <TextInput
-          style={[
-            styles.picker,
-            styles.multilineInput,
-            errors.description && styles.inputErrorBorder,
-          ]}
-          maxHeight={140}
-          multiline
-          numberOfLines={8}
-          textAlignVertical="top"
-          placeholder="Brand, Model, Size, Color, Material, etc."
-          placeholderTextColor="#8C7A70"
-          value={detailedDescription}
-          onChangeText={(text) => {
-            setDetailedDescription(text);
-            if (errors.description)
-              setErrors((prev) => ({ ...prev, description: undefined }));
-          }}
-        />
-        <FieldError message={errors.description} />
+          <Text style={styles.sectionTitle}>Detailed Description</Text>
+          <TextInput
+            editable={online}
+            style={[
+              styles.picker,
+              styles.multilineInput,
+              errors.description && styles.inputErrorBorder,
+              !online && styles.disabledInput,
+            ]}
+            maxHeight={140}
+            multiline
+            numberOfLines={8}
+            textAlignVertical="top"
+            placeholder="Brand, Model, Size, Color, Material, etc."
+            placeholderTextColor="#8C7A70"
+            value={detailedDescription}
+            onChangeText={(text) => {
+              setDetailedDescription(text);
+              if (errors.description)
+                setErrors((prev) => ({ ...prev, description: undefined }));
+            }}
+          />
+          <FieldError message={errors.description} />
 
-        <Text style={styles.sectionTitle}>Contents (if applicable)</Text>
-        <TextInput
-          style={styles.picker}
-          placeholder="e.g., wallet contents, keys, notes..."
-          placeholderTextColor="#8C7A70"
-          value={contents}
-          onChangeText={setContents}
-        />
+          <Text style={styles.sectionTitle}>Contents (if applicable)</Text>
+          <TextInput
+            editable={online}
+            style={[styles.picker, !online && styles.disabledInput]}
+            placeholder="e.g., wallet contents, keys, notes..."
+            placeholderTextColor="#8C7A70"
+            value={contents}
+            onChangeText={setContents}
+          />
 
-        <View style={styles.nextSection}>
-          <Text style={styles.pageIndicator}>Page 1 out of 2</Text>
+          <View style={styles.nextSection}>
+            <Text style={styles.pageIndicator}>Page 1 out of 2</Text>
 
-          <View style={styles.actionButtons}>
-            <TouchableOpacity
-              style={styles.clearButton}
-              onPress={handleClearAll}
-            >
-              <Text style={styles.clearButtonText}>Clear All</Text>
-            </TouchableOpacity>
+            <View style={styles.actionButtons}>
+              <TouchableOpacity
+                style={[styles.clearButton, !online && styles.disabledClearBtn]}
+                onPress={handleClearAll}
+                disabled={!online}
+              >
+                <Text
+                  style={[
+                    styles.clearButtonText,
+                    !online && { color: "#A0A0A0" },
+                  ]}
+                >
+                  Clear All
+                </Text>
+              </TouchableOpacity>
 
-            <TouchableOpacity style={styles.nextButton} onPress={handleNext}>
-              <Text style={styles.buttonText}>Next</Text>
-            </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.nextButton, !online && styles.disabledNextBtn]}
+                onPress={handleNext}
+                disabled={!online}
+              >
+                <Text style={styles.buttonText}>Next</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
 
@@ -403,6 +467,20 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: AppColors.surface,
     padding: 20,
+  },
+  offlineBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#EF4444",
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    gap: 8,
+  },
+  offlineBannerText: {
+    color: "#FFFFFF",
+    fontSize: 13,
+    fontWeight: "600",
   },
   subTitle: {
     borderBottomWidth: 1,
@@ -578,5 +656,20 @@ const styles = StyleSheet.create({
   clearButtonText: {
     color: "#C62828",
     fontWeight: "600",
+  },
+  disabledInput: {
+    backgroundColor: "#E2D7CC",
+    color: "#888888",
+    borderColor: "#C5B8AC",
+  },
+  disabledOpacity: {
+    opacity: 0.5,
+  },
+  disabledClearBtn: {
+    borderColor: "#C0C0C0",
+    backgroundColor: "#EAEAEA",
+  },
+  disabledNextBtn: {
+    backgroundColor: "#A0A0A0",
   },
 });

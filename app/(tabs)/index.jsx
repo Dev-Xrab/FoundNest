@@ -17,15 +17,16 @@ import { getReportHistory } from "@/constants/lostReports";
 import { getUser } from "@/constants/StudentData";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import { useCallback, useEffect, useState } from "react";
-import Alert from "react-native/Libraries/Alert/Alert";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 const SCREEN_WIDTH = Dimensions.get("window").width;
 const CARD_HORIZONTAL_PADDING = 20;
 const CARD_HEIGHT = 220;
 const RECENT_FINDS_LIMIT = 5;
+const AUTO_SCROLL_INTERVAL = 3500; // 3.5 seconds
 
 function formatFoundDate(iso) {
+  if (!iso) return "N/A";
   const date = new Date(iso);
   const datePart = date.toLocaleDateString("en-US", {
     month: "long",
@@ -43,17 +44,71 @@ function formatFoundDate(iso) {
 }
 
 function RecentFindsCarousel({ items, activeIndex, onIndexChange }) {
-  const handleScroll = useCallback(
+  const router = useRouter();
+  const scrollRef = useRef(null);
+  const isInteracting = useRef(false);
+
+  // Pad the array for infinite scroll: [Last Item Clone, ...Original Items, First Item Clone]
+  const extendedItems =
+    items.length > 1 ? [items[items.length - 1], ...items, items[0]] : items;
+
+  // Initialize offset to index 1 (the first real item)
+  useEffect(() => {
+    if (items.length > 1) {
+      setTimeout(() => {
+        scrollRef.current?.scrollTo({
+          x: SCREEN_WIDTH,
+          animated: false,
+        });
+      }, 50);
+    }
+  }, [items.length]);
+
+  // Handle continuous auto-sliding forward
+  useEffect(() => {
+    if (items.length <= 1) return;
+
+    const timer = setInterval(() => {
+      if (isInteracting.current) return;
+
+      const currentScrollIndex = activeIndex + 1; // map real index to extended index
+      const nextScrollIndex = currentScrollIndex + 1;
+
+      scrollRef.current?.scrollTo({
+        x: nextScrollIndex * SCREEN_WIDTH,
+        animated: true,
+      });
+    }, AUTO_SCROLL_INTERVAL);
+
+    return () => clearInterval(timer);
+  }, [activeIndex, items.length]);
+
+  // Seamless jump reset on boundary reach
+  const handleScrollEnd = useCallback(
     (event) => {
-      const index = Math.round(
-        event.nativeEvent.contentOffset.x / SCREEN_WIDTH,
-      );
-      const clamped = Math.max(0, Math.min(index, items.length - 1));
-      if (clamped !== activeIndex) {
-        onIndexChange(clamped);
+      if (items.length <= 1) return;
+
+      const contentOffsetX = event.nativeEvent.contentOffset.x;
+      const rawIndex = Math.round(contentOffsetX / SCREEN_WIDTH);
+
+      // Reached the cloned first item at the very end -> jump back to real first item
+      if (rawIndex === extendedItems.length - 1) {
+        scrollRef.current?.scrollTo({ x: SCREEN_WIDTH, animated: false });
+        onIndexChange(0);
       }
+      // Reached the cloned last item at the very start -> jump forward to real last item
+      else if (rawIndex === 0) {
+        scrollRef.current?.scrollTo({
+          x: items.length * SCREEN_WIDTH,
+          animated: false,
+        });
+        onIndexChange(items.length - 1);
+      } else {
+        onIndexChange(rawIndex - 1);
+      }
+      isInteracting.current = false;
     },
-    [activeIndex, items.length, onIndexChange],
+    [extendedItems.length, items.length, onIndexChange],
   );
 
   if (items.length === 0) return null;
@@ -61,45 +116,88 @@ function RecentFindsCarousel({ items, activeIndex, onIndexChange }) {
   return (
     <View style={carouselStyles.wrapper}>
       <ScrollView
+        ref={scrollRef}
         horizontal
         pagingEnabled
         nestedScrollEnabled
         showsHorizontalScrollIndicator={false}
         decelerationRate="fast"
         scrollEventThrottle={16}
-        onScroll={handleScroll}
-        onMomentumScrollEnd={handleScroll}
+        onMomentumScrollEnd={handleScrollEnd}
+        onScrollBeginDrag={() => {
+          isInteracting.current = true;
+        }}
+        onTouchStart={() => {
+          isInteracting.current = true;
+        }}
+        onTouchEnd={() => {
+          setTimeout(() => {
+            isInteracting.current = false;
+          }, 500);
+        }}
         scrollEnabled={items.length > 1}
         style={carouselStyles.scroll}
         contentContainerStyle={carouselStyles.scrollContent}
       >
-        {items.map((item) => (
+        {extendedItems.map((item, index) => (
           <View
-            key={String(item.found_report_id ?? item.item_id)}
+            key={`slide-${item.found_report_id ?? item.item_id ?? index}-${index}`}
             style={carouselStyles.slide}
           >
-            <ImageBackground
-              source={{ uri: item.image_url }}
-              style={carouselStyles.card}
-              imageStyle={carouselStyles.cardImage}
+            <TouchableOpacity
+              activeOpacity={0.9}
+              style={{ flex: 1 }}
+              onPress={() => {
+                // Normalize keys to match the exact schema expected in FoundItemDetails
+                const formattedItem = {
+                  id: String(
+                    item.found_report_id ?? item.item_id ?? item.id ?? "",
+                  ),
+                  title: item.item_name ?? item.title ?? "",
+                  category: item.category_name ?? item.category ?? "",
+                  date: formatFoundDate(item.found_date || item.date),
+                  location: item.location_found ?? item.location ?? "",
+                  currentLocation: item.office_name
+                    ? `${item.office_name} `
+                    : (item.currentLocation ?? ""),
+                  imageUrl: item.image_url ?? item.imageUrl ?? "",
+                  description: item.description ?? "",
+                  reportedBy: item.reported_by ?? item.reportedBy ?? "",
+                  status: item.status ?? "",
+                  office_id: item.office_id ?? null,
+                };
+
+                router.push({
+                  pathname: "/FoundItemDetails",
+                  params: { itemString: JSON.stringify(formattedItem) },
+                });
+              }}
             >
-              <View style={carouselStyles.overlay}>
-                <Text style={carouselStyles.itemName}>{item.item_name}</Text>
-                <View style={carouselStyles.divider} />
-                <View style={carouselStyles.metaRow}>
-                  <Ionicons name="calendar-outline" size={16} color="#fff" />
-                  <Text style={carouselStyles.metaText}>
-                    {formatFoundDate(item.found_date)}
+              <ImageBackground
+                source={{ uri: item.image_url ?? item.imageUrl }}
+                style={carouselStyles.card}
+                imageStyle={carouselStyles.cardImage}
+              >
+                <View style={carouselStyles.overlay}>
+                  <Text style={carouselStyles.itemName} numberOfLines={1}>
+                    {item.item_name ?? item.title}
                   </Text>
+                  <View style={carouselStyles.divider} />
+                  <View style={carouselStyles.metaRow}>
+                    <Ionicons name="calendar-outline" size={16} color="#fff" />
+                    <Text style={carouselStyles.metaText} numberOfLines={1}>
+                      {formatFoundDate(item.found_date || item.date)}
+                    </Text>
+                  </View>
+                  <View style={carouselStyles.metaRow}>
+                    <Ionicons name="location-outline" size={16} color="#fff" />
+                    <Text style={carouselStyles.metaText} numberOfLines={1}>
+                      {item.location_found ?? item.location}
+                    </Text>
+                  </View>
                 </View>
-                <View style={carouselStyles.metaRow}>
-                  <Ionicons name="location-outline" size={16} color="#fff" />
-                  <Text style={carouselStyles.metaText}>
-                    {item.location_found}
-                  </Text>
-                </View>
-              </View>
-            </ImageBackground>
+              </ImageBackground>
+            </TouchableOpacity>
           </View>
         ))}
       </ScrollView>
@@ -134,7 +232,6 @@ export default function HomeScreen() {
   const [currentUser, setCurrentUser] = useState(null);
   const router = useRouter();
 
-  // Targets the report item determined by priority logic rules
   const [displayReport, setDisplayReport] = useState(null);
   const [loadingReport, setLoadingReport] = useState(true);
 
@@ -143,7 +240,7 @@ export default function HomeScreen() {
     getUser().then(setCurrentUser);
   }, []);
 
-  // Priority layout management selection 
+  // Priority layout management selection
   useEffect(() => {
     if (!currentUser?.user_id) return;
     let cancelled = false;
@@ -159,22 +256,25 @@ export default function HomeScreen() {
           return;
         }
 
-        // 1. Check if any reports have associated match notifications
-        const reportsWithMatches = mergedReports.filter(r => r.matches.length > 0);
+        const reportsWithMatches = mergedReports.filter(
+          (r) => r.matches && r.matches.length > 0,
+        );
 
         if (reportsWithMatches.length > 0) {
-          // Find the single report that holds the absolute newest notification alert
           const targetedReport = reportsWithMatches.sort((a, b) => {
-            const newestNotifA = new Date(Math.max(...a.matches.map(m => new Date(m.created_at))));
-            const newestNotifB = new Date(Math.max(...b.matches.map(m => new Date(m.created_at))));
+            const newestNotifA = new Date(
+              Math.max(...a.matches.map((m) => new Date(m.created_at))),
+            );
+            const newestNotifB = new Date(
+              Math.max(...b.matches.map((m) => new Date(m.created_at))),
+            );
             return newestNotifB - newestNotifA;
           })[0];
 
           setDisplayReport(targetedReport);
         } else {
-          // 2. Fallback rule: Grab the absolute latest reported item context
           const latestReportFallback = mergedReports.sort(
-            (a, b) => new Date(b.lost_date) - new Date(a.lost_date)
+            (a, b) => new Date(b.lost_date) - new Date(a.lost_date),
           )[0];
 
           setDisplayReport(latestReportFallback);
@@ -250,7 +350,7 @@ export default function HomeScreen() {
           />
           <TextInput
             style={styles.input}
-            onChangeText={setSearch} 
+            onChangeText={setSearch}
             value={search}
             placeholder="Search the Nest (e.g, Wallet, Bag, etc...)"
             placeholderTextColor={"#9e9e9e"}
@@ -353,7 +453,7 @@ export default function HomeScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* ── Match layout block based on image_3c661a.png ── */}
+        {/* Lost Item Report Card */}
         <View style={styles.lostReportSection}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Lost Item Report</Text>
@@ -368,7 +468,10 @@ export default function HomeScreen() {
           </View>
 
           {loadingReport ? (
-            <ActivityIndicator color={AppColors.surface} style={{ marginVertical: 20 }} />
+            <ActivityIndicator
+              color={AppColors.surface}
+              style={{ marginVertical: 20 }}
+            />
           ) : displayReport ? (
             <View style={styles.reportCard}>
               <View style={styles.reportCardTop}>
@@ -378,9 +481,11 @@ export default function HomeScreen() {
                     {displayReport.lost_item_name ?? "—"}
                   </Text>
                 </View>
-                {displayReport.matches.length > 0 && (
+                {displayReport.matches?.length > 0 && (
                   <View style={styles.matchBadge}>
-                    <Text style={styles.matchBadgeText}>Potential Match Found!</Text>
+                    <Text style={styles.matchBadgeText}>
+                      Potential Match Found!
+                    </Text>
                   </View>
                 )}
               </View>
@@ -405,7 +510,7 @@ export default function HomeScreen() {
                   <Text style={styles.reportActionText}>Edit Report</Text>
                 </TouchableOpacity>
 
-                {displayReport.matches.length > 0 && (
+                {displayReport.matches?.length > 0 && (
                   <TouchableOpacity
                     style={styles.reportActionBtn}
                     activeOpacity={0.7}
@@ -469,6 +574,10 @@ const styles = StyleSheet.create({
     color: AppColors.surface,
     fontSize: 25,
     fontWeight: "900",
+  },
+  separator: {
+    height: 1,
+    backgroundColor: "transparent",
   },
   input: {
     flex: 1,

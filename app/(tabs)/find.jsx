@@ -17,7 +17,7 @@ import {
 } from "react-native";
 import Icon from "react-native-vector-icons/Ionicons";
 import { getUserFoundItems} from "@/constants/foundItems";
-import fetchBulsuColleges from "@/constants/CollegeBuildings";
+import {fetchBulsuColleges} from "@/constants/CollegeBuildings";
 import fetchGates from "@/constants/Gates";
 import fetchSharedStudentSpaces from "@/constants/SharedStudentSpaces";
 
@@ -89,7 +89,7 @@ const Find = () => {
       id: "college",
       title: "College Buildings",
       items: bulsuColleges
-        .map((c) => (c && typeof c === "object" ? c.office_id : c))
+        .map((c) => (c && typeof c === "object" ? c.office_name : c))
         .filter(Boolean),
     },
     {

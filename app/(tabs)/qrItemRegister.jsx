@@ -1,11 +1,14 @@
 import ConfirmDiscardModal from "@/components/ConfirmDiscardModal";
 import { API_BASE_URL } from "@/constants/api";
 import AppColors from "@/constants/AppColors";
-import { fetchWithAuth, uploadWithAuth } from "@/constants/authApi";
+import { uploadWithAuth } from "@/constants/authApi";
 import { getCategories, matchCategoryFromAi } from "@/constants/category";
 import { DescribeItem } from "@/constants/geminiAI";
-import { getUser } from "@/constants/StudentData";
+import { isOnline } from "@/constants/offlineDb";
+import { getUserProfile } from "@/constants/profile";
+import { upsertQrItemInCache } from "@/constants/qrItems";
 import { Ionicons, MaterialIcons } from "@expo/vector-icons";
+import NetInfo from "@react-native-community/netinfo";
 import * as ImagePicker from "expo-image-picker";
 import { useFocusEffect, useNavigation, useRouter } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -75,9 +78,25 @@ export default function QrItemRegister() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errors, setErrors] = useState({});
   const [discardVisible, setDiscardVisible] = useState(false);
+  const [online, setOnline] = useState(true);
+
+  // ── LIVE NETWORK LISTENER ──
+  useEffect(() => {
+    isOnline().then(setOnline);
+
+    const unsubscribe = NetInfo.addEventListener((state) => {
+      const isConnected = Boolean(
+        state.isConnected && state.isInternetReachable !== false
+      );
+      setOnline(isConnected);
+    });
+
+    return () => unsubscribe();
+  }, []);
 
   useFocusEffect(
     useCallback(() => {
+      isOnline().then(setOnline);
       return () => {
         // Runs when screen loses focus — clears all inputs
         setSelectedImage(null);
@@ -89,7 +108,7 @@ export default function QrItemRegister() {
         setErrors({});
         setDiscardVisible(false);
       };
-    }, []),
+    }, [])
   );
 
   const categoryDropdownData = categories.map((cat) => ({
@@ -100,25 +119,14 @@ export default function QrItemRegister() {
 
   useEffect(() => {
     async function load() {
-      const sessionUser = await getUser();
-      if (!sessionUser) return;
-
-      // Fetch full profile to get course_section
       try {
-        const res = await fetchWithAuth(
-          `${API_BASE_URL}/api/profile/${sessionUser.user_id}`,
-        );
-        const data = await res.json();
-        if (res.ok) {
+        const data = await getUserProfile();
+        if (data) {
           setUser(data);
           setContactNumber(data.contact_number ?? "");
-        } else {
-          setUser(sessionUser);
-          setContactNumber(sessionUser.contact_number ?? "");
         }
       } catch {
-        setUser(sessionUser);
-        setContactNumber(sessionUser.contact_number ?? "");
+        // getUserProfile already falls back to cached / session user
       }
 
       getCategories().then(setCategories);
@@ -136,7 +144,6 @@ export default function QrItemRegister() {
 
   // ── AI image analysis ──────────────────────────────────────────────────────
   const analyzeImage = async (uri) => {
-    console.log("Starting AI analysis for image:", uri);
     setIsAnalyzing(true);
     try {
       let categoryList = categories;
@@ -165,7 +172,7 @@ export default function QrItemRegister() {
       console.error("AI analysis failed:", err);
       Alert.alert(
         "AI Error",
-        "Failed to auto-fill details. Please fill them in manually.",
+        "Failed to auto-fill details. Please fill them in manually."
       );
     } finally {
       setIsAnalyzing(false);
@@ -173,6 +180,8 @@ export default function QrItemRegister() {
   };
 
   const handleImagePick = () => {
+    if (!online) return;
+
     Alert.alert("Upload Item Photo", "Choose a source for your photo:", [
       {
         text: "Use Camera",
@@ -181,7 +190,7 @@ export default function QrItemRegister() {
           if (!granted) {
             Alert.alert(
               "Permission Denied",
-              "You need to allow camera access.",
+              "You need to allow camera access."
             );
             return;
           }
@@ -204,7 +213,7 @@ export default function QrItemRegister() {
           if (!granted) {
             Alert.alert(
               "Permission Denied",
-              "You need to allow library access.",
+              "You need to allow library access."
             );
             return;
           }
@@ -234,6 +243,13 @@ export default function QrItemRegister() {
 
   // ── Submit ─────────────────────────────────────────────────────────────────
   const handleRegister = async () => {
+    const currentlyOnline = await isOnline();
+    if (!currentlyOnline) {
+      setOnline(false);
+      Alert.alert("Offline", "Cannot register items while offline.");
+      return;
+    }
+
     const newErrors = validate();
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
@@ -244,16 +260,13 @@ export default function QrItemRegister() {
     setIsSubmitting(true);
 
     try {
-      // Build multipart/form-data so the backend receives req.file for Cloudinary upload.
-      // qr_data is no longer built here — the server generates an opaque UUID
-      // for it so the printed QR never carries owner PII in plain text.
       const formData = new FormData();
 
       formData.append("user_id", String(user.user_id));
       formData.append("item_name", itemName.trim());
       formData.append(
         "category_id",
-        selectedCategoryId ? String(selectedCategoryId) : "",
+        selectedCategoryId ? String(selectedCategoryId) : ""
       );
       formData.append("description", description.trim());
 
@@ -264,8 +277,8 @@ export default function QrItemRegister() {
           extension === "png"
             ? "image/png"
             : extension === "webp"
-              ? "image/webp"
-              : "image/jpeg";
+            ? "image/webp"
+            : "image/jpeg";
 
         formData.append("image", {
           uri: selectedImage,
@@ -274,13 +287,9 @@ export default function QrItemRegister() {
         });
       }
 
-      // uploadWithAuth handles token expiry + silent refresh automatically
-      // Do NOT use fetchWithAuth here — it forces Content-Type: application/json
-      // which breaks multipart/form-data boundary
       const res = await uploadWithAuth(
         `${API_BASE_URL}/api/qr-items/register`,
-        formData,
-        // 'POST' is the default, no need to pass it
+        formData
       );
 
       const data = await res.json();
@@ -290,7 +299,10 @@ export default function QrItemRegister() {
         return;
       }
 
-      // Navigate to success screen — qr_data comes back from the server now
+      if (data.qr_code) {
+        await upsertQrItemInCache(data.qr_code);
+      }
+
       router.replace({
         pathname: "/(tabs)/qrItemSuccess",
         params: {
@@ -349,11 +361,14 @@ export default function QrItemRegister() {
 
   useFocusEffect(
     useCallback(() => {
-      const subscription = BackHandler.addEventListener("hardwareBackPress", () => {
-        if (bypassRef.current) return false;
-        handleCancelRef.current();
-        return true;
-      });
+      const subscription = BackHandler.addEventListener(
+        "hardwareBackPress",
+        () => {
+          if (bypassRef.current) return false;
+          handleCancelRef.current();
+          return true;
+        }
+      );
       return () => subscription.remove();
     }, [])
   );
@@ -402,169 +417,213 @@ export default function QrItemRegister() {
         {/* ── ITEM DESCRIPTION heading ──────────────────────────────────── */}
         <Text style={styles.sectionHeading}>Item Description</Text>
 
-        {/* ── AI IMAGE UPLOAD CARD ──────────────────────────────────────── */}
-        <View style={styles.uploadCardWrapper}>
-          <View style={styles.uploadCard}>
-            <TouchableOpacity
-              style={styles.uploadTarget}
-              activeOpacity={0.7}
-              onPress={handleImagePick}
-              disabled={isAnalyzing}
-            >
-              {isAnalyzing ? (
-                <View style={[styles.dashedRing, { borderColor: "#CCC" }]}>
-                  <ActivityIndicator size="large" color="#900000" />
-                </View>
-              ) : selectedImage ? (
-                <View style={styles.imagePreviewOuter}>
-                  <View style={styles.imagePreviewContainer}>
-                    <Image
-                      source={{ uri: selectedImage }}
-                      style={styles.previewImage}
-                    />
-                    <View style={styles.changeBadge}>
-                      <MaterialIcons name="edit" size={16} color="#FFFFFF" />
+        {/* ── INTERACTIVE FORM CONTAINER (LOCKED WHEN OFFLINE) ─────────────── */}
+        <View pointerEvents={!online ? "none" : "auto"}>
+          {/* ── AI IMAGE UPLOAD CARD ──────────────────────────────────────── */}
+          <View style={styles.uploadCardWrapper}>
+            <View style={[styles.uploadCard, !online && styles.disabledCard]}>
+              <TouchableOpacity
+                style={styles.uploadTarget}
+                activeOpacity={0.7}
+                onPress={handleImagePick}
+                disabled={isAnalyzing || !online}
+              >
+                {isAnalyzing ? (
+                  <View style={[styles.dashedRing, { borderColor: "#CCC" }]}>
+                    <ActivityIndicator size="large" color="#900000" />
+                  </View>
+                ) : selectedImage ? (
+                  <View style={styles.imagePreviewOuter}>
+                    <View style={styles.imagePreviewContainer}>
+                      <Image
+                        source={{ uri: selectedImage }}
+                        style={styles.previewImage}
+                      />
+                      {online && (
+                        <View style={styles.changeBadge}>
+                          <MaterialIcons
+                            name="edit"
+                            size={16}
+                            color="#FFFFFF"
+                          />
+                        </View>
+                      )}
+                    </View>
+                    {online && (
+                      <TouchableOpacity
+                        style={styles.clearImageButton}
+                        onPress={() => setSelectedImage(null)}
+                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                      >
+                        <Ionicons
+                          name="close-circle"
+                          size={24}
+                          color="#C62828"
+                        />
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                ) : (
+                  <View
+                    style={[
+                      styles.dashedRing,
+                      !online && { borderColor: "#A0A0A0" },
+                    ]}
+                  >
+                    <View
+                      style={[
+                        styles.solidCircle,
+                        !online && { backgroundColor: "#A0A0A0" },
+                      ]}
+                    >
+                      <MaterialIcons name="add" size={32} color="#FFFFFF" />
                     </View>
                   </View>
-                  <TouchableOpacity
-                    style={styles.clearImageButton}
-                    onPress={() => setSelectedImage(null)}
-                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                  >
-                    <Ionicons name="close-circle" size={24} color="#C62828" />
-                  </TouchableOpacity>
-                </View>
+                )}
+              </TouchableOpacity>
+              <Text style={styles.uploadTitle}>
+                {isAnalyzing
+                  ? "Analyzing Image"
+                  : "Upload Item Photo (Optional)"}
+              </Text>
+              <Text style={styles.uploadSub}>
+                *FoundNest AI will help auto-fill details based on your photo.
+              </Text>
+            </View>
+          </View>
+
+          {/* ── CATEGORY ─────────────────────────────────────────────────── */}
+          <View style={styles.fieldGroup}>
+            <RequiredLabel label="Category" />
+            <Dropdown
+              style={[
+                styles.dropdown,
+                errors.category && styles.inputError,
+                !online && styles.disabledInput,
+              ]}
+              placeholderStyle={styles.dropdownPlaceholder}
+              selectedTextStyle={styles.dropdownSelected}
+              containerStyle={styles.dropdownContainer}
+              itemTextStyle={styles.dropdownItem}
+              activeColor="rgba(139,0,0,0.1)"
+              data={categoryDropdownData}
+              maxHeight={280}
+              labelField="label"
+              valueField="value"
+              placeholder={
+                !online
+                  ? "Unavailable offline"
+                  : categoryDropdownData.length === 0
+                  ? "Loading categories..."
+                  : "Select Category"
+              }
+              disable={categoryDropdownData.length === 0 || !online}
+              value={selectedCategoryId || null}
+              onChange={(item) => {
+                setSelectedCategoryId(item.value);
+                setSelectedCategoryName(item.name);
+                if (errors.category)
+                  setErrors((p) => ({ ...p, category: undefined }));
+              }}
+              renderRightIcon={() => (
+                <MaterialIcons
+                  name="keyboard-arrow-down"
+                  size={24}
+                  color={online ? AppColors.background : "#A0A0A0"}
+                />
+              )}
+            />
+            <FieldError message={errors.category} />
+          </View>
+
+          {/* ── ITEM NAME ────────────────────────────────────────────────── */}
+          <View style={styles.fieldGroup}>
+            <RequiredLabel label="Item Name" />
+            <TextInput
+              editable={online}
+              style={[
+                styles.inputBox,
+                errors.itemName && styles.inputError,
+                !online && styles.disabledInput,
+              ]}
+              placeholder="e.g., iPhone 13 Pro Max, Bag, Umbrella"
+              placeholderTextColor="#8C7A70"
+              value={itemName}
+              onChangeText={(text) => {
+                setItemName(text);
+                if (errors.itemName)
+                  setErrors((p) => ({ ...p, itemName: undefined }));
+              }}
+            />
+            <FieldError message={errors.itemName} />
+          </View>
+
+          {/* ── DETAILED DESCRIPTION ─────────────────────────────────────── */}
+          <View style={styles.fieldGroup}>
+            <RequiredLabel label="Detailed Description" />
+            <TextInput
+              editable={online}
+              style={[
+                styles.inputBox,
+                styles.multilineInput,
+                errors.description && styles.inputError,
+                !online && styles.disabledInput,
+              ]}
+              multiline
+              numberOfLines={5}
+              textAlignVertical="top"
+              placeholder="Brand, Model, Size, Color, Material, etc."
+              placeholderTextColor="#8C7A70"
+              value={description}
+              onChangeText={(text) => {
+                setDescription(text);
+                if (errors.description)
+                  setErrors((p) => ({ ...p, description: undefined }));
+              }}
+            />
+            <FieldError message={errors.description} />
+          </View>
+
+          {/* ── CONTENTS ────────────────────────────────────────────────── */}
+          <View style={styles.fieldGroup}>
+            <Text style={styles.sectionTitle}>Contents (if applicable)</Text>
+            <TextInput
+              editable={online}
+              style={[styles.inputBox, !online && styles.disabledInput]}
+              placeholder="e.g., Cash amount, ID name"
+              placeholderTextColor="#8C7A70"
+              value={contents}
+              onChangeText={setContents}
+            />
+          </View>
+
+          {/* ── ACTION BUTTONS ───────────────────────────────────────────── */}
+          <View style={styles.buttonRow}>
+            <TouchableOpacity
+              style={styles.cancelButton}
+              onPress={handleCancel}
+              activeOpacity={0.7}
+              disabled={isSubmitting}
+            >
+              <Text style={styles.cancelText}>Cancel</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[
+                styles.registerButton,
+                (isSubmitting || !online) && styles.registerButtonDisabled,
+              ]}
+              onPress={handleRegister}
+              activeOpacity={0.8}
+              disabled={isSubmitting || !online}
+            >
+              {isSubmitting ? (
+                <ActivityIndicator size="small" color="#FFFFFF" />
               ) : (
-                <View style={styles.dashedRing}>
-                  <View style={styles.solidCircle}>
-                    <MaterialIcons name="add" size={32} color="#FFFFFF" />
-                  </View>
-                </View>
+                <Text style={styles.registerText}>Register</Text>
               )}
             </TouchableOpacity>
-            <Text style={styles.uploadTitle}>
-              {isAnalyzing ? "Analyzing Image" : "Upload Item Photo (Optional)"}
-            </Text>
-            <Text style={styles.uploadSub}>
-              *FoundNest AI will help auto-fill details based on your photo.
-            </Text>
           </View>
-        </View>
-
-        {/* ── CATEGORY ─────────────────────────────────────────────────── */}
-        <View style={styles.fieldGroup}>
-          <RequiredLabel label="Category" />
-          <Dropdown
-            style={[styles.dropdown, errors.category && styles.inputError]}
-            placeholderStyle={styles.dropdownPlaceholder}
-            selectedTextStyle={styles.dropdownSelected}
-            containerStyle={styles.dropdownContainer}
-            itemTextStyle={styles.dropdownItem}
-            activeColor="rgba(139,0,0,0.1)"
-            data={categoryDropdownData}
-            maxHeight={280}
-            labelField="label"
-            valueField="value"
-            placeholder={
-              categoryDropdownData.length === 0
-                ? "Loading categories..."
-                : "Select Category"
-            }
-            disable={categoryDropdownData.length === 0}
-            value={selectedCategoryId || null}
-            onChange={(item) => {
-              setSelectedCategoryId(item.value);
-              setSelectedCategoryName(item.name);
-              if (errors.category)
-                setErrors((p) => ({ ...p, category: undefined }));
-            }}
-            renderRightIcon={() => (
-              <MaterialIcons
-                name="keyboard-arrow-down"
-                size={24}
-                color={AppColors.background}
-              />
-            )}
-          />
-          <FieldError message={errors.category} />
-        </View>
-
-        {/* ── ITEM NAME ────────────────────────────────────────────────── */}
-        <View style={styles.fieldGroup}>
-          <RequiredLabel label="Item Name" />
-          <TextInput
-            style={[styles.inputBox, errors.itemName && styles.inputError]}
-            placeholder="e.g., iPhone 13 Pro Max, Bag, Umbrella"
-            placeholderTextColor="#8C7A70"
-            value={itemName}
-            onChangeText={(text) => {
-              setItemName(text);
-              if (errors.itemName)
-                setErrors((p) => ({ ...p, itemName: undefined }));
-            }}
-          />
-          <FieldError message={errors.itemName} />
-        </View>
-
-        {/* ── DETAILED DESCRIPTION ─────────────────────────────────────── */}
-        <View style={styles.fieldGroup}>
-          <RequiredLabel label="Detailed Description" />
-          <TextInput
-            style={[
-              styles.inputBox,
-              styles.multilineInput,
-              errors.description && styles.inputError,
-            ]}
-            multiline
-            numberOfLines={5}
-            textAlignVertical="top"
-            placeholder="Brand, Model, Size, Color, Material, etc."
-            placeholderTextColor="#8C7A70"
-            value={description}
-            onChangeText={(text) => {
-              setDescription(text);
-              if (errors.description)
-                setErrors((p) => ({ ...p, description: undefined }));
-            }}
-          />
-          <FieldError message={errors.description} />
-        </View>
-
-        {/* ── CONTENTS ────────────────────────────────────────────────── */}
-        <View style={styles.fieldGroup}>
-          <Text style={styles.sectionTitle}>Contents (if applicable)</Text>
-          <TextInput
-            style={styles.inputBox}
-            placeholder="e.g., Cash amount, ID name"
-            placeholderTextColor="#8C7A70"
-            value={contents}
-            onChangeText={setContents}
-          />
-        </View>
-
-        {/* ── ACTION BUTTONS ───────────────────────────────────────────── */}
-        <View style={styles.buttonRow}>
-          <TouchableOpacity
-            style={styles.cancelButton}
-            onPress={handleCancel}
-            activeOpacity={0.7}
-            disabled={isSubmitting}
-          >
-            <Text style={styles.cancelText}>Cancel</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.registerButton, isSubmitting && { opacity: 0.7 }]}
-            onPress={handleRegister}
-            activeOpacity={0.8}
-            disabled={isSubmitting}
-          >
-            {isSubmitting ? (
-              <ActivityIndicator size="small" color="#FFFFFF" />
-            ) : (
-              <Text style={styles.registerText}>Register</Text>
-            )}
-          </TouchableOpacity>
         </View>
       </ScrollView>
     </View>
@@ -680,6 +739,10 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 2,
   },
+  disabledCard: {
+    opacity: 0.6,
+    backgroundColor: "#EBE5DF",
+  },
   uploadTarget: {
     marginBottom: 14,
     justifyContent: "center",
@@ -779,7 +842,12 @@ const styles = StyleSheet.create({
     color: AppColors.textOnLight,
   },
 
-  // ── Buttons ───────────────────────────────────────────────────────────────
+  // ── Disabled & Buttons ───────────────────────────────────────────────────
+  disabledInput: {
+    backgroundColor: "#E2D7CC",
+    borderColor: "#C5B8AC",
+    color: "#888888",
+  },
   buttonRow: {
     flexDirection: "row",
     gap: 12,
@@ -809,6 +877,10 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     backgroundColor: AppColors.background,
+  },
+  registerButtonDisabled: {
+    backgroundColor: "#A0A0A0",
+    opacity: 0.7,
   },
   registerText: {
     fontSize: 16,
