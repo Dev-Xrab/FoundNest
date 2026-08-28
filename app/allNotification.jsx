@@ -2,6 +2,7 @@ import { API_BASE_URL } from "@/constants/api";
 import AppColors from "@/constants/AppColors";
 import { fetchWithAuth } from "@/constants/authApi";
 import { getUserNotifications } from "@/constants/notifications";
+import { goBack } from "@/constants/previousPage";
 import { getToken } from "@/constants/StudentData";
 import { setupAndSavePushToken } from "@/utils/pushNotifications";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
@@ -174,7 +175,7 @@ export default function NotificationsScreen() {
       <View style={[styles.header, { paddingTop: insets.top }]}>
         <View style={styles.headerRow}>
           <TouchableOpacity
-            onPress={() => router.back()}
+            onPress={() => goBack(router)}
             activeOpacity={0.7}
             style={styles.backButton}
           >

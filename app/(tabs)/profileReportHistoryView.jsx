@@ -1,6 +1,8 @@
+import NavigationBackHandler from "@/components/NavigationBackHandler";
 import { API_BASE_URL } from "@/constants/api";
 import AppColors from "@/constants/AppColors";
 import { fetchWithAuth } from "@/constants/authApi";
+import { goBack } from "@/constants/previousPage";
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
@@ -14,7 +16,7 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { goBack } from "@/constants/previousPage";
+
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function formatReportId(id) {
@@ -267,7 +269,9 @@ export default function ProfileReportHistoryView() {
       <View style={[styles.redHeader, { paddingTop: insets.top }]}>
         <View style={styles.headerRow}>
           <TouchableOpacity
-            onPress={() => goBack(router)}
+            onPress={() =>{
+             goBack(router)
+            } }
             activeOpacity={0.7}
             style={styles.backButton}
           >
