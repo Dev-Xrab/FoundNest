@@ -7,7 +7,7 @@ import { getCategories, matchCategoryFromAi } from '@/constants/category';
 import { DescribeItem } from '@/constants/geminiAI';
 import { clearReportDraft, getReportDraft, getReportDraftFor, setReportDraft } from '@/constants/reportDraft';
 import { validateReportPage1 } from '@/utils/lostReport';
-import { MaterialIcons } from '@expo/vector-icons';
+import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { useFocusEffect, useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
@@ -17,6 +17,7 @@ import {
   BackHandler,
   Image,
   KeyboardAvoidingView,
+  Modal,
   Platform,
   ScrollView,
   StyleSheet,
@@ -30,6 +31,30 @@ import { Dropdown } from 'react-native-element-dropdown';
 function FieldError({ message }) {
   if (!message) return null;
   return <Text style={styles.fieldError}>{message}</Text>;
+}
+
+// Fullscreen image viewer, matching profileReportHistoryView.jsx's pattern.
+function ImageModal({ uri, visible, onClose }) {
+  return (
+    <Modal
+      visible={visible}
+      transparent
+      animationType="fade"
+      onRequestClose={onClose}
+    >
+      <TouchableOpacity
+        style={styles.modalOverlay}
+        activeOpacity={1}
+        onPress={onClose}
+      >
+        <Image
+          source={{ uri }}
+          style={styles.modalImage}
+          resizeMode="contain"
+        />
+      </TouchableOpacity>
+    </Modal>
+  );
 }
 
 export default function ProfileReportHistoryEdit() {
@@ -53,6 +78,8 @@ export default function ProfileReportHistoryEdit() {
   const [errors, setErrors] = useState({});
   const [discardModalVisible, setDiscardModalVisible] = useState(false);
   const [photoModalVisible, setPhotoModalVisible] = useState(false);
+  const [imageViewerVisible, setImageViewerVisible] = useState(false);
+  const scrollRef = useRef(null);
 
   const categoryDropdownData = categories.map((cat) => ({
     label: cat.category_name,
@@ -104,6 +131,15 @@ export default function ProfileReportHistoryEdit() {
 
   useFocusEffect(
     useCallback(() => {
+      // Only the Page 1 ↔ Page 2 round trip (fromBack) should keep the
+      // scroll position where the user left it — any other arrival (a
+      // fresh tap from profileReportHistory, a different report) should
+      // start at the top rather than carry over a stale offset from
+      // whichever report was viewed here last.
+      if (fromBack !== 'true') {
+        scrollRef.current?.scrollTo({ y: 0, animated: false });
+      }
+
       if (isViewOnly) {
         const applyReportData = (data) => {
           setSelectedImage(null);
@@ -408,7 +444,13 @@ export default function ProfileReportHistoryEdit() {
         onClose={() => setPhotoModalVisible(false)}
       />
 
-      <ScrollView contentContainerStyle={styles.container}>
+      <ImageModal
+        uri={displayImage}
+        visible={imageViewerVisible}
+        onClose={() => setImageViewerVisible(false)}
+      />
+
+      <ScrollView ref={scrollRef} contentContainerStyle={styles.container}>
         {isViewOnly ? (
           <View style={styles.titleRow}>
             <TouchableOpacity onPress={handleCancelPress} style={styles.backButton}>
@@ -431,8 +473,14 @@ export default function ProfileReportHistoryEdit() {
             <TouchableOpacity
               style={styles.uploadTarget}
               activeOpacity={0.7}
-              onPress={() => setPhotoModalVisible(true)}
-              disabled={isLoading || isViewOnly}
+              onPress={() => {
+                if (isViewOnly) {
+                  if (displayImage) setImageViewerVisible(true);
+                  return;
+                }
+                setPhotoModalVisible(true);
+              }}
+              disabled={isLoading || (isViewOnly && !displayImage)}
             >
               {isLoading ? (
                 <View style={[styles.dashedRing, { borderColor: '#CCC' }]}>
@@ -441,7 +489,11 @@ export default function ProfileReportHistoryEdit() {
               ) : displayImage ? (
                 <View style={styles.imagePreviewContainer}>
                   <Image source={{ uri: displayImage }} style={styles.previewImage} />
-                  {!isViewOnly && (
+                  {isViewOnly ? (
+                    <View style={styles.expandIcon}>
+                      <Ionicons name="expand-outline" size={18} color="#FFFFFF" />
+                    </View>
+                  ) : (
                     <View style={styles.changeBadge}>
                       <MaterialIcons name="edit" size={16} color="#FFFFFF" />
                     </View>
@@ -602,6 +654,9 @@ const styles = StyleSheet.create({
   imagePreviewContainer: { width: 110, height: 110, position: 'relative' },
   previewImage: { width: '100%', height: '100%', borderRadius: 20 },
   changeBadge: { position: 'absolute', bottom: -4, right: -4, backgroundColor: '#900000', width: 28, height: 28, borderRadius: 14, justifyContent: 'center', alignItems: 'center', borderWidth: 2, borderColor: '#FFFFFF' },
+  expandIcon: { position: 'absolute', bottom: 8, right: 8, backgroundColor: 'rgba(0,0,0,0.45)', borderRadius: 6, padding: 4 },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.88)', justifyContent: 'center', alignItems: 'center' },
+  modalImage: { width: '90%', height: '80%' },
   nextSection: { flexDirection: 'row', justifyContent: 'space-between', marginHorizontal: 20, marginTop: 20, paddingVertical: 30, borderTopWidth: 1, borderColor: 'rgba(0,0,0,0.24)', alignItems: 'center' },
   pageIndicator: { fontWeight: 'bold' },
   buttonSection: { flexDirection: 'row', gap: 8 },
