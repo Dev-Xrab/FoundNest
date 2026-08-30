@@ -1,11 +1,13 @@
+import ConfirmDiscardModal from "@/components/ConfirmDiscardModal";
 import { API_BASE_URL } from "@/constants/api";
 import AppColors from "@/constants/AppColors";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { useLocalSearchParams, useRouter } from "expo-router";
+import { useFocusEffect, useLocalSearchParams, useNavigation, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  BackHandler,
   Image,
   StyleSheet,
   Text,
@@ -23,6 +25,7 @@ const LOCKOUT_MESSAGE = "Too many incorrect attempts. Please request a new code.
 export default function ForgotPasswordVerifyScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const navigation = useNavigation();
   const { email } = useLocalSearchParams();
 
   const [digits, setDigits] = useState(Array(OTP_LENGTH).fill(""));
@@ -30,11 +33,64 @@ export default function ForgotPasswordVerifyScreen() {
   const [isResending, setIsResending] = useState(false);
   const [error, setError] = useState("");
   const [resendCooldown, setResendCooldown] = useState(0);
+  const [discardVisible, setDiscardVisible] = useState(false);
   const inputRefs = useRef([]);
 
   const otp = digits.join("");
   const isComplete = otp.length === OTP_LENGTH;
   const isLockedOut = error === LOCKOUT_MESSAGE;
+  const hasChanges = otp.length > 0;
+  const handleCancelPressRef = useRef(() => {});
+  const bypassRef = useRef(false);
+
+  useFocusEffect(
+    useCallback(() => {
+      bypassRef.current = false;
+      return () => {
+        bypassRef.current = false;
+      };
+    }, [])
+  );
+
+  useEffect(() => {
+    const unsubscribe = navigation.addListener("beforeRemove", (e) => {
+      if (bypassRef.current) return;
+      e.preventDefault();
+      handleCancelPressRef.current();
+    });
+    return unsubscribe;
+  }, [navigation]);
+
+  useFocusEffect(
+    useCallback(() => {
+      const subscription = BackHandler.addEventListener("hardwareBackPress", () => {
+        if (bypassRef.current) return false;
+        handleCancelPressRef.current();
+        return true;
+      });
+
+      return () => subscription.remove();
+    }, [])
+  );
+
+  const handleLeavePress = () => {
+    if (!hasChanges) {
+      bypassRef.current = true;
+      router.back();
+      return;
+    }
+    setDiscardVisible(true);
+  };
+
+  useEffect(() => {
+    handleCancelPressRef.current = handleLeavePress;
+  });
+
+  const handleDiscard = () => {
+    setDiscardVisible(false);
+    bypassRef.current = true;
+    router.back();
+  };
 
   // Tick down the resend cooldown every second
   useEffect(() => {
@@ -123,20 +179,27 @@ export default function ForgotPasswordVerifyScreen() {
   };
 
   return (
-    <KeyboardAwareScrollView
-      style={styles.root}
-      contentContainerStyle={styles.scroll}
-      keyboardShouldPersistTaps="handled"
-      showsVerticalScrollIndicator={false}
-      bounces={false}
-      enableOnAndroid={true}
-      extraScrollHeight={20}
-    >
+    <>
+      <ConfirmDiscardModal
+        visible={discardVisible}
+        onKeepEditing={() => setDiscardVisible(false)}
+        onDiscard={handleDiscard}
+      />
+
+      <KeyboardAwareScrollView
+        style={styles.root}
+        contentContainerStyle={styles.scroll}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+        bounces={false}
+        enableOnAndroid={true}
+        extraScrollHeight={20}
+      >
       <StatusBar style="dark" backgroundColor="transparent" translucent />
 
       <View style={[styles.topSection, { paddingTop: insets.top + 12 }]}>
         <TouchableOpacity
-          onPress={() => router.back()}
+          onPress={handleLeavePress}
           style={styles.backButton}
           activeOpacity={0.7}
         >
@@ -193,7 +256,7 @@ export default function ForgotPasswordVerifyScreen() {
         <View style={styles.buttonRow}>
           <TouchableOpacity
             style={styles.backTextButton}
-            onPress={() => router.back()}
+            onPress={handleLeavePress}
             activeOpacity={0.8}
           >
             <Text style={styles.backTextButtonText}>Back</Text>
@@ -202,12 +265,13 @@ export default function ForgotPasswordVerifyScreen() {
           {isLockedOut ? (
             <TouchableOpacity
               style={styles.nextButton}
-              onPress={() =>
+              onPress={() => {
+                bypassRef.current = true;
                 router.replace({
                   pathname: "/forgotPassword",
                   params: { prefillEmail: String(email) },
-                })
-              }
+                });
+              }}
               activeOpacity={0.8}
             >
               <Text style={styles.nextButtonText}>Request New Code</Text>
@@ -232,6 +296,7 @@ export default function ForgotPasswordVerifyScreen() {
         </View>
       </View>
     </KeyboardAwareScrollView>
+    </>
   );
 }
 

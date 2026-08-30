@@ -1,12 +1,14 @@
+import ConfirmDiscardModal from "@/components/ConfirmDiscardModal";
 import Toast from "@/components/Toast";
 import { API_BASE_URL } from "@/constants/api";
 import AppColors from "@/constants/AppColors";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { useLocalSearchParams, useRouter } from "expo-router";
+import { useFocusEffect, useLocalSearchParams, useNavigation, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  BackHandler,
   Image,
   StyleSheet,
   Text,
@@ -22,6 +24,7 @@ const isValidEmailFormat = (value) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.tr
 export default function ForgotPasswordScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const navigation = useNavigation();
 
   const { resetExpired, prefillEmail } = useLocalSearchParams();
 
@@ -34,6 +37,63 @@ export default function ForgotPasswordScreen() {
     type: "error",
     message: "Your session expired. Please request a new code.",
   });
+
+  const [discardVisible, setDiscardVisible] = useState(false);
+  const hasChanges = email.trim().length > 0;
+  const handleCancelPressRef = useRef(() => {});
+  const bypassRef = useRef(false);
+
+  useFocusEffect(
+    useCallback(() => {
+      bypassRef.current = false;
+      return () => {
+        bypassRef.current = false;
+      };
+    }, [])
+  );
+
+  // Catches the iOS edge-swipe gesture and any programmatic navigation that
+  // removes this screen. Android's back gesture/button is handled below via
+  // BackHandler, since it doesn't go through beforeRemove.
+  useEffect(() => {
+    const unsubscribe = navigation.addListener("beforeRemove", (e) => {
+      if (bypassRef.current) return;
+      e.preventDefault();
+      handleCancelPressRef.current();
+    });
+    return unsubscribe;
+  }, [navigation]);
+
+  useFocusEffect(
+    useCallback(() => {
+      const subscription = BackHandler.addEventListener("hardwareBackPress", () => {
+        if (bypassRef.current) return false;
+        handleCancelPressRef.current();
+        return true;
+      });
+
+      return () => subscription.remove();
+    }, [])
+  );
+
+  const handleLeavePress = () => {
+    if (!hasChanges) {
+      bypassRef.current = true;
+      router.back();
+      return;
+    }
+    setDiscardVisible(true);
+  };
+
+  useEffect(() => {
+    handleCancelPressRef.current = handleLeavePress;
+  });
+
+  const handleDiscard = () => {
+    setDiscardVisible(false);
+    bypassRef.current = true;
+    router.back();
+  };
 
   const handleNext = async () => {
     if (!email.trim()) return;
@@ -73,6 +133,12 @@ export default function ForgotPasswordScreen() {
 
   return (
     <>
+      <ConfirmDiscardModal
+        visible={discardVisible}
+        onKeepEditing={() => setDiscardVisible(false)}
+        onDiscard={handleDiscard}
+      />
+
       <KeyboardAwareScrollView
         style={styles.root}
         contentContainerStyle={styles.scroll}
@@ -86,7 +152,7 @@ export default function ForgotPasswordScreen() {
 
         <View style={[styles.topSection, { paddingTop: insets.top + 12 }]}>
           <TouchableOpacity
-            onPress={() => router.back()}
+            onPress={handleLeavePress}
             style={styles.backButton}
             activeOpacity={0.7}
           >

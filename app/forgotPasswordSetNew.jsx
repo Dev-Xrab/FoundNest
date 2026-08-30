@@ -1,12 +1,14 @@
+import ConfirmDiscardModal from "@/components/ConfirmDiscardModal";
 import PasswordChecklist from "@/components/PasswordChecklist";
 import { API_BASE_URL } from "@/constants/api";
 import AppColors from "@/constants/AppColors";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { useLocalSearchParams, useRouter } from "expo-router";
+import { useFocusEffect, useLocalSearchParams, useNavigation, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  BackHandler,
   Image,
   StyleSheet,
   Text,
@@ -22,6 +24,7 @@ const EXPIRED_SESSION_MESSAGE = "Reset session expired or invalid. Please start 
 export default function ForgotPasswordSetNewScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const navigation = useNavigation();
   const { resetToken } = useLocalSearchParams();
 
   const [newPassword, setNewPassword] = useState("");
@@ -31,6 +34,7 @@ export default function ForgotPasswordSetNewScreen() {
   const [isLoading, setIsLoading] = useState(false);
   const [confirmError, setConfirmError] = useState("");
   const [serverError, setServerError] = useState("");
+  const [discardVisible, setDiscardVisible] = useState(false);
 
   const isValid =
     newPassword.length >= 8 &&
@@ -40,6 +44,58 @@ export default function ForgotPasswordSetNewScreen() {
 
   const passwordsMatch = newPassword === confirmPassword && confirmPassword.length > 0;
   const canSubmit = isValid && passwordsMatch;
+  const hasChanges = newPassword.length > 0 || confirmPassword.length > 0;
+  const handleCancelPressRef = useRef(() => {});
+  const bypassRef = useRef(false);
+
+  useFocusEffect(
+    useCallback(() => {
+      bypassRef.current = false;
+      return () => {
+        bypassRef.current = false;
+      };
+    }, [])
+  );
+
+  useEffect(() => {
+    const unsubscribe = navigation.addListener("beforeRemove", (e) => {
+      if (bypassRef.current) return;
+      e.preventDefault();
+      handleCancelPressRef.current();
+    });
+    return unsubscribe;
+  }, [navigation]);
+
+  useFocusEffect(
+    useCallback(() => {
+      const subscription = BackHandler.addEventListener("hardwareBackPress", () => {
+        if (bypassRef.current) return false;
+        handleCancelPressRef.current();
+        return true;
+      });
+
+      return () => subscription.remove();
+    }, [])
+  );
+
+  const handleLeavePress = () => {
+    if (!hasChanges) {
+      bypassRef.current = true;
+      router.back();
+      return;
+    }
+    setDiscardVisible(true);
+  };
+
+  useEffect(() => {
+    handleCancelPressRef.current = handleLeavePress;
+  });
+
+  const handleDiscard = () => {
+    setDiscardVisible(false);
+    bypassRef.current = true;
+    router.back();
+  };
 
   const handleDone = async () => {
     if (!isValid) return;
@@ -63,6 +119,7 @@ export default function ForgotPasswordSetNewScreen() {
 
       if (!response.ok) {
         if (data.message === EXPIRED_SESSION_MESSAGE) {
+          bypassRef.current = true;
           router.replace({
             pathname: "/forgotPassword",
             params: { resetExpired: "1" },
@@ -73,6 +130,7 @@ export default function ForgotPasswordSetNewScreen() {
         return;
       }
 
+      bypassRef.current = true;
       router.replace({
         pathname: "/login",
         params: { passwordResetSuccess: "1" },
@@ -86,20 +144,27 @@ export default function ForgotPasswordSetNewScreen() {
   };
 
   return (
-    <KeyboardAwareScrollView
-      style={styles.root}
-      contentContainerStyle={styles.scroll}
-      keyboardShouldPersistTaps="handled"
-      showsVerticalScrollIndicator={false}
-      bounces={false}
-      enableOnAndroid={true}
-      extraScrollHeight={20}
-    >
+    <>
+      <ConfirmDiscardModal
+        visible={discardVisible}
+        onKeepEditing={() => setDiscardVisible(false)}
+        onDiscard={handleDiscard}
+      />
+
+      <KeyboardAwareScrollView
+        style={styles.root}
+        contentContainerStyle={styles.scroll}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+        bounces={false}
+        enableOnAndroid={true}
+        extraScrollHeight={20}
+      >
       <StatusBar style="dark" backgroundColor="transparent" translucent />
 
       <View style={[styles.topSection, { paddingTop: insets.top + 12 }]}>
         <TouchableOpacity
-          onPress={() => router.back()}
+          onPress={handleLeavePress}
           style={styles.backButton}
           activeOpacity={0.7}
         >
@@ -184,7 +249,7 @@ export default function ForgotPasswordSetNewScreen() {
         <View style={styles.buttonRow}>
           <TouchableOpacity
             style={styles.backTextButton}
-            onPress={() => router.back()}
+            onPress={handleLeavePress}
             activeOpacity={0.8}
           >
             <Text style={styles.backTextButtonText}>Back</Text>
@@ -208,6 +273,7 @@ export default function ForgotPasswordSetNewScreen() {
         </View>
       </View>
     </KeyboardAwareScrollView>
+    </>
   );
 }
 
