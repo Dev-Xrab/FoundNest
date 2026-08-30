@@ -2,7 +2,7 @@ import ConfirmDiscardModal from '@/components/ConfirmDiscardModal';
 import { API_BASE_URL } from "@/constants/api";
 import AppColors from "@/constants/AppColors";
 import { fetchWithAuth, uploadWithAuth } from '@/constants/authApi';
-import fetchBulsuColleges from "@/constants/CollegeBuildings";
+import { fetchBulsuColleges } from "@/constants/CollegeBuildings";
 import fetchGates from "@/constants/Gates";
 import {
   clearReportDraft,
@@ -129,13 +129,22 @@ function parseLocationLost(
     return { colleges: [], spaces: [], gates: [], cantRemember: true };
   }
 
+  // Mirrors formatDataList's field-resolution below — the fetched
+  // colleges/spaces/gates lists are arrays of office objects using
+  // `office_name` (with `.name`/`.title` fallbacks), not plain strings.
+  const getLocationName = (item) => {
+    if (!item) return "";
+    if (typeof item === "string") return item;
+    return item.office_name || item.name || item.title || "";
+  };
+
   const safeColleges = Array.isArray(collegesList) ? collegesList : [];
   const safeSpaces = Array.isArray(spacesList) ? spacesList : [];
   const safeGates = Array.isArray(gatesList) ? gatesList : [];
 
-  const systemColleges = safeColleges.map((c) => String(c || ""));
-  const systemSpaces = safeSpaces.map((s) => String(s || ""));
-  const systemGates = safeGates.map((g) => String(g || ""));
+  const systemColleges = safeColleges.map(getLocationName).filter(Boolean);
+  const systemSpaces = safeSpaces.map(getLocationName).filter(Boolean);
+  const systemGates = safeGates.map(getLocationName).filter(Boolean);
 
   return {
     colleges: systemColleges.filter((item) =>
@@ -203,6 +212,7 @@ function EditNextScreen() {
   const [openClock, setOpenClock] = useState(false);
   const [openSubSection, setOpenSubSection] = useState(null);
   const [discardModalVisible, setDiscardModalVisible] = useState(false);
+  const [saveConfirmVisible, setSaveConfirmVisible] = useState(false);
 
   const mainRotation = useSharedValue(0);
   const mainAnimatedStyle = useAnimatedStyle(() => ({
@@ -435,13 +445,23 @@ function EditNextScreen() {
 
   const formatDataList = (sourceData) => {
     return Array.isArray(sourceData)
-      ? sourceData.map((item) =>
-          item && typeof item === "object"
-            ? item.college_name || item.shared_space_name || item.gate_name || item.name
-            : item,
-        )
+      ? sourceData
+          .map((item) => {
+            if (!item) return "";
+            if (typeof item === "string") return item;
+            return item.office_name || item.name || item.title || "";
+          })
+          .filter(Boolean)
       : [];
   };
+
+  // Flat, ordered list of every selected location, for the read-only view
+  // mode display below (e.g. "Location 1, Location 2, Location 3").
+  const allSelectedLocations = [
+    ...selectedColleges,
+    ...selectedSpaces,
+    ...selectedGates,
+  ];
 
   // True value comparison against the original report — covers this page's
   // fields (location/date) plus whatever page 1 last committed to the draft.
@@ -565,6 +585,11 @@ function EditNextScreen() {
     }
 
     setErrors({});
+    setSaveConfirmVisible(true);
+  };
+
+  const executeSubmit = async () => {
+    setSaveConfirmVisible(false);
     setIsSubmitting(true);
 
     try {
@@ -688,6 +713,15 @@ function EditNextScreen() {
         }}
       />
 
+      <ConfirmDiscardModal
+        visible={saveConfirmVisible}
+        message="Are you sure you want to save these changes?"
+        cancelLabel="Cancel"
+        confirmLabel="Save"
+        onKeepEditing={() => setSaveConfirmVisible(false)}
+        onDiscard={executeSubmit}
+      />
+
       <DatePicker
         modal
         open={openCalendar}
@@ -756,8 +790,19 @@ function EditNextScreen() {
         </TouchableOpacity>
         <FieldError message={errors.dateTime} />
 
-        <Text style={styles.sectionTitle}>Select Location</Text>
+        <Text style={styles.sectionTitle}>{isViewOnly ? "Location" : "Select Location"}</Text>
 
+        {isViewOnly ? (
+          <View style={styles.locationViewBox}>
+            <Text style={styles.locationViewText}>
+              {cantRemember
+                ? "Can't Remember"
+                : allSelectedLocations.length > 0
+                ? allSelectedLocations.join(", ")
+                : "Not specified"}
+            </Text>
+          </View>
+        ) : (
         <View style={styles.dropdownMainContainer}>
           <TouchableOpacity onPress={handleMainLocationPress} activeOpacity={0.9}>
             <View style={[styles.dataPickerButton, styles.locationMainSelector, showLocation && styles.dataPickerButtonActive, errors.location && !showLocation && styles.inputErrorBorder]}>
@@ -804,6 +849,7 @@ function EditNextScreen() {
             </View>
           )}
         </View>
+        )}
         <FieldError message={errors.location} />
 
         {!isViewOnly && (
@@ -871,6 +917,8 @@ const styles = StyleSheet.create({
   buttonSection: { gap: 10, flexDirection: "row" },
   sectionTitle: { fontSize: 17, fontWeight: "800", color: AppColors.textOnLight, paddingLeft: 20, marginTop: 20, marginBottom: 8 },
   dataPickerButton: { justifyContent: "space-between", alignItems: "center", flexDirection: "row", marginHorizontal: 20, marginBottom: 10, padding: 14, backgroundColor: "#fff", borderWidth: 1, borderColor: "#E0E0E0", borderRadius: 6 },
+  locationViewBox: { marginHorizontal: 20, marginBottom: 10, padding: 14, backgroundColor: "#fff", borderWidth: 1, borderColor: "#E0E0E0", borderRadius: 6 },
+  locationViewText: { fontSize: 15, color: "#333", lineHeight: 22 },
   pickerValueText: { fontSize: 15, color: "#333" },
   locationMainSelector: { marginHorizontal: 0, marginBottom: 0 },
   dataPickerButtonActive: { backgroundColor: "#FFFFFF", borderBottomLeftRadius: 0, borderBottomRightRadius: 0, borderBottomWidth: 0 },
