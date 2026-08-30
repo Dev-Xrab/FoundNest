@@ -1,14 +1,15 @@
-import NavigationBackHandler from "@/components/NavigationBackHandler";
 import { API_BASE_URL } from "@/constants/api";
 import AppColors from "@/constants/AppColors";
 import { fetchWithAuth } from "@/constants/authApi";
 import { goBack } from "@/constants/previousPage";
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
+  Animated,
   Image,
   Modal,
+  PanResponder,
   ScrollView,
   StyleSheet,
   Text,
@@ -160,42 +161,132 @@ function TableRow({ label, yourValue, matchValue, isLast }) {
 
 // ── How to Claim bottom sheet ─────────────────────────────────────────────────
 function HowToClaimSheet({ visible, onClose }) {
+  const translateY = useRef(new Animated.Value(800)).current;
+  const overlayOpacity = useRef(new Animated.Value(0)).current;
+  // Modal's own animationType is left off entirely — both the sheet and the
+  // backdrop are driven by these two Animated.Values instead, so there is
+  // only ever one animation running at a time (no native slide stacked on
+  // top of the drag-close, which was causing the double-close flash).
+  const closeSheet = () => {
+    Animated.parallel([
+      Animated.timing(translateY, {
+        toValue: 800,
+        duration: 220,
+        useNativeDriver: true,
+      }),
+      Animated.timing(overlayOpacity, {
+        toValue: 0,
+        duration: 220,
+        useNativeDriver: true,
+      }),
+    ]).start(() => {
+      onClose();
+    });
+  };
+
+  // Animate in every time the sheet opens, starting fresh from off-screen
+  // and transparent so a previous drag-to-dismiss doesn't leave it offset.
+  useEffect(() => {
+    if (visible) {
+      translateY.setValue(800);
+      overlayOpacity.setValue(0);
+      Animated.parallel([
+        Animated.timing(translateY, {
+          toValue: 0,
+          duration: 260,
+          useNativeDriver: true,
+        }),
+        Animated.timing(overlayOpacity, {
+          toValue: 1,
+          duration: 220,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    }
+  }, [visible]);
+
+  const panResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: (_, gestureState) =>
+        Math.abs(gestureState.dy) > 4,
+      onPanResponderMove: (_, gestureState) => {
+        if (gestureState.dy > 0) {
+          translateY.setValue(gestureState.dy);
+          overlayOpacity.setValue(1 - gestureState.dy / 800);
+        }
+      },
+      onPanResponderRelease: (_, gestureState) => {
+        const draggedFarEnough = gestureState.dy > 120 || gestureState.vy > 0.8;
+        if (draggedFarEnough) {
+          closeSheet();
+        } else {
+          Animated.parallel([
+            Animated.spring(translateY, {
+              toValue: 0,
+              useNativeDriver: true,
+              bounciness: 4,
+            }),
+            Animated.timing(overlayOpacity, {
+              toValue: 1,
+              duration: 150,
+              useNativeDriver: true,
+            }),
+          ]).start();
+        }
+      },
+    })
+  ).current;
+
   return (
     <Modal
       visible={visible}
       transparent
-      animationType="slide"
-      onRequestClose={onClose}
+      animationType="none"
+      onRequestClose={closeSheet}
     >
-      <TouchableOpacity
-        style={styles.sheetOverlay}
-        activeOpacity={1}
-        onPress={onClose}
-      />
-      <View style={styles.sheet}>
-        <View style={styles.sheetHandle} />
-        <ScrollView showsVerticalScrollIndicator={false}>
-          <Text style={styles.sheetTitle}>How to Claim?</Text>
+      <View style={styles.sheetRoot}>
+        <Animated.View
+          style={[styles.sheetOverlay, { opacity: overlayOpacity }]}
+        >
+          <TouchableOpacity
+            style={StyleSheet.absoluteFill}
+            activeOpacity={1}
+            onPress={closeSheet}
+          />
+        </Animated.View>
+        <Animated.View
+          style={[styles.sheet, { transform: [{ translateY }] }]}
+        >
+          <View
+            {...panResponder.panHandlers}
+            collapsable={false}
+            style={styles.sheetHeader}
+          >
+            <View style={styles.sheetHandle} collapsable={false} />
+            <Text style={styles.sheetTitle}>How to Claim?</Text>
+          </View>
+          <ScrollView showsVerticalScrollIndicator={false}>
+            <Text style={styles.stepTitle}>Step 1: Bring Proof</Text>
+            <Text style={styles.stepBody}>
+              Please bring your BulSU Student ID/COR/or any form of identification
+              and be ready to provide proof of ownership (e.g., describing a
+              unique detail on an item, showing a photo of you while holding the
+              item, or unlocking the item for devices).
+            </Text>
 
-          <Text style={styles.stepTitle}>Step 1: Bring Proof</Text>
-          <Text style={styles.stepBody}>
-            Please bring your BulSU Student ID/COR/or any form of identification
-            and be ready to provide proof of ownership (e.g., describing a
-            unique detail on an item, showing a photo of you while holding the
-            item, or unlocking the item for devices).
-          </Text>
+            <Text style={styles.stepTitle}>Step 2: Visit the Office</Text>
+            <Text style={styles.stepBody}>
+              Proceed to the FoundNest Office listed on the item details.
+            </Text>
 
-          <Text style={styles.stepTitle}>Step 2: Visit the Office</Text>
-          <Text style={styles.stepBody}>
-            Proceed to the FoundNest Office listed on the item details.
-          </Text>
-
-          <Text style={styles.stepTitle}>Step 3: Final Photo</Text>
-          <Text style={styles.stepBody}>
-            Our staff will take a quick photo of the turnover for our security
-            records and to finalize the process.
-          </Text>
-        </ScrollView>
+            <Text style={styles.stepTitle}>Step 3: Final Photo</Text>
+            <Text style={styles.stepBody}>
+              Our staff will take a quick photo of the turnover for our security
+              records and to finalize the process.
+            </Text>
+          </ScrollView>
+        </Animated.View>
       </View>
     </Modal>
   );
@@ -211,6 +302,7 @@ export default function ProfileReportHistoryView() {
   const [match, setMatch] = useState(matchParam ? JSON.parse(matchParam) : {});
 
   const [claimSheetVisible, setClaimSheetVisible] = useState(false);
+  const scrollRef = useRef(null);
 
   // Silently refresh in the background once the screen is up, so the
   // cached/passed-in snapshot never goes stale without the user knowing.
@@ -220,6 +312,11 @@ export default function ProfileReportHistoryView() {
     if (matchParam) {
       try {
         setMatch(JSON.parse(matchParam));
+        // A new match param means this is a fresh arrival at this screen
+        // (a different match, or the same one navigated to again) rather
+        // than just returning here unchanged from, say, the map — so start
+        // back at the top instead of carrying over a stale scroll offset.
+        scrollRef.current?.scrollTo({ y: 0, animated: false });
       } catch (e) {
         console.error("Failed to parse match param:", e);
       }
@@ -284,6 +381,7 @@ export default function ProfileReportHistoryView() {
       </View>
 
       <ScrollView
+        ref={scrollRef}
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
       >
@@ -602,11 +700,18 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: AppColors.background,
   },
-  sheetOverlay: {
+  sheetRoot: {
     flex: 1,
+  },
+  sheetOverlay: {
+    ...StyleSheet.absoluteFillObject,
     backgroundColor: "rgba(0,0,0,0.4)",
   },
   sheet: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    bottom: 0,
     backgroundColor: "#FFFFFF",
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
@@ -615,20 +720,25 @@ const styles = StyleSheet.create({
     paddingTop: 12,
     maxHeight: "65%",
   },
+  sheetHeader: {
+    width: "100%",
+    alignItems: "center",
+    paddingTop: 10,
+    paddingBottom: 18,
+  },
   sheetHandle: {
     width: 40,
     height: 4,
     borderRadius: 2,
     backgroundColor: "rgba(0,0,0,0.15)",
     alignSelf: "center",
-    marginBottom: 16,
+    marginBottom: 14,
   },
   sheetTitle: {
     fontSize: 20,
     fontWeight: "800",
     color: AppColors.textOnLight,
     textAlign: "center",
-    marginBottom: 20,
   },
   stepTitle: {
     fontSize: 15,
