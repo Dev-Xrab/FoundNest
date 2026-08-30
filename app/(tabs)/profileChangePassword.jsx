@@ -7,10 +7,13 @@ import { fetchWithAuth } from '@/constants/authApi';
 import { clearSession, getUser } from '@/constants/StudentData';
 import { deletePushToken } from '@/utils/pushNotifications';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useFocusEffect, useNavigation, useRouter } from 'expo-router';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  BackHandler,
+  KeyboardAvoidingView,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -49,6 +52,7 @@ function PasswordField({ label, value, onChangeText, showPassword, onToggle, err
 
 export default function ProfileChangePassword() {
   const router = useRouter();
+  const navigation = useNavigation();
   const insets = useSafeAreaInsets();
 
   const [user, setUser]                       = useState(null);
@@ -60,12 +64,21 @@ export default function ProfileChangePassword() {
   const [showConfirm, setShowConfirm]         = useState(false);
   const [isSaving, setIsSaving]               = useState(false);
   const [discardVisible, setDiscardVisible]   = useState(false);
+  const [confirmChangeVisible, setConfirmChangeVisible] = useState(false);
   const [toast, setToast]                     = useState({ visible: false, type: 'success', message: '' });
 
   const [errors, setErrors] = useState({
     current: '',
     confirm: '',
   });
+
+  // Any field with content is enough to protect against an accidental
+  // discard — unlike isFormFilled below, which gates actual submission and
+  // requires all three fields.
+  const hasChanges =
+    currentPassword.length > 0 ||
+    newPassword.length > 0 ||
+    confirmPassword.length > 0;
 
   const isFormFilled =
     currentPassword.trim().length > 0 &&
@@ -85,11 +98,71 @@ export default function ProfileChangePassword() {
     getUser().then(setUser);
   }, []);
 
+  // Always call the latest cancel/leave logic, even from a listener that
+  // was registered on an earlier render — avoids stale-closure bugs.
+  const handleCancelPressRef = useRef(() => {});
+  // Lets confirmed navigations (Discard, or leaving with no changes) through
+  // the listeners below without re-triggering the discard check.
+  const bypassRef = useRef(false);
+  // Distinguishes why the discard modal is open: true if the user tried to
+  // leave the screen entirely (back arrow / swipe / hardware back), in which
+  // case confirming Discard should navigate away. False if triggered by the
+  // in-page Cancel button, which should just clear the form and stay put.
+  const pendingLeaveRef = useRef(false);
+
+  useFocusEffect(
+    useCallback(() => {
+      bypassRef.current = false;
+      return () => {
+        bypassRef.current = false;
+      };
+    }, [])
+  );
+
+  // Catches the iOS edge-swipe gesture and any programmatic navigation away
+  // from this screen. Android's back gesture/button is handled separately
+  // below via BackHandler, since it doesn't go through beforeRemove.
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('beforeRemove', (e) => {
+      if (bypassRef.current) return;
+      e.preventDefault();
+      handleCancelPressRef.current();
+    });
+    return unsubscribe;
+  }, [navigation]);
+
+  useFocusEffect(
+    useCallback(() => {
+      const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+        if (bypassRef.current) return false;
+        handleCancelPressRef.current();
+        return true;
+      });
+
+      return () => subscription.remove();
+    }, [])
+  );
+
   const handleCancel = () => {
-    if (isFormFilled) {
+    if (hasChanges) {
+      pendingLeaveRef.current = false;
       setDiscardVisible(true);
     }
   };
+
+  const handleLeavePress = () => {
+    if (!hasChanges) {
+      bypassRef.current = true;
+      router.navigate('/(tabs)/profile');
+      return;
+    }
+    pendingLeaveRef.current = true;
+    setDiscardVisible(true);
+  };
+
+  useEffect(() => {
+    handleCancelPressRef.current = handleLeavePress;
+  });
 
   const handleDiscard = () => {
     setCurrentPassword('');
@@ -97,6 +170,12 @@ export default function ProfileChangePassword() {
     setConfirmPassword('');
     setErrors({ current: '', confirm: '' });
     setDiscardVisible(false);
+
+    if (pendingLeaveRef.current) {
+      pendingLeaveRef.current = false;
+      bypassRef.current = true;
+      router.navigate('/(tabs)/profile');
+    }
   };
 
   const showToast = (type, message) => {
@@ -121,7 +200,10 @@ export default function ProfileChangePassword() {
     }));
   };
 
-  const handleChangePassword = async () => {
+  // Validates the form and, if it passes, opens a confirmation step before
+  // actually submitting — this action logs the user out on success, so it's
+  // worth an explicit "are you sure" rather than firing immediately.
+  const handleChangePasswordPress = () => {
     const newErrors = { current: '', confirm: '' };
     let hasError = false;
 
@@ -140,6 +222,11 @@ export default function ProfileChangePassword() {
     }
 
     setErrors({ current: '', confirm: '' });
+    setConfirmChangeVisible(true);
+  };
+
+  const executeChangePassword = async () => {
+    setConfirmChangeVisible(false);
     setIsSaving(true);
 
     try {
@@ -180,17 +267,32 @@ export default function ProfileChangePassword() {
   };
 
   return (
-    <View style={styles.screen}>
+    <KeyboardAvoidingView
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      style={styles.screen}
+    >
       <ConfirmDiscardModal
         visible={discardVisible}
-        onKeepEditing={() => setDiscardVisible(false)}
+        onKeepEditing={() => {
+          pendingLeaveRef.current = false;
+          setDiscardVisible(false);
+        }}
         onDiscard={handleDiscard}
+      />
+
+      <ConfirmDiscardModal
+        visible={confirmChangeVisible}
+        message="Changing your password will log you out of this device. Are you sure you want to continue?"
+        cancelLabel="Cancel"
+        confirmLabel="Change Password"
+        onKeepEditing={() => setConfirmChangeVisible(false)}
+        onDiscard={executeChangePassword}
       />
 
       <View style={[styles.redHeader, { paddingTop: insets.top }]}>
         <View style={styles.headerRow}>
           <TouchableOpacity
-            onPress={() => router.navigate('/(tabs)/profile')}
+            onPress={handleLeavePress}
             activeOpacity={0.7}
             style={styles.backButton}
           >
@@ -259,7 +361,7 @@ export default function ProfileChangePassword() {
                 styles.saveButton,
                 (!isFormFilled || !isNewPasswordValid || isConfirmMismatched) && styles.buttonDisabled,
               ]}
-              onPress={handleChangePassword}
+              onPress={handleChangePasswordPress}
               disabled={!isFormFilled || !isNewPasswordValid || isConfirmMismatched || isSaving}
               activeOpacity={0.8}
             >
@@ -271,12 +373,12 @@ export default function ProfileChangePassword() {
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={[styles.cancelButton, !isFormFilled && styles.buttonDisabled]}
+              style={[styles.cancelButton, !hasChanges && styles.buttonDisabled]}
               onPress={handleCancel}
-              disabled={!isFormFilled}
+              disabled={!hasChanges}
               activeOpacity={0.8}
             >
-              <Text style={[styles.cancelButtonText, !isFormFilled && styles.cancelTextDisabled]}>
+              <Text style={[styles.cancelButtonText, !hasChanges && styles.cancelTextDisabled]}>
                 Cancel
               </Text>
             </TouchableOpacity>
@@ -290,7 +392,7 @@ export default function ProfileChangePassword() {
         message={toast.message}
         onHide={() => setToast((t) => ({ ...t, visible: false }))}
       />
-    </View>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -320,6 +422,7 @@ const styles = StyleSheet.create({
     marginLeft: 4,
   },
   container: {
+    flexGrow: 1,
     paddingBottom: 40,
   },
   fieldsCard: {
