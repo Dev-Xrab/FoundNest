@@ -35,7 +35,7 @@ export default function QrItemSuccess() {
 
   const handleDownload = async () => {
     try {
-      const { status } = await MediaLibrary.requestPermissionsAsync();
+      const { status } = await MediaLibrary.requestPermissionsAsync(false, ['photo']);
       if (status !== 'granted') {
         Alert.alert('Permission Denied', 'Allow media library access to save the QR code.');
         return;
