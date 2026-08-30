@@ -33,6 +33,11 @@ export default function QrItemView() {
   const parsedItem = JSON.parse(itemParam || '{}');
   const [item, setItem] = useState(parsedItem);
   const isFromScan = fromScan === 'true';
+  const scrollRef = useRef(null);
+  // Set right before navigating to qrItemSuccess for "View QR", so the
+  // upcoming re-focus (on Close) skips the scroll-to-top reset and keeps
+  // wherever the user had scrolled to before they left.
+  const preserveScrollRef = useRef(false);
 
   useFocusEffect(
     useCallback(() => {
@@ -45,6 +50,11 @@ export default function QrItemView() {
       }
 
       setItem(current);
+      if (preserveScrollRef.current) {
+        preserveScrollRef.current = false;
+      } else {
+        scrollRef.current?.scrollTo({ y: 0, animated: false });
+      }
 
       async function loadItem() {
         try {
@@ -128,6 +138,7 @@ export default function QrItemView() {
       </View>
 
       <ScrollView
+        ref={scrollRef}
         contentContainerStyle={styles.container}
         showsVerticalScrollIndicator={false}
       >
@@ -176,7 +187,8 @@ export default function QrItemView() {
         <View style={styles.divider} />
         <TouchableOpacity
           style={styles.viewQrButton}
-          onPress={() =>
+          onPress={() => {
+            preserveScrollRef.current = true;
             router.navigate({
               pathname: '/(tabs)/qrItemSuccess',
               params: {
@@ -186,8 +198,8 @@ export default function QrItemView() {
                 item: JSON.stringify(item),
                 fromScan,
               },
-            })
-          }
+            });
+          }}
           activeOpacity={0.8}
         >
           <Ionicons name="qr-code-outline" size={20} color="#FFFFFF" style={{ marginRight: 8 }} />
