@@ -7,12 +7,15 @@ import { fetchWithAuth, uploadWithAuth } from '@/constants/authApi';
 import { getUserProfile, saveProfileCache } from '@/constants/profile';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
-import { useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useFocusEffect, useNavigation, useRouter } from 'expo-router';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  BackHandler,
   Image,
+  KeyboardAvoidingView,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -24,6 +27,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function ProfileAccountDetails() {
   const router = useRouter();
+  const navigation = useNavigation();
   const insets = useSafeAreaInsets();
 
   const [user, setUser]                     = useState(null);
@@ -32,10 +36,25 @@ export default function ProfileAccountDetails() {
   const [isSaving, setIsSaving]             = useState(false);
   const [contactError, setContactError]     = useState('');
   const [discardVisible, setDiscardVisible] = useState(false);
+  const [confirmSaveVisible, setConfirmSaveVisible] = useState(false);
   const [toast, setToast]                   = useState({ visible: false, type: 'success', message: '' });
 
   const [photoModalVisible, setPhotoModalVisible] = useState(false);
   const [isUploadingPhoto, setIsUploadingPhoto]   = useState(false);
+
+  // Always call the latest cancel/leave logic, even from a listener that
+  // was registered on an earlier render — avoids stale-closure bugs.
+  const handleCancelPressRef = useRef(() => {});
+  const bypassRef = useRef(false);
+
+  useFocusEffect(
+    useCallback(() => {
+      bypassRef.current = false;
+      return () => {
+        bypassRef.current = false;
+      };
+    }, [])
+  );
 
   useEffect(() => {
     async function loadProfile() {
@@ -53,7 +72,44 @@ export default function ProfileAccountDetails() {
     loadProfile();
   }, []);
 
+  const userRef = useRef(user);
+  useEffect(() => {
+    userRef.current = user;
+  }, [user]);
+
+  useFocusEffect(
+    useCallback(() => {
+      return () => {
+        setIsEditing(false);
+        setContactError('');
+        setDiscardVisible(false);
+        setContactNumber(userRef.current?.contact_number ?? '');
+      };
+    }, [])
+  );
+
   const hasChanges = contactNumber !== (user?.contact_number ?? '');
+
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('beforeRemove', (e) => {
+      if (bypassRef.current) return;
+      e.preventDefault();
+      handleCancelPressRef.current();
+    });
+    return unsubscribe;
+  }, [navigation]);
+
+  useFocusEffect(
+    useCallback(() => {
+      const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+        if (bypassRef.current) return false;
+        handleCancelPressRef.current();
+        return true;
+      });
+
+      return () => subscription.remove();
+    }, [])
+  );
 
   const validateContact = (value) => {
     const digits = value.trim();
@@ -65,32 +121,60 @@ export default function ProfileAccountDetails() {
     setIsEditing(true);
   };
 
+  const pendingLeaveRef = useRef(false);
+
   const handleCancel = () => {
     if (hasChanges) {
+      pendingLeaveRef.current = false;
       setDiscardVisible(true);
     } else {
       setIsEditing(false);
     }
   };
 
+  const handleLeavePress = () => {
+    if (!hasChanges) {
+      bypassRef.current = true;
+      router.navigate('/(tabs)/profile');
+      return;
+    }
+    pendingLeaveRef.current = true;
+    setDiscardVisible(true);
+  };
+
+  useEffect(() => {
+    handleCancelPressRef.current = handleLeavePress;
+  });
+
   const handleDiscard = () => {
     setContactNumber(user?.contact_number ?? '');
     setContactError('');
     setIsEditing(false);
     setDiscardVisible(false);
+
+    if (pendingLeaveRef.current) {
+      pendingLeaveRef.current = false;
+      bypassRef.current = true;
+      router.navigate('/(tabs)/profile');
+    }
   };
 
   const showToast = (type, message) => {
     setToast({ visible: true, type, message });
   };
 
-  const handleSave = async () => {
+  const handleSavePress = () => {
     if (!validateContact(contactNumber)) {
       setContactError('Please enter a valid contact number.');
       return;
     }
 
     setContactError('');
+    setConfirmSaveVisible(true);
+  };
+
+  const executeSave = async () => {
+    setConfirmSaveVisible(false);
     setIsSaving(true);
 
     try {
@@ -112,6 +196,7 @@ export default function ProfileAccountDetails() {
       const trimmedContact = contactNumber.trim();
       const updated = { ...user, contact_number: trimmedContact };
       setUser(updated);
+      setContactNumber(trimmedContact);
       await saveProfileCache(updated);
       setIsEditing(false);
       showToast('success', 'Changes saved successfully.');
@@ -255,11 +340,26 @@ export default function ProfileAccountDetails() {
   }
 
   return (
-    <View style={styles.screen}>
+    <KeyboardAvoidingView
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      style={styles.screen}
+    >
       <ConfirmDiscardModal
         visible={discardVisible}
-        onKeepEditing={() => setDiscardVisible(false)}
+        onKeepEditing={() => {
+          pendingLeaveRef.current = false;
+          setDiscardVisible(false);
+        }}
         onDiscard={handleDiscard}
+      />
+
+      <ConfirmDiscardModal
+        visible={confirmSaveVisible}
+        message="Save changes to your contact number?"
+        cancelLabel="Cancel"
+        confirmLabel="Save"
+        onKeepEditing={() => setConfirmSaveVisible(false)}
+        onDiscard={executeSave}
       />
 
       <ChangePhotoModal
@@ -274,7 +374,7 @@ export default function ProfileAccountDetails() {
       <View style={[styles.redHeader, { paddingTop: insets.top }]}>
         <View style={styles.headerRow}>
           <TouchableOpacity
-            onPress={() => router.navigate('/(tabs)/profile')}
+            onPress={handleLeavePress}
             activeOpacity={0.7}
             style={styles.backButton}
           >
@@ -386,9 +486,9 @@ export default function ProfileAccountDetails() {
           {/* BUTTONS */}
           <View style={styles.buttonsSection}>
             <TouchableOpacity
-              style={[styles.saveButton, !isEditing && styles.buttonDisabled]}
-              onPress={handleSave}
-              disabled={!isEditing || isSaving}
+              style={[styles.saveButton, !hasChanges && styles.buttonDisabled]}
+              onPress={handleSavePress}
+              disabled={!hasChanges || isSaving}
               activeOpacity={0.8}
             >
               {isSaving ? (
@@ -418,7 +518,7 @@ export default function ProfileAccountDetails() {
         message={toast.message}
         onHide={() => setToast((t) => ({ ...t, visible: false }))}
       />
-    </View>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -434,6 +534,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFF1E0',
   },
   container: {
+    flexGrow: 1,
     paddingBottom: 40,
   },
   redHeader: {
