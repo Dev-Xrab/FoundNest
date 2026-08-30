@@ -1,4 +1,6 @@
 import ConfirmDiscardModal from '@/components/ConfirmDiscardModal';
+import ChangePhotoModal from '@/components/InsertEditImage';
+import Toast from '@/components/Toast';
 import { API_BASE_URL } from '@/constants/api';
 import AppColors from '@/constants/AppColors';
 import { fetchWithAuth, uploadWithAuth } from '@/constants/authApi';
@@ -13,6 +15,8 @@ import {
   Alert,
   BackHandler,
   Image,
+  KeyboardAvoidingView,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -40,11 +44,7 @@ function ReadOnlyField({ label, value }) {
 }
 
 function RequiredLabel({ label }) {
-  return (
-    <Text style={styles.fieldLabel}>
-      {label}<Text style={styles.requiredStar}> *</Text>
-    </Text>
-  );
+  return <Text style={styles.fieldLabel}>{label}</Text>;
 }
 
 export default function QrItemEdit() {
@@ -66,10 +66,44 @@ export default function QrItemEdit() {
   );
   const [contents, setContents]                     = useState(item.contents || '');
   const [selectedImage, setSelectedImage]           = useState(null);
+  const [imageRemoved, setImageRemoved]             = useState(false);
   const [categories, setCategories]                 = useState([]);
   const [errors, setErrors]                         = useState({});
   const [isSaving, setIsSaving]                     = useState(false);
   const [discardVisible, setDiscardVisible]         = useState(false);
+  const [modalVisible, setModalVisible]             = useState(false);
+
+  // Toast (used for non-blocking notices, e.g. network errors)
+  const [toast, setToast] = useState({ visible: false, type: 'error', message: '' });
+  const showToast = (message, type = 'error') =>
+    setToast({ visible: true, type, message });
+
+  // --- Custom Confirm/Alert Modal Config State ---
+  const [modalConfig, setModalConfig] = useState({
+    visible: false,
+    message: '',
+    cancelLabel: 'Cancel',
+    confirmLabel: 'OK',
+    onConfirm: () => {},
+  });
+
+  const showCustomAlert = ({
+    message,
+    cancelLabel = 'Cancel',
+    confirmLabel = 'OK',
+    onConfirm = () => {},
+  }) => {
+    setModalConfig({
+      visible: true,
+      message,
+      cancelLabel,
+      confirmLabel,
+      onConfirm: () => {
+        onConfirm();
+        setModalConfig((prev) => ({ ...prev, visible: false }));
+      },
+    });
+  };
 
   // "Base" values mirror what's actually saved on the server so hasChanges and
   // the discard reset are always accurate.
@@ -102,6 +136,7 @@ export default function QrItemEdit() {
     );
     setContents(currentItem.contents || '');
     setSelectedImage(null);
+    setImageRemoved(false);
     setErrors({});
   }, [itemParam, editSession]);
 
@@ -131,6 +166,7 @@ export default function QrItemEdit() {
           setSelectedCategoryId(fresh.category_id ? String(fresh.category_id) : '');
           setContents(fresh.contents || '');
           setSelectedImage(null);
+          setImageRemoved(false);
           setErrors({});
         } catch (err) {
           console.error('fetchLatest error:', err);
@@ -152,7 +188,8 @@ export default function QrItemEdit() {
     description !== baseDescription ||
     selectedCategoryId !== baseCategoryId ||
     contents !== baseContents ||
-    selectedImage !== null;
+    selectedImage !== null ||
+    imageRemoved;
 
   // ── Validation ─────────────────────────────────────────────────────────────
 
@@ -166,34 +203,38 @@ export default function QrItemEdit() {
 
   // ── Image picker ───────────────────────────────────────────────────────────
 
-  const handleImagePick = () => {
-    Alert.alert('Change Item Photo', 'Choose a source:', [
-      {
-        text: 'Use Camera',
-        onPress: async () => {
-          const { granted } = await ImagePicker.requestCameraPermissionsAsync();
-          if (!granted) {
-            Alert.alert('Permission Denied', 'Allow camera access to take photos.');
-            return;
-          }
-          const result = await ImagePicker.launchCameraAsync({ quality: 0.8 });
-          if (!result.canceled) setSelectedImage(result.assets[0].uri);
-        },
-      },
-      {
-        text: 'Pick from Gallery',
-        onPress: async () => {
-          const { granted } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-          if (!granted) {
-            Alert.alert('Permission Denied', 'Allow library access to select files.');
-            return;
-          }
-          const result = await ImagePicker.launchImageLibraryAsync({ quality: 0.8 });
-          if (!result.canceled) setSelectedImage(result.assets[0].uri);
-        },
-      },
-      { text: 'Cancel', style: 'cancel' },
-    ]);
+  const handleTakePhoto = async () => {
+    setModalVisible(false);
+    const { granted } = await ImagePicker.requestCameraPermissionsAsync();
+    if (!granted) {
+      Alert.alert('Permission Denied', 'Allow camera access to take photos.');
+      return;
+    }
+    const result = await ImagePicker.launchCameraAsync({ quality: 0.8 });
+    if (!result.canceled) {
+      setSelectedImage(result.assets[0].uri);
+      setImageRemoved(false);
+    }
+  };
+
+  const handleChooseFromLibrary = async () => {
+    setModalVisible(false);
+    const { granted } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!granted) {
+      Alert.alert('Permission Denied', 'Allow library access to select files.');
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({ quality: 0.8 });
+    if (!result.canceled) {
+      setSelectedImage(result.assets[0].uri);
+      setImageRemoved(false);
+    }
+  };
+
+  const handleRemovePhoto = () => {
+    setModalVisible(false);
+    setSelectedImage(null);
+    setImageRemoved(true);
   };
 
   // ── Cancel / discard ───────────────────────────────────────────────────────
@@ -258,13 +299,7 @@ export default function QrItemEdit() {
 
   // ── Save ───────────────────────────────────────────────────────────────────
 
-  const handleSave = async () => {
-    const newErrors = validate();
-    if (Object.keys(newErrors).length > 0) {
-      setErrors(newErrors);
-      Alert.alert('Missing information', 'Please fix the highlighted fields.');
-      return;
-    }
+  const executeSave = async () => {
     setErrors({});
     setIsSaving(true);
 
@@ -312,6 +347,7 @@ export default function QrItemEdit() {
               description: description.trim(),
               category_id: selectedCategoryId ? Number(selectedCategoryId) : null,
               contents: contents.trim(),
+              remove_image: imageRemoved,
             }),
           }
         );
@@ -344,22 +380,59 @@ export default function QrItemEdit() {
       });
     } catch (err) {
       console.error('Update QR item error:', err);
-      Alert.alert('Error', 'Could not connect to server.');
+      showToast('Could not connect to server.');
     } finally {
       setIsSaving(false);
     }
   };
 
+  const handleSave = () => {
+    const newErrors = validate();
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      Alert.alert('Missing information', 'Please fix the highlighted fields.');
+      return;
+    }
+
+    showCustomAlert({
+      message: 'Are you sure you want to save these changes?',
+      cancelLabel: 'Review',
+      confirmLabel: 'Save',
+      onConfirm: executeSave,
+    });
+  };
+
   // ── Render ─────────────────────────────────────────────────────────────────
 
-  const displayImage = selectedImage || baseImageUrl || null;
+  const displayImage = selectedImage || (imageRemoved ? null : baseImageUrl) || null;
 
   return (
-    <View style={styles.screen}>
+    <KeyboardAvoidingView
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      style={styles.screen}
+    >
+      <ChangePhotoModal
+        visible={modalVisible}
+        hasPhoto={!!displayImage}
+        onTakePhoto={handleTakePhoto}
+        onChooseFromLibrary={handleChooseFromLibrary}
+        onRemovePhoto={handleRemovePhoto}
+        onClose={() => setModalVisible(false)}
+      />
+
       <ConfirmDiscardModal
         visible={discardVisible}
         onKeepEditing={() => setDiscardVisible(false)}
         onDiscard={handleDiscard}
+      />
+
+      <ConfirmDiscardModal
+        visible={modalConfig.visible}
+        message={modalConfig.message}
+        cancelLabel={modalConfig.cancelLabel}
+        confirmLabel={modalConfig.confirmLabel}
+        onKeepEditing={() => setModalConfig((prev) => ({ ...prev, visible: false }))}
+        onDiscard={modalConfig.onConfirm}
       />
 
       {/* RED HEADER */}
@@ -398,7 +471,7 @@ export default function QrItemEdit() {
             <Image source={{ uri: displayImage }} style={styles.itemImage} />
             <TouchableOpacity
               style={styles.changeImageBadge}
-              onPress={handleImagePick}
+              onPress={() => setModalVisible(true)}
               activeOpacity={0.8}
             >
               <MaterialIcons name="edit" size={16} color="#FFFFFF" />
@@ -407,7 +480,7 @@ export default function QrItemEdit() {
         ) : (
           <TouchableOpacity
             style={styles.imagePlaceholder}
-            onPress={handleImagePick}
+            onPress={() => setModalVisible(true)}
             activeOpacity={0.7}
           >
             <MaterialIcons name="add-photo-alternate" size={32} color="#B0A09A" />
@@ -523,7 +596,14 @@ export default function QrItemEdit() {
           </TouchableOpacity>
         </View>
       </ScrollView>
-    </View>
+
+      <Toast
+        visible={toast.visible}
+        type={toast.type}
+        message={toast.message}
+        onHide={() => setToast((t) => ({ ...t, visible: false }))}
+      />
+    </KeyboardAvoidingView>
   );
 }
 
@@ -553,6 +633,7 @@ const styles = StyleSheet.create({
     marginLeft: 4,
   },
   container: {
+    flexGrow: 1,
     paddingHorizontal: 16,
     paddingTop: 20,
     paddingBottom: 40,
@@ -565,9 +646,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: AppColors.textOnLight,
     marginBottom: 6,
-  },
-  requiredStar: {
-    color: '#C62828',
   },
   readOnlyBox: {
     backgroundColor: '#EDE0D4',
@@ -682,37 +760,38 @@ const styles = StyleSheet.create({
   },
   buttonRow: {
     flexDirection: 'row',
-    gap: 12,
-    marginTop: 24,
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+    gap: 10,
+    marginTop: 8,
     borderTopWidth: 1,
     borderColor: 'rgba(0,0,0,0.10)',
     paddingTop: 24,
   },
   cancelButton: {
-    flex: 1,
-    height: 52,
-    borderRadius: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 28,
+    backgroundColor: 'transparent',
+    borderRadius: 14,
+    borderWidth: 1.5,
     borderColor: AppColors.background,
   },
   cancelText: {
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: 15,
+    fontWeight: '500',
     color: AppColors.background,
   },
   saveButton: {
-    flex: 1,
-    height: 52,
-    borderRadius: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 26,
     backgroundColor: AppColors.background,
+    borderRadius: 14,
+    minWidth: 100,
+    alignItems: 'center',
   },
   saveText: {
-    fontSize: 16,
-    fontWeight: '700',
+    fontSize: 15,
+    fontWeight: '500',
     color: '#FFFFFF',
   },
 });

@@ -1,4 +1,5 @@
 import ConfirmDiscardModal from "@/components/ConfirmDiscardModal";
+import ChangePhotoModal from "@/components/InsertEditImage";
 import { API_BASE_URL } from "@/constants/api";
 import AppColors from "@/constants/AppColors";
 import { uploadWithAuth } from "@/constants/authApi";
@@ -17,6 +18,8 @@ import {
   Alert,
   BackHandler,
   Image,
+  KeyboardAvoidingView,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -32,14 +35,9 @@ function FieldError({ message }) {
   return <Text style={styles.fieldError}>{message}</Text>;
 }
 
-// Label with a red asterisk for required editable fields
+// Label for editable fields (no asterisk)
 function RequiredLabel({ label }) {
-  return (
-    <Text style={styles.sectionTitle}>
-      {label}
-      <Text style={styles.requiredStar}> *</Text>
-    </Text>
-  );
+  return <Text style={styles.sectionTitle}>{label}</Text>;
 }
 
 function ReadOnlyField({ label, value }) {
@@ -78,7 +76,35 @@ export default function QrItemRegister() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errors, setErrors] = useState({});
   const [discardVisible, setDiscardVisible] = useState(false);
+  const [modalVisible, setModalVisible] = useState(false);
   const [online, setOnline] = useState(true);
+
+  // --- Custom Confirm/Alert Modal Config State ---
+  const [modalConfig, setModalConfig] = useState({
+    visible: false,
+    message: "",
+    cancelLabel: "Cancel",
+    confirmLabel: "OK",
+    onConfirm: () => {},
+  });
+
+  const showCustomAlert = ({
+    message,
+    cancelLabel = "Cancel",
+    confirmLabel = "OK",
+    onConfirm = () => {},
+  }) => {
+    setModalConfig({
+      visible: true,
+      message,
+      cancelLabel,
+      confirmLabel,
+      onConfirm: () => {
+        onConfirm();
+        setModalConfig((prev) => ({ ...prev, visible: false }));
+      },
+    });
+  };
 
   // ── LIVE NETWORK LISTENER ──
   useEffect(() => {
@@ -179,57 +205,57 @@ export default function QrItemRegister() {
     }
   };
 
-  const handleImagePick = () => {
-    if (!online) return;
+  const handleTakePhoto = async () => {
+    setModalVisible(false);
+    const permissionResult =
+      await ImagePicker.requestCameraPermissionsAsync();
+    if (!permissionResult.granted) {
+      Alert.alert(
+        "Permission Denied",
+        "You need to allow camera access to take photos."
+      );
+      return;
+    }
 
-    Alert.alert("Upload Item Photo", "Choose a source for your photo:", [
-      {
-        text: "Use Camera",
-        onPress: async () => {
-          const { granted } = await ImagePicker.requestCameraPermissionsAsync();
-          if (!granted) {
-            Alert.alert(
-              "Permission Denied",
-              "You need to allow camera access."
-            );
-            return;
-          }
-          const result = await ImagePicker.launchCameraAsync({
-            allowsEditing: false,
-            quality: 0.8,
-          });
-          if (!result.canceled) {
-            const uri = result.assets[0].uri;
-            setSelectedImage(uri);
-            analyzeImage(uri);
-          }
-        },
-      },
-      {
-        text: "Pick from Gallery",
-        onPress: async () => {
-          const { granted } =
-            await ImagePicker.requestMediaLibraryPermissionsAsync();
-          if (!granted) {
-            Alert.alert(
-              "Permission Denied",
-              "You need to allow library access."
-            );
-            return;
-          }
-          const result = await ImagePicker.launchImageLibraryAsync({
-            allowsEditing: false,
-            quality: 0.8,
-          });
-          if (!result.canceled) {
-            const uri = result.assets[0].uri;
-            setSelectedImage(uri);
-            analyzeImage(uri);
-          }
-        },
-      },
-      { text: "Cancel", style: "cancel" },
-    ]);
+    const result = await ImagePicker.launchCameraAsync({
+      allowsEditing: false,
+      quality: 0.8,
+    });
+
+    if (!result.canceled) {
+      const uri = result.assets[0].uri;
+      setSelectedImage(uri);
+      analyzeImage(uri);
+    }
+  };
+
+  const handleChooseFromLibrary = async () => {
+    setModalVisible(false);
+    const permissionResult =
+      await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permissionResult.granted) {
+      Alert.alert(
+        "Permission Denied",
+        "You need to allow library access to select files."
+      );
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      allowsEditing: false,
+      quality: 0.8,
+    });
+
+    if (!result.canceled) {
+      const uri = result.assets[0].uri;
+      setSelectedImage(uri);
+      analyzeImage(uri);
+    }
+  };
+
+  const handleRemovePhoto = () => {
+    setModalVisible(false);
+    setSelectedImage(null);
   };
 
   // ── Validation ─────────────────────────────────────────────────────────────
@@ -242,20 +268,7 @@ export default function QrItemRegister() {
   };
 
   // ── Submit ─────────────────────────────────────────────────────────────────
-  const handleRegister = async () => {
-    const currentlyOnline = await isOnline();
-    if (!currentlyOnline) {
-      setOnline(false);
-      Alert.alert("Offline", "Cannot register items while offline.");
-      return;
-    }
-
-    const newErrors = validate();
-    if (Object.keys(newErrors).length > 0) {
-      setErrors(newErrors);
-      Alert.alert("Missing information", "Please fix the highlighted fields.");
-      return;
-    }
+  const executeSubmission = async () => {
     setErrors({});
     setIsSubmitting(true);
 
@@ -318,6 +331,29 @@ export default function QrItemRegister() {
     }
   };
 
+  const handleRegister = async () => {
+    const currentlyOnline = await isOnline();
+    if (!currentlyOnline) {
+      setOnline(false);
+      Alert.alert("Offline", "Cannot register items while offline.");
+      return;
+    }
+
+    const newErrors = validate();
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      Alert.alert("Missing information", "Please fix the highlighted fields.");
+      return;
+    }
+
+    showCustomAlert({
+      message: "Are you sure you want to register this item?",
+      cancelLabel: "Review",
+      confirmLabel: "Register",
+      onConfirm: executeSubmission,
+    });
+  };
+
   // ── Cancel / discard ───────────────────────────────────────────────────────
   const handleCancel = () => {
     if (hasChanges) {
@@ -374,11 +410,34 @@ export default function QrItemRegister() {
   );
 
   return (
-    <View style={styles.screen}>
+    <KeyboardAvoidingView
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
+      style={styles.screen}
+    >
+      <ChangePhotoModal
+        visible={modalVisible}
+        hasPhoto={!!selectedImage}
+        onTakePhoto={handleTakePhoto}
+        onChooseFromLibrary={handleChooseFromLibrary}
+        onRemovePhoto={handleRemovePhoto}
+        onClose={() => setModalVisible(false)}
+      />
+
       <ConfirmDiscardModal
         visible={discardVisible}
         onKeepEditing={() => setDiscardVisible(false)}
         onDiscard={handleDiscard}
+      />
+
+      <ConfirmDiscardModal
+        visible={modalConfig.visible}
+        message={modalConfig.message}
+        cancelLabel={modalConfig.cancelLabel}
+        confirmLabel={modalConfig.confirmLabel}
+        onKeepEditing={() =>
+          setModalConfig((prev) => ({ ...prev, visible: false }))
+        }
+        onDiscard={modalConfig.onConfirm}
       />
 
       {/* RED HEADER */}
@@ -425,7 +484,7 @@ export default function QrItemRegister() {
               <TouchableOpacity
                 style={styles.uploadTarget}
                 activeOpacity={0.7}
-                onPress={handleImagePick}
+                onPress={() => setModalVisible(true)}
                 disabled={isAnalyzing || !online}
               >
                 {isAnalyzing ? (
@@ -626,7 +685,7 @@ export default function QrItemRegister() {
           </View>
         </View>
       </ScrollView>
-    </View>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -656,6 +715,7 @@ const styles = StyleSheet.create({
     marginLeft: 4,
   },
   container: {
+    flexGrow: 1,
     paddingHorizontal: 16,
     paddingTop: 20,
     paddingBottom: 40,
@@ -670,9 +730,6 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: AppColors.textOnLight,
     marginBottom: 6,
-  },
-  requiredStar: {
-    color: "#C62828",
   },
   readOnlyBox: {
     backgroundColor: "#EDE0D4",
@@ -850,41 +907,42 @@ const styles = StyleSheet.create({
   },
   buttonRow: {
     flexDirection: "row",
-    gap: 12,
-    marginTop: 24,
+    justifyContent: "flex-end",
+    alignItems: "center",
+    gap: 10,
+    marginTop: 8,
     borderTopWidth: 1,
     borderColor: "rgba(0,0,0,0.10)",
     paddingTop: 24,
   },
   cancelButton: {
-    flex: 1,
-    height: 52,
-    borderRadius: 12,
-    justifyContent: "center",
-    alignItems: "center",
-    borderWidth: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 28,
+    backgroundColor: "transparent",
+    borderRadius: 14,
+    borderWidth: 1.5,
     borderColor: AppColors.background,
   },
   cancelText: {
-    fontSize: 16,
-    fontWeight: "600",
+    fontSize: 15,
+    fontWeight: "500",
     color: AppColors.background,
   },
   registerButton: {
-    flex: 1,
-    height: 52,
-    borderRadius: 12,
-    justifyContent: "center",
-    alignItems: "center",
+    paddingVertical: 12,
+    paddingHorizontal: 26,
     backgroundColor: AppColors.background,
+    borderRadius: 14,
+    minWidth: 100,
+    alignItems: "center",
   },
   registerButtonDisabled: {
     backgroundColor: "#A0A0A0",
     opacity: 0.7,
   },
   registerText: {
-    fontSize: 16,
-    fontWeight: "700",
+    fontSize: 15,
+    fontWeight: "500",
     color: "#FFFFFF",
   },
 });
