@@ -1,8 +1,8 @@
 import Toast from "@/components/Toast";
 import { API_BASE_URL } from "@/constants/api";
 import AppColors from "@/constants/AppColors";
-import { clearSavedEmail, getSavedEmail, saveEmail, saveSession } from "@/constants/StudentData";
 import { startAtHome } from "@/constants/previousPage";
+import { clearSavedEmail, getSavedEmail, saveEmail, saveSession } from "@/constants/StudentData";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
@@ -65,11 +65,22 @@ export default function LoginScreen() {
   const [loginError, setLoginError] = useState("");
 
   const { passwordResetSuccess, passwordChangedSuccess } = useLocalSearchParams();
-  const [toast, setToast] = useState({
-    visible: passwordResetSuccess === "1" || passwordChangedSuccess === "1",
-    type: "success",
-    message: "Password changed successfully!",
-  });
+  const [toast, setToast] = useState({ visible: false, type: "success", message: "" });
+
+  useEffect(() => {
+    if (passwordResetSuccess === "1" || passwordChangedSuccess === "1") {
+      setToast({
+        visible: true,
+        type: "success",
+        message:
+          passwordChangedSuccess === "1"
+            ? "Password changed successfully!"
+            : "Password reset successfully!",
+      });
+      
+      router.setParams({ passwordResetSuccess: undefined, passwordChangedSuccess: undefined });
+    }
+  }, [passwordResetSuccess, passwordChangedSuccess]);
 
   useEffect(() => {
     const loadSavedEmail = async () => {
@@ -123,9 +134,9 @@ export default function LoginScreen() {
   };
 
   return (
-    <>
+    <View style={styles.root}>
       <KeyboardAwareScrollView
-        style={styles.root}
+        style={styles.flexFill}
         contentContainerStyle={styles.scroll}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
@@ -259,7 +270,7 @@ export default function LoginScreen() {
         message={toast.message}
         onHide={() => setToast((t) => ({ ...t, visible: false }))}
       />
-    </>
+    </View>
   );
 }
 
@@ -267,6 +278,9 @@ const styles = StyleSheet.create({
   root: {
     flex: 1,
     backgroundColor: AppColors.surface,
+  },
+  flexFill: {
+    flex: 1,
   },
   scroll: {
     flexGrow: 1,
