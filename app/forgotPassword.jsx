@@ -1,5 +1,5 @@
 import ConfirmDiscardModal from "@/components/ConfirmDiscardModal";
-import Toast from "@/components/Toast";
+import { showToast } from "@/components/GlobalToast";
 import { API_BASE_URL } from "@/constants/api";
 import AppColors from "@/constants/AppColors";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -32,11 +32,11 @@ export default function ForgotPasswordScreen() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const [toast, setToast] = useState({
-    visible: resetExpired === "1",
-    type: "error",
-    message: "Your session expired. Please request a new code.",
-  });
+  useEffect(() => {
+    if (resetExpired === "1") {
+      showToast("Your session expired. Please request a new code.", "error");
+    }
+  }, [resetExpired]);
 
   const [discardVisible, setDiscardVisible] = useState(false);
   const hasChanges = email.trim().length > 0;
@@ -209,13 +209,6 @@ export default function ForgotPasswordScreen() {
           </TouchableOpacity>
         </View>
       </KeyboardAwareScrollView>
-
-      <Toast
-        visible={toast.visible}
-        type={toast.type}
-        message={toast.message}
-        onHide={() => setToast((t) => ({ ...t, visible: false }))}
-      />
     </>
   );
 }

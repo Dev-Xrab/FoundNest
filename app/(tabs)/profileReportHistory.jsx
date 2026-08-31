@@ -1,5 +1,5 @@
 import CancelReasonModal from "@/components/CancelReasonModal";
-import Toast from "@/components/Toast";
+import { showToast } from "@/components/GlobalToast";
 import { API_BASE_URL } from "@/constants/api";
 import AppColors from "@/constants/AppColors";
 import { fetchWithAuth } from "@/constants/authApi";
@@ -13,7 +13,7 @@ import {
 import { getToken, getUser } from "@/constants/StudentData";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import NetInfo from "@react-native-community/netinfo";
-import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
+import { useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
@@ -343,14 +343,11 @@ function ReportCard({ report, onCancel, router, online }) {
 export default function ProfileReportHistory() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { toast: toastParam } = useLocalSearchParams();
 
   const [reports, setReports] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [cancelModalVisible, setCancelModalVisible] = useState(false);
   const [reportToCancel, setReportToCancel] = useState(null);
-  const [toastVisible, setToastVisible] = useState(false);
-  const [toastMessage, setToastMessage] = useState("");
   const [online, setOnline] = useState(true);
 
   // ── Live network monitoring ──
@@ -399,13 +396,6 @@ export default function ProfileReportHistory() {
       .then((data) => setCategories(data.map((c) => c.category_name || c)))
       .catch((err) => console.error("Failed to load categories:", err));
   }, []);
-
-  useEffect(() => {
-    if (toastParam === "editCancelled") {
-      setToastMessage("Edit has been cancelled.");
-      setToastVisible(true);
-    }
-  }, [toastParam]);
 
   useFocusEffect(
     useCallback(() => {
@@ -463,8 +453,7 @@ export default function ProfileReportHistory() {
               : r
           )
         );
-        setToastMessage("Report Cancelled. Thank you for your feedback!");
-        setToastVisible(true);
+        showToast("Report Cancelled. Thank you for your feedback!", "info");
       } else {
         const data = await res.json();
         console.error("Cancel report failed:", data.error);
@@ -725,13 +714,6 @@ export default function ProfileReportHistory() {
           ))}
         </ScrollView>
       )}
-
-      <Toast
-        visible={toastVisible}
-        type="info"
-        message={toastMessage}
-        onHide={() => setToastVisible(false)}
-      />
     </View>
   );
 }

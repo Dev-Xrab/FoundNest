@@ -11,7 +11,7 @@ import { getIsAnalyzing } from "@/constants/lostReports";
 import { getToken, getUser } from "@/constants/StudentData";
 import * as Notifications from "expo-notifications";
 import { fetchWithAuth } from "@/constants/authApi";
-import { useToast } from "@/context/ToastContext";
+import { showToast } from "@/components/GlobalToast";
 import { useReportLeaveGuard } from "@/hooks/useReportLeaveGuard";
 
 // Set the handler OUTSIDE of your component
@@ -29,7 +29,6 @@ export default function TabLayout() {
   const [loggedIn, setLoggedIn] = useState(false);
   const pathname = usePathname();
   const router = useRouter();
-  const { showToast } = useToast();
   const { guardedNavigate, LeaveGuardModal } = useReportLeaveGuard();
 
   // The notification listener effect below only subscribes once ([] deps)

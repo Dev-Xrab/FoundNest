@@ -1,10 +1,9 @@
 import ConfirmDiscardModal from '@/components/ConfirmDiscardModal';
-import Toast from '@/components/Toast';
 import AppColors from '@/constants/AppColors';
 import { deleteQrItem, getUserQrItems } from '@/constants/qrItems';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useFocusEffect, useRouter } from 'expo-router';
+import { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -77,37 +76,10 @@ function ItemCard({ item, onPress, onEdit, onDelete }) {
 export default function QrItemList() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { toastType, toastMessage, toastKey } = useLocalSearchParams();
-  const [toast, setToast] = useState({
-    visible: false,
-    type: 'info',
-    message: '',
-  });
   const [items, setItems] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [deleteModalVisible, setDeleteModalVisible] = useState(false);
   const [itemToDelete, setItemToDelete] = useState(null);
-
-  // Guard against showing the same toast twice. We key off toastKey (a
-  // timestamp) rather than the message string so identical messages (e.g. two
-  // consecutive cancels) each trigger the toast correctly.
-  const shownToastKeyRef = useRef('');
-
-  useEffect(() => {
-    if (
-      !isLoading &&
-      toastMessage &&
-      toastKey &&
-      shownToastKeyRef.current !== toastKey
-    ) {
-      shownToastKeyRef.current = toastKey;
-      setToast({
-        visible: true,
-        type: toastType || 'info',
-        message: toastMessage,
-      });
-    }
-  }, [isLoading, toastKey, toastMessage, toastType]);
 
   // Reload list every time screen comes into focus
   useFocusEffect(
@@ -227,13 +199,6 @@ export default function QrItemList() {
           )}
         />
       )}
-
-      <Toast
-        visible={toast.visible}
-        type={toast.type}
-        message={toast.message}
-        onHide={() => setToast((prev) => ({ ...prev, visible: false }))}
-      />
     </View>
   );
 }

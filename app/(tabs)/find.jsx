@@ -1,12 +1,17 @@
+import { showToast } from "@/components/GlobalToast";
 import AppColors from "@/constants/AppColors";
 import { getCategories } from "@/constants/category";
+import { fetchBulsuColleges } from "@/constants/CollegeBuildings";
+import { getUserFoundItems } from "@/constants/foundItems";
+import fetchGates from "@/constants/Gates";
+import fetchSharedStudentSpaces from "@/constants/SharedStudentSpaces";
 import { router, useLocalSearchParams } from "expo-router";
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
   Image,
-  RefreshControl, 
+  RefreshControl,
   SafeAreaView,
   ScrollView,
   StyleSheet,
@@ -16,10 +21,6 @@ import {
   View,
 } from "react-native";
 import Icon from "react-native-vector-icons/Ionicons";
-import { getUserFoundItems} from "@/constants/foundItems";
-import {fetchBulsuColleges} from "@/constants/CollegeBuildings";
-import fetchGates from "@/constants/Gates";
-import fetchSharedStudentSpaces from "@/constants/SharedStudentSpaces";
 
 // --- FILTER CHIP COMPONENT ---
 const FilterChip = ({
@@ -106,6 +107,7 @@ const Find = () => {
 
   // Set search query if initialQuery param exists on navigation mount
   useEffect(() => {
+    showToast("find rendered");
     if (initialQuery) {
       setSearchQuery(initialQuery);
     }
@@ -145,7 +147,6 @@ const Find = () => {
   const fetchReports = async () => {
     try {
       const response = await getUserFoundItems();
-      
 
       if (Array.isArray(response)) {
         const formattedData = response.map((item) => ({
@@ -437,7 +438,6 @@ const Find = () => {
               style={styles.scrollableFilterContainer}
               showsVerticalScrollIndicator={false}
               keyboardShouldPersistTaps="handled"
-              
             >
               <View
                 style={[

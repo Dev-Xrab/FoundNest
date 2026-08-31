@@ -1,6 +1,6 @@
 import ChangePhotoModal from '@/components/ChangePhotoModal';
 import ConfirmDiscardModal from '@/components/ConfirmDiscardModal';
-import Toast from '@/components/Toast';
+import { showToast } from '@/components/GlobalToast';
 import { API_BASE_URL } from '@/constants/api';
 import AppColors from '@/constants/AppColors';
 import { fetchWithAuth, uploadWithAuth } from '@/constants/authApi';
@@ -37,7 +37,6 @@ export default function ProfileAccountDetails() {
   const [contactError, setContactError]     = useState('');
   const [discardVisible, setDiscardVisible] = useState(false);
   const [confirmSaveVisible, setConfirmSaveVisible] = useState(false);
-  const [toast, setToast]                   = useState({ visible: false, type: 'success', message: '' });
 
   const [photoModalVisible, setPhotoModalVisible] = useState(false);
   const [isUploadingPhoto, setIsUploadingPhoto]   = useState(false);
@@ -159,10 +158,6 @@ export default function ProfileAccountDetails() {
     }
   };
 
-  const showToast = (type, message) => {
-    setToast({ visible: true, type, message });
-  };
-
   const handleSavePress = () => {
     if (!validateContact(contactNumber)) {
       setContactError('Please enter a valid contact number.');
@@ -189,7 +184,7 @@ export default function ProfileAccountDetails() {
       const data = await res.json();
 
       if (!res.ok) {
-        showToast('error', data.message || 'Failed to save changes.');
+        showToast(data.message || 'Failed to save changes.', 'error');
         return;
       }
 
@@ -199,10 +194,10 @@ export default function ProfileAccountDetails() {
       setContactNumber(trimmedContact);
       await saveProfileCache(updated);
       setIsEditing(false);
-      showToast('success', 'Changes saved successfully.');
+      showToast('Changes saved successfully.');
     } catch (err) {
       console.error('Save profile error:', err);
-      showToast('error', 'Could not connect to server.');
+      showToast('Could not connect to server.', 'error');
     } finally {
       setIsSaving(false);
     }
@@ -236,17 +231,17 @@ export default function ProfileAccountDetails() {
       const data = await res.json();
 
       if (!res.ok) {
-        showToast('error', data.message || 'Failed to update profile picture.');
+        showToast(data.message || 'Failed to update profile picture.', 'error');
         return;
       }
 
       const updated = { ...user, profile_image_url: data.profile_image_url };
       setUser(updated);
       await saveProfileCache(updated);
-      showToast('success', 'Profile picture updated.');
+      showToast('Profile picture updated.');
     } catch (err) {
       console.error('Upload profile image error:', err);
-      showToast('error', 'Could not connect to server.');
+      showToast('Could not connect to server.', 'error');
     } finally {
       setIsUploadingPhoto(false);
     }
@@ -263,17 +258,17 @@ export default function ProfileAccountDetails() {
       const data = await res.json();
 
       if (!res.ok) {
-        showToast('error', data.message || 'Failed to remove profile picture.');
+        showToast(data.message || 'Failed to remove profile picture.', 'error');
         return;
       }
 
       const updated = { ...user, profile_image_url: null };
       setUser(updated);
       await saveProfileCache(updated);
-      showToast('success', 'Profile picture removed.');
+      showToast('Profile picture removed.');
     } catch (err) {
       console.error('Remove profile image error:', err);
-      showToast('error', 'Could not connect to server.');
+      showToast('Could not connect to server.', 'error');
     } finally {
       setIsUploadingPhoto(false);
     }
@@ -283,7 +278,7 @@ export default function ProfileAccountDetails() {
     setPhotoModalVisible(false);
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
     if (status !== 'granted') {
-      showToast('error', 'Camera permission is required.');
+      showToast('Camera permission is required.', 'error');
       return;
     }
 
@@ -303,7 +298,7 @@ export default function ProfileAccountDetails() {
     setPhotoModalVisible(false);
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
-      showToast('error', 'Photo library permission is required.');
+      showToast('Photo library permission is required.', 'error');
       return;
     }
 
@@ -511,13 +506,6 @@ export default function ProfileAccountDetails() {
           </View>
         </View>
       </ScrollView>
-
-      <Toast
-        visible={toast.visible}
-        type={toast.type}
-        message={toast.message}
-        onHide={() => setToast((t) => ({ ...t, visible: false }))}
-      />
     </KeyboardAvoidingView>
   );
 }

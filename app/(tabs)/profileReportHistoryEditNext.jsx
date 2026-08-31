@@ -1,4 +1,5 @@
 import ConfirmDiscardModal from '@/components/ConfirmDiscardModal';
+import { showToast } from '@/components/GlobalToast';
 import { API_BASE_URL } from "@/constants/api";
 import AppColors from "@/constants/AppColors";
 import { fetchWithAuth, uploadWithAuth } from '@/constants/authApi';
@@ -706,10 +707,8 @@ function EditNextScreen() {
           setDiscardModalVisible(false);
           bypassRef.current = true;
           clearReportDraft();
-          router.navigate({
-            pathname: '/(tabs)/profileReportHistory',
-            params: { toast: 'editCancelled' },
-          });
+          showToast('Edit has been cancelled.', 'info');
+          router.navigate('/(tabs)/profileReportHistory');
         }}
       />
 

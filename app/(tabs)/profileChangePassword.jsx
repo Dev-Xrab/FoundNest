@@ -1,6 +1,6 @@
 import ConfirmDiscardModal from '@/components/ConfirmDiscardModal';
+import { showToast } from '@/components/GlobalToast';
 import PasswordChecklist from '@/components/PasswordChecklist';
-import Toast from '@/components/Toast';
 import { API_BASE_URL } from '@/constants/api';
 import AppColors from '@/constants/AppColors';
 import { fetchWithAuth } from '@/constants/authApi';
@@ -65,7 +65,6 @@ export default function ProfileChangePassword() {
   const [isSaving, setIsSaving]               = useState(false);
   const [discardVisible, setDiscardVisible]   = useState(false);
   const [confirmChangeVisible, setConfirmChangeVisible] = useState(false);
-  const [toast, setToast]                     = useState({ visible: false, type: 'success', message: '' });
 
   const [errors, setErrors] = useState({
     current: '',
@@ -178,10 +177,6 @@ export default function ProfileChangePassword() {
     }
   };
 
-  const showToast = (type, message) => {
-    setToast({ visible: true, type, message });
-  };
-
   const handleNewPasswordChange = (text) => {
     setNewPassword(text);
     if (confirmPassword.length > 0) {
@@ -247,7 +242,7 @@ export default function ProfileChangePassword() {
         if (res.status === 401) {
           setErrors((e) => ({ ...e, current: data.message }));
         } else {
-          showToast('error', data.message || 'Failed to change password.');
+          showToast(data.message || 'Failed to change password.', 'error');
         }
         return;
       }
@@ -260,7 +255,7 @@ export default function ProfileChangePassword() {
       });
     } catch (err) {
       console.error('Change password error:', err);
-      showToast('error', 'Could not connect to server.');
+      showToast('Could not connect to server.', 'error');
     } finally {
       setIsSaving(false);
     }
@@ -385,13 +380,6 @@ export default function ProfileChangePassword() {
           </View>
         </View>
       </ScrollView>
-      
-      <Toast
-        visible={toast.visible}
-        type={toast.type}
-        message={toast.message}
-        onHide={() => setToast((t) => ({ ...t, visible: false }))}
-      />
     </KeyboardAvoidingView>
   );
 }

@@ -1,4 +1,5 @@
 import ConfirmDiscardModal from '@/components/ConfirmDiscardModal';
+import { showToast } from '@/components/GlobalToast';
 import ChangePhotoModal from '@/components/InsertEditImage';
 import AppColors from '@/constants/AppColors';
 import { API_BASE_URL } from '@/constants/api';
@@ -431,10 +432,8 @@ export default function ProfileReportHistoryEdit() {
           setDiscardModalVisible(false);
           bypassRef.current = true;
           clearReportDraft();
-          router.navigate({
-            pathname: '/(tabs)/profileReportHistory',
-            params: { toast: 'editCancelled' },
-          });
+          showToast('Edit has been cancelled.', 'info');
+          router.navigate('/(tabs)/profileReportHistory');
         }}
       />
 

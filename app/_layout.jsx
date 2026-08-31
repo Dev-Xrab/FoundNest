@@ -7,9 +7,9 @@ import { useEffect, useState } from "react"; // Added useState
 import "react-native-reanimated";
 
 import AnimatedSplashScreen from "@/components/AnimatedSplashScreen"; // 1. Import your custom splash screen
+import GlobalToast from "@/components/GlobalToast";
 import NavigationBackHandler from "@/components/NavigationBackHandler";
 import AppColors from "@/constants/AppColors";
-import { ToastProvider } from "@/context/ToastContext";
 
 export {
   // Catch any errors thrown by the Layout component.
@@ -79,21 +79,20 @@ export default function RootLayout() {
 function RootLayoutNav() {
   return (
     <ThemeProvider value={NavigationTheme}>
-      <ToastProvider>
-        <NavigationBackHandler />
-        <Stack>
-          <Stack.Screen name="login" options={{ headerShown: false }} />
-          <Stack.Screen name="forgotPassword" options={{ headerShown: false }} />
-          <Stack.Screen name="forgotPasswordVerify" options={{ headerShown: false }} />
-          <Stack.Screen name="forgotPasswordSetNew" options={{ headerShown: false }} />
-          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-          <Stack.Screen
-            name="allNotification"
-            options={{ headerShown: false }}
-          />
-          <Stack.Screen name="modal" options={{ presentation: "modal" }} />
-        </Stack>
-      </ToastProvider>
+      <NavigationBackHandler />
+      <Stack>
+        <Stack.Screen name="login" options={{ headerShown: false }} />
+        <Stack.Screen name="forgotPassword" options={{ headerShown: false }} />
+        <Stack.Screen name="forgotPasswordVerify" options={{ headerShown: false }} />
+        <Stack.Screen name="forgotPasswordSetNew" options={{ headerShown: false }} />
+        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+        <Stack.Screen
+          name="allNotification"
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen name="modal" options={{ presentation: "modal" }} />
+      </Stack>
+      <GlobalToast />
     </ThemeProvider>
   );
 }

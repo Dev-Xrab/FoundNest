@@ -1,4 +1,4 @@
-import Toast from "@/components/Toast";
+import { showToast } from "@/components/GlobalToast";
 import { API_BASE_URL } from "@/constants/api";
 import AppColors from "@/constants/AppColors";
 import { startAtHome } from "@/constants/previousPage";
@@ -65,19 +65,15 @@ export default function LoginScreen() {
   const [loginError, setLoginError] = useState("");
 
   const { passwordResetSuccess, passwordChangedSuccess } = useLocalSearchParams();
-  const [toast, setToast] = useState({ visible: false, type: "success", message: "" });
 
   useEffect(() => {
     if (passwordResetSuccess === "1" || passwordChangedSuccess === "1") {
-      setToast({
-        visible: true,
-        type: "success",
-        message:
-          passwordChangedSuccess === "1"
-            ? "Password changed successfully!"
-            : "Password reset successfully!",
-      });
-      
+      showToast(
+        passwordChangedSuccess === "1"
+          ? "Password changed successfully!"
+          : "Password reset successfully!"
+      );
+
       router.setParams({ passwordResetSuccess: undefined, passwordChangedSuccess: undefined });
     }
   }, [passwordResetSuccess, passwordChangedSuccess]);
@@ -263,13 +259,6 @@ export default function LoginScreen() {
           </TouchableOpacity>
         </View>
       </KeyboardAwareScrollView>
-
-      <Toast
-        visible={toast.visible}
-        type={toast.type}
-        message={toast.message}
-        onHide={() => setToast((t) => ({ ...t, visible: false }))}
-      />
     </View>
   );
 }

@@ -1,6 +1,6 @@
 import ConfirmDiscardModal from '@/components/ConfirmDiscardModal';
+import { showToast } from '@/components/GlobalToast';
 import ChangePhotoModal from '@/components/InsertEditImage';
-import Toast from '@/components/Toast';
 import { API_BASE_URL } from '@/constants/api';
 import AppColors from '@/constants/AppColors';
 import { fetchWithAuth, uploadWithAuth } from '@/constants/authApi';
@@ -72,11 +72,6 @@ export default function QrItemEdit() {
   const [isSaving, setIsSaving]                     = useState(false);
   const [discardVisible, setDiscardVisible]         = useState(false);
   const [modalVisible, setModalVisible]             = useState(false);
-
-  // Toast (used for non-blocking notices, e.g. network errors)
-  const [toast, setToast] = useState({ visible: false, type: 'error', message: '' });
-  const showToast = (message, type = 'error') =>
-    setToast({ visible: true, type, message });
 
   // --- Custom Confirm/Alert Modal Config State ---
   const [modalConfig, setModalConfig] = useState({
@@ -251,14 +246,8 @@ export default function QrItemEdit() {
   const handleDiscard = () => {
     setDiscardVisible(false);
     bypassRef.current = true;
-    router.replace({
-      pathname: '/(tabs)/qrItemList',
-      params: {
-        toastType: 'info',
-        toastMessage: 'Edit has been cancelled.',
-        toastKey: String(Date.now()),
-      },
-    });
+    showToast('Edit has been cancelled.', 'info');
+    router.replace('/(tabs)/qrItemList');
   };
 
   const handleCancelRef = useRef(() => {});
@@ -380,7 +369,7 @@ export default function QrItemEdit() {
       });
     } catch (err) {
       console.error('Update QR item error:', err);
-      showToast('Could not connect to server.');
+      showToast('Could not connect to server.', 'error');
     } finally {
       setIsSaving(false);
     }
@@ -596,13 +585,6 @@ export default function QrItemEdit() {
           </TouchableOpacity>
         </View>
       </ScrollView>
-
-      <Toast
-        visible={toast.visible}
-        type={toast.type}
-        message={toast.message}
-        onHide={() => setToast((t) => ({ ...t, visible: false }))}
-      />
     </KeyboardAvoidingView>
   );
 }
