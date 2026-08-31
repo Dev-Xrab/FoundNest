@@ -4,15 +4,18 @@ import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import React, { useEffect, useState } from "react";
 import { Image, Pressable, StyleSheet, Text, View } from "react-native";
+import Animated, { FadeInDown, FadeOutUp } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import FoundNestLogo from "@/assets/images/app-logo.png";
 import AppColors from "@/constants/AppColors";
 import { getUserNotifications } from "@/constants/notifications";
+import { useReportLeaveGuard } from "@/hooks/useReportLeaveGuard";
 
 export default function CustomHeader({ title }) {
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const { guardedNavigate, LeaveGuardModal } = useReportLeaveGuard();
 
   const [numberOfUnreadNotifications, setNumberOfUnreadNotifications] = useState(0);
   const [notifications, setNotifications] = useState([]);
@@ -30,7 +33,7 @@ export default function CustomHeader({ title }) {
   }, []);
 
   function openNotifications() {
-    router.push("/allNotification");
+    guardedNavigate(() => router.push("/allNotification"));
   }
 
   const getNotifications = async () => {
@@ -54,6 +57,8 @@ export default function CustomHeader({ title }) {
   return (
     <View style={[styles.wrapper, { paddingTop: insets.top }]}>
       <StatusBar style="dark" backgroundColor="transparent" translucent />
+
+      {LeaveGuardModal}
       <View style={styles.bar}>
         <View style={styles.logoContainer}>
           <Image
@@ -64,18 +69,6 @@ export default function CustomHeader({ title }) {
         </View>
 
         <Text style={styles.title}>{title}</Text>
-
-        {/* Dynamic Badge Color: Green (#22C55E) when Online | Red (#EF4444) when Offline */}
-        <View
-          style={[
-            styles.statusBadge,
-            { backgroundColor: online ? "#22C55E" : "#EF4444" },
-          ]}
-        >
-          <Text style={styles.statusText}>
-            {online ? "Online" : "Offline"}
-          </Text>
-        </View>
 
         <View style={styles.spacer} />
 
@@ -97,6 +90,17 @@ export default function CustomHeader({ title }) {
           </View>
         </Pressable>
       </View>
+
+      {!online && (
+        <Animated.View
+          entering={FadeInDown.duration(220)}
+          exiting={FadeOutUp.duration(180)}
+          style={styles.offlineBanner}
+        >
+          <Ionicons name="cloud-offline-outline" size={14} color="#FFFFFF" />
+          <Text style={styles.offlineText}>You're offline</Text>
+        </Animated.View>
+      )}
     </View>
   );
 }
@@ -131,19 +135,18 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: "700",
   },
-  statusBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 12,
-    marginLeft: 8,
-    justifyContent: "center",
+  offlineBanner: {
+    flexDirection: "row",
     alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    paddingVertical: 5,
+    backgroundColor: "#EF4444",
   },
-  statusText: {
+  offlineText: {
     color: "#FFFFFF",
-    fontSize: 11,
-    fontWeight: "700",
-    textTransform: "uppercase",
+    fontSize: 12,
+    fontWeight: "600",
   },
   spacer: {
     flex: 1,

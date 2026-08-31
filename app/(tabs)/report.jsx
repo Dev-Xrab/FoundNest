@@ -4,7 +4,8 @@ import AppColors from "@/constants/AppColors";
 import { getCategories, matchCategoryFromAi } from "@/constants/category";
 import { DescribeItem } from "@/constants/geminiAI";
 import { isOnline } from "@/constants/offlineDb";
-import { setReportDraft, getReportDraft } from "@/constants/reportDraft";
+import { setIsAnalyzing } from "@/constants/lostReports";
+import { setReportDraft, getReportDraft, setReportPage1Dirty, getReportPage1Dirty } from "@/constants/reportDraft";
 import { validateReportPage1 } from "@/utils/lostReport";
 import { MaterialIcons } from "@expo/vector-icons";
 import NetInfo from "@react-native-community/netinfo";
@@ -13,7 +14,6 @@ import { useFocusEffect, useRouter } from "expo-router";
 import React, { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   Image,
   KeyboardAvoidingView,
   Platform,
@@ -45,6 +45,33 @@ export default function Report() {
   const [online, setOnline] = useState(true);
   const router = useRouter();
 
+  // --- Generic Alert Modal Config State ---
+  const [alertConfig, setAlertConfig] = useState({
+    visible: false,
+    message: "",
+    cancelLabel: "Dismiss",
+    confirmLabel: null,
+    onConfirm: () => {},
+  });
+
+  const showAlert = ({
+    message,
+    cancelLabel = "Dismiss",
+    confirmLabel = null,
+    onConfirm = () => {},
+  }) => {
+    setAlertConfig({
+      visible: true,
+      message,
+      cancelLabel,
+      confirmLabel,
+      onConfirm: () => {
+        onConfirm();
+        setAlertConfig((prev) => ({ ...prev, visible: false }));
+      },
+    });
+  };
+
   // ── LIVE NETWORK LISTENER ──
   useEffect(() => {
     // Initial fetch check
@@ -70,20 +97,31 @@ export default function Report() {
     getCategories().then(setCategories);
   }, []);
 
+  // Keep the shared "unsaved input" flag in sync so the tabs layout can warn
+  // on navigation away, even before a formal draft exists (i.e. before Next).
+  useEffect(() => {
+    const hasUnsavedInput =
+      selectedImage !== null ||
+      selectedCategoryId !== "" ||
+      itemName.trim() !== "" ||
+      detailedDescription.trim() !== "" ||
+      contents.trim() !== "";
+    setReportPage1Dirty(hasUnsavedInput);
+  }, [selectedImage, selectedCategoryId, itemName, detailedDescription, contents]);
+
+  // Clear the flag once this screen is torn down so it never leaks to
+  // another tab after the user has actually left.
+  useEffect(() => {
+    return () => setReportPage1Dirty(false);
+  }, []);
+
   // Reset or hydrate fields whenever screen gains focus
   useFocusEffect(
     useCallback(() => {
       isOnline().then(setOnline);
       const currentDraft = getReportDraft();
 
-      if (!currentDraft) {
-        setSelectedImage(null);
-        setSelectedCategoryId("");
-        setItemName("");
-        setDetailedDescription("");
-        setContents("");
-        setErrors({});
-      } else {
+      if (currentDraft) {
         setSelectedImage(currentDraft.imageUri || null);
         setSelectedCategoryId(
           currentDraft.categoryId ? String(currentDraft.categoryId) : ""
@@ -91,12 +129,24 @@ export default function Report() {
         setItemName(currentDraft.itemName || "");
         setDetailedDescription(currentDraft.description || "");
         setContents(currentDraft.contents || "");
+      } else if (!getReportPage1Dirty()) {
+        // Only wipe the form on a genuinely fresh visit. If there's no
+        // formal draft yet but the user has unsaved page-1 input (e.g. the
+        // discard-confirmation guard just bounced them back mid-edit),
+        // leave the fields alone so nothing vanishes before they decide.
+        setSelectedImage(null);
+        setSelectedCategoryId("");
+        setItemName("");
+        setDetailedDescription("");
+        setContents("");
+        setErrors({});
       }
     }, [])
   );
 
   const analyzeImage = async (uri) => {
     setIsLoading(true);
+    setIsAnalyzing(true);
     try {
       let categoryList = categories;
       if (categoryList.length === 0) {
@@ -120,12 +170,12 @@ export default function Report() {
       }
     } catch (error) {
       console.error("AI Analysis Failed:", error);
-      Alert.alert(
-        "AI Error",
-        "Failed to auto-fill details. Please fill them out manually."
-      );
+      showAlert({
+        message: "Failed to auto-fill details. Please fill them out manually.",
+      });
     } finally {
       setIsLoading(false);
+      setIsAnalyzing(false);
     }
   };
 
@@ -150,10 +200,9 @@ export default function Report() {
     const permissionResult =
       await ImagePicker.requestCameraPermissionsAsync();
     if (!permissionResult.granted) {
-      Alert.alert(
-        "Permission Denied",
-        "You need to allow camera access to take photos."
-      );
+      showAlert({
+        message: "You need to allow camera access to take photos.",
+      });
       return;
     }
 
@@ -175,10 +224,9 @@ export default function Report() {
     const permissionResult =
       await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permissionResult.granted) {
-      Alert.alert(
-        "Permission Denied",
-        "You need to allow library access to select files."
-      );
+      showAlert({
+        message: "You need to allow library access to select files.",
+      });
       return;
     }
 
@@ -204,7 +252,9 @@ export default function Report() {
     const currentlyOnline = await isOnline();
     if (!currentlyOnline) {
       setOnline(false);
-      Alert.alert("Offline", "Form submission is unavailable while offline.");
+      showAlert({
+        message: "Form submission is unavailable while offline.",
+      });
       return;
     }
 
@@ -216,10 +266,10 @@ export default function Report() {
 
     if (!validation.valid) {
       setErrors(validation.errors);
-      Alert.alert(
-        "Missing information",
-        "Please fix the highlighted fields before continuing."
-      );
+      showAlert({
+        message: "Please fix the highlighted fields before continuing.",
+        cancelLabel: "Got It",
+      });
       return;
     }
 
@@ -453,6 +503,17 @@ export default function Report() {
           confirmLabel="Clear"
           onKeepEditing={() => setClearModalVisible(false)}
           onDiscard={confirmClearAll}
+        />
+
+        <ConfirmDiscardModal
+          visible={alertConfig.visible}
+          message={alertConfig.message}
+          cancelLabel={alertConfig.cancelLabel}
+          confirmLabel={alertConfig.confirmLabel}
+          onKeepEditing={() =>
+            setAlertConfig((prev) => ({ ...prev, visible: false }))
+          }
+          onDiscard={alertConfig.onConfirm}
         />
       </ScrollView>
     </KeyboardAvoidingView>

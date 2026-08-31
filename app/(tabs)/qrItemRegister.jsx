@@ -5,6 +5,7 @@ import AppColors from "@/constants/AppColors";
 import { uploadWithAuth } from "@/constants/authApi";
 import { getCategories, matchCategoryFromAi } from "@/constants/category";
 import { DescribeItem } from "@/constants/geminiAI";
+import { setIsAnalyzing as setGlobalAnalyzing } from "@/constants/lostReports";
 import { isOnline } from "@/constants/offlineDb";
 import { getUserProfile } from "@/constants/profile";
 import { upsertQrItemInCache } from "@/constants/qrItems";
@@ -171,6 +172,7 @@ export default function QrItemRegister() {
   // ── AI image analysis ──────────────────────────────────────────────────────
   const analyzeImage = async (uri) => {
     setIsAnalyzing(true);
+    setGlobalAnalyzing(true);
     try {
       let categoryList = categories;
       if (categoryList.length === 0) {
@@ -202,6 +204,7 @@ export default function QrItemRegister() {
       );
     } finally {
       setIsAnalyzing(false);
+      setGlobalAnalyzing(false);
     }
   };
 

@@ -5,6 +5,7 @@ import { API_BASE_URL } from '@/constants/api';
 import { fetchWithAuth } from '@/constants/authApi';
 import { getCategories, matchCategoryFromAi } from '@/constants/category';
 import { DescribeItem } from '@/constants/geminiAI';
+import { setIsAnalyzing } from '@/constants/lostReports';
 import { clearReportDraft, getReportDraft, getReportDraftFor, setReportDraft } from '@/constants/reportDraft';
 import { validateReportPage1 } from '@/utils/lostReport';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
@@ -211,6 +212,7 @@ export default function ProfileReportHistoryEdit() {
 
   const analyzeImage = async (uri) => {
     setIsLoading(true);
+    setIsAnalyzing(true);
     try {
       let categoryList = categories;
       if (categoryList.length === 0) {
@@ -238,6 +240,7 @@ export default function ProfileReportHistoryEdit() {
       Alert.alert('AI Error', 'Failed to auto-fill details. Please fill them out manually.');
     } finally {
       setIsLoading(false);
+      setIsAnalyzing(false);
     }
   };
 

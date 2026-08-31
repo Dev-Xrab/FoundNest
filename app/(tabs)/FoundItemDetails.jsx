@@ -1,7 +1,8 @@
 import AppColors from "@/constants/AppColors";
-import { goBack } from "@/constants/previousPage";
+import { goBack, addPage } from "@/constants/previousPage";
 import { Ionicons } from "@expo/vector-icons";
-import { useLocalSearchParams, useRouter } from "expo-router";
+
+import { useLocalSearchParams, useRouter, usePathname } from "expo-router";
 import { useEffect, useState } from "react";
 import {
   Image,
@@ -14,6 +15,7 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+
 const ItemDetails = () => {
   const insets = useSafeAreaInsets();
   const router = useRouter();
@@ -23,39 +25,47 @@ const ItemDetails = () => {
   const [claimModalVisible, setClaimModalVisible] = useState(false);
   const [imageModalVisible, setImageModalVisible] = useState(false);
   const [claimSteps, setClaimSteps] = useState([]);
+  const pathname = usePathname();
+  
+  useEffect(() => {
+  if (itemString) {
+    addPage(pathname, { itemString });
+  }
+}, [pathname, itemString]);
 
-useEffect(() => {
-  const fetchPolicies = async () => {
-    try {
-      const response = await fetch(
-        "https://foundnest-backend.onrender.com/api/policies"
-      );
+  useEffect(() => {
+    const fetchPolicies = async () => {
+      try {
+        const response = await fetch(
+          "https://foundnest-backend.onrender.com/api/policies"
+        );
 
-      const data = await response.json();
+        const data = await response.json();
 
-      const claimPolicy = data.find(
-        (policy) => policy.policy_name === "Item Claim Process"
-      );
+        const claimPolicy = data.find(
+          (policy) => policy.policy_name === "Item Claim Process"
+        );
 
-      if (claimPolicy) {
-        const steps = JSON.parse(claimPolicy.policy_value);
-
-        setClaimSteps(steps);
-
-        console.log("Claim Steps:", steps);
+        if (claimPolicy) {
+          const steps = JSON.parse(claimPolicy.policy_value);
+          setClaimSteps(steps);
+          console.log("Claim Steps:", steps);
+        }
+      } catch (error) {
+        console.error("Error fetching policies:", error);
       }
-    } catch (error) {
-      console.error("Error fetching policies:", error);
+    };
+
+    fetchPolicies();
+  }, []);
+
+  useEffect(() => {
+    if (item) {
+      console.log("Item:", item);
     }
-  };
+  }, [item]);
 
-  fetchPolicies();
-}, []);
-
-useEffect(() => {
-  console.log("Item:", item);
-}, [item]);
-
+  // Early return comes strictly after all hooks have executed
   if (!item) {
     return (
       <View style={styles.container}>
@@ -66,14 +76,8 @@ useEffect(() => {
     );
   }
 
-  useEffect(() => {
-  console.log("Item:", item);
-}, [item]);
-
   return (
-    
     <View style={styles.container}>
-      
       <View style={[styles.header, { paddingTop: insets.top }]}>
         <View style={styles.headerRow}>
           <TouchableOpacity
@@ -145,7 +149,6 @@ useEffect(() => {
 
           <View style={styles.divider} />
 
-          {/* Trigger the Modal to open */}
           <TouchableOpacity
             style={styles.primaryButton}
             onPress={() => setClaimModalVisible(true)}
@@ -156,8 +159,7 @@ useEffect(() => {
           <TouchableOpacity
             style={styles.secondaryButton}
             onPress={async () => {
-              console.log("Office Location ID:", item.office_id); // This will now log the real ID
-
+              console.log("Office Location ID:", item.office_id);
               router.push({
                 pathname: "/(tabs)/map",
                 params: { officeId: String(item.office_id) },
@@ -176,42 +178,39 @@ useEffect(() => {
         visible={claimModalVisible}
         onRequestClose={() => setClaimModalVisible(false)}
       >
-        {/* Pressing the dark background will close the modal */}
         <TouchableOpacity
           style={styles.modalOverlay}
           activeOpacity={1}
           onPressOut={() => setClaimModalVisible(false)}
         >
-          {/* Prevent touches inside the white card from closing the modal */}
           <TouchableWithoutFeedback>
             <View style={styles.modalContent}>
-  <View style={styles.dragHandle} />
+              <View style={styles.dragHandle} />
 
-  <Text style={styles.modalTitle}>
-    How to Claim?
-  </Text>
+              <Text style={styles.modalTitle}>How to Claim?</Text>
 
-  {claimSteps.length > 0 ? (
-    claimSteps.map((step, index) => (
-      <View key={index}>
-        <Text style={styles.stepTitle}>
-          Step {index + 1}: {step.title}
-        </Text>
-        <Text style={styles.stepDescription}>
-          {step.description}
-        </Text>
-      </View>
-    ))
-  ) : (
-    <Text style={styles.stepDescription}>
-      Loading claim process...
-    </Text>
-  )}
-</View>
+              {claimSteps.length > 0 ? (
+                claimSteps.map((step, index) => (
+                  <View key={index}>
+                    <Text style={styles.stepTitle}>
+                      Step {index + 1}: {step.title}
+                    </Text>
+                    <Text style={styles.stepDescription}>
+                      {step.description}
+                    </Text>
+                  </View>
+                ))
+              ) : (
+                <Text style={styles.stepDescription}>
+                  Loading claim process...
+                </Text>
+              )}
+            </View>
           </TouchableWithoutFeedback>
         </TouchableOpacity>
       </Modal>
 
+      {/* Fullscreen Image Modal */}
       <Modal
         animationType="fade"
         transparent
@@ -310,19 +309,6 @@ const styles = StyleSheet.create({
     color: "#000",
     marginBottom: 8,
   },
-  statusBadge: {
-    alignSelf: "flex-start",
-    backgroundColor: "#f0f0f0",
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 12,
-    marginBottom: 15,
-  },
-  statusText: {
-    fontSize: 12,
-    fontWeight: "bold",
-    color: "#A31D1D",
-  },
   divider: {
     height: 1,
     backgroundColor: "#EBEBEB",
@@ -372,8 +358,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
-
-  /* --- Modal Styles --- */
   modalOverlay: {
     flex: 1,
     justifyContent: "flex-end",
@@ -384,7 +368,7 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 30,
     borderTopRightRadius: 30,
     padding: 25,
-    paddingBottom: 80, // Extra padding at the bottom for navigation bar clearance
+    paddingBottom: 80,
     width: "100%",
   },
   dragHandle: {
@@ -414,7 +398,6 @@ const styles = StyleSheet.create({
     color: "#333",
     lineHeight: 20,
   },
-
   imageModalOverlay: {
     flex: 1,
     backgroundColor: "rgba(0, 0, 0, 0.95)",

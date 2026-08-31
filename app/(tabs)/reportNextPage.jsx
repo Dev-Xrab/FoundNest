@@ -148,8 +148,8 @@ export default function ReportNextPage() {
       if (!saved) {
         showCustomAlert({
           message: "Please complete page 1 before continuing.",
-          cancelLabel: "OK",
-          confirmLabel: null,
+          cancelLabel: null,
+          confirmLabel: "OK",
           onConfirm: () => router.replace("/(tabs)/report"),
         });
         return;
@@ -351,10 +351,24 @@ export default function ReportNextPage() {
     });
   };
 
+  const alertModal = (
+    <ConfirmDiscardModal
+      visible={modalConfig.visible}
+      message={modalConfig.message}
+      cancelLabel={modalConfig.cancelLabel}
+      confirmLabel={modalConfig.confirmLabel}
+      onKeepEditing={() =>
+        setModalConfig((prev) => ({ ...prev, visible: false }))
+      }
+      onDiscard={modalConfig.onConfirm}
+    />
+  );
+
   if (!draft || isLoadingData) {
     return (
       <View style={styles.loadingScreen}>
         <ActivityIndicator size="large" color={AppColors.background} />
+        {alertModal}
       </View>
     );
   }
@@ -650,16 +664,7 @@ export default function ReportNextPage() {
         </View>
       </ScrollView>
 
-      <ConfirmDiscardModal
-        visible={modalConfig.visible}
-        message={modalConfig.message}
-        cancelLabel={modalConfig.cancelLabel}
-        confirmLabel={modalConfig.confirmLabel}
-        onKeepEditing={() =>
-          setModalConfig((prev) => ({ ...prev, visible: false }))
-        }
-        onDiscard={modalConfig.onConfirm}
-      />
+      {alertModal}
     </KeyboardAvoidingView>
   );
 }

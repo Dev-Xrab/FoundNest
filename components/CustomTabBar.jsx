@@ -3,6 +3,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import AppColors from '@/constants/AppColors';
+import { useReportLeaveGuard } from '@/hooks/useReportLeaveGuard';
 
 // --- Sizes (change these if you want a bigger/smaller bar) ---
 const FLOAT_BUTTON_SIZE = 72;
@@ -36,12 +37,17 @@ const TAB_ICONS = {
 /**
  * Switches to a tab when the user taps a button.
  * (React Navigation needs this small ceremony instead of only changing UI.)
+ *
+ * Routed through `guardedNavigate` so that leaving the report wizard with
+ * unsaved data asks first — checking before calling navigate() (rather than
+ * reacting to the tab switch after the fact) avoids a visible flash of the
+ * destination tab before snapping back.
  */
-function goToTab(navigation, routeName, isAlreadySelected) {
+function goToTab(navigation, routeName, isAlreadySelected, guardedNavigate) {
   if (isAlreadySelected) {
     return;
   }
-  navigation.navigate(routeName);
+  guardedNavigate(() => navigation.navigate(routeName));
 }
 
 /**
@@ -89,6 +95,7 @@ function ReportFloatingButton({ isSelected, onPress }) {
 export default function CustomTabBar({ state, navigation }) {
   const insets = useSafeAreaInsets();
   const bottomPadding = Math.max(insets.bottom, 1);
+  const { guardedNavigate, LeaveGuardModal } = useReportLeaveGuard();
 
   // Which tab screen is open right now? (e.g. "index", "map", "report")
   const currentRouteName = state.routes[state.index].name;
@@ -101,6 +108,8 @@ export default function CustomTabBar({ state, navigation }) {
 
   return (
     <View style={[styles.root, { paddingBottom: bottomPadding }]}>
+      {LeaveGuardModal}
+
       {/* White bar with rounded top corners */}
       <View style={styles.bar}>
         {/* Row of 4 side tabs + empty space in the middle for the floating button */}
@@ -109,14 +118,14 @@ export default function CustomTabBar({ state, navigation }) {
             label={TAB_ICONS.index.label}
             iconName={getSideTabIcon('index')}
             isSelected={currentRouteName === 'index'}
-            onPress={() => goToTab(navigation, 'index', currentRouteName === 'index')}
+            onPress={() => goToTab(navigation, 'index', currentRouteName === 'index', guardedNavigate)}
           />
 
           <SideTabButton
             label={TAB_ICONS.map.label}
             iconName={getSideTabIcon('map')}
             isSelected={currentRouteName === 'map'}
-            onPress={() => goToTab(navigation, 'map', currentRouteName === 'map')}
+            onPress={() => goToTab(navigation, 'map', currentRouteName === 'map', guardedNavigate)}
           />
 
           {/* Empty gap so the floating Report button does not overlap Map / Find */}
@@ -126,21 +135,21 @@ export default function CustomTabBar({ state, navigation }) {
             label={TAB_ICONS.find.label}
             iconName={getSideTabIcon('find')}
             isSelected={currentRouteName === 'find'}
-            onPress={() => goToTab(navigation, 'find', currentRouteName === 'find')}
+            onPress={() => goToTab(navigation, 'find', currentRouteName === 'find', guardedNavigate)}
           />
 
           <SideTabButton
             label={TAB_ICONS.profile.label}
             iconName={getSideTabIcon('profile')}
             isSelected={currentRouteName === 'profile'}
-            onPress={() => goToTab(navigation, 'profile', currentRouteName === 'profile')}
+            onPress={() => goToTab(navigation, 'profile', currentRouteName === 'profile', guardedNavigate)}
           />
         </View>
 
         {/* Report sits on top of the bar (absolute position) */}
         <ReportFloatingButton
           isSelected={currentRouteName === 'report'}
-          onPress={() => goToTab(navigation, 'report', currentRouteName === 'report')}
+          onPress={() => goToTab(navigation, 'report', currentRouteName === 'report', guardedNavigate)}
         />
       </View>
     </View>

@@ -6,7 +6,7 @@
     "slug": "FoundNest",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/app-logo.png",
+    "icon": "./assets/images/app-icon-filled.png",
     "scheme": "foundnest",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
@@ -24,7 +24,7 @@
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/images/app-logo.png",
+        "foregroundImage": "./assets/images/app-icon.png",
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
@@ -48,7 +48,7 @@
       [
         "expo-notifications",
         {
-          "icon": "./assets/images/app-logo.png",
+          "icon": "./assets/images/app-notification-logo.png",
           "color": "#FFFFFF"
         }
       ],

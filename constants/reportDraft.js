@@ -25,3 +25,20 @@ export function getReportDraftFor(reportId) {
 export function clearReportDraft() {
   draft = null;
 }
+
+/**
+ * Tracks whether the user has started filling in report page 1 (image,
+ * category, name, description, contents) before a formal draft exists —
+ * setReportDraft() only runs once they tap "Next". Lets the tabs layout
+ * warn on navigation away even before that point, so typed-in data isn't
+ * silently lost.
+ */
+let page1Dirty = false;
+
+export function setReportPage1Dirty(value) {
+  page1Dirty = value;
+}
+
+export function getReportPage1Dirty() {
+  return page1Dirty;
+}

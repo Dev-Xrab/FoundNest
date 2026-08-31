@@ -100,6 +100,10 @@ export default function OfficeModal({ visible, onClose, office }) {
   const [rating, setRating] = useState(0);
   const [reviewText, setReviewText] = useState("");
 
+  // Store original fetched values to track diffs
+  const [initialRating, setInitialRating] = useState(0);
+  const [initialReviewText, setInitialReviewText] = useState("");
+
   const [reviews, setReviews] = useState([]);
   const [isLoadingReviews, setIsLoadingReviews] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -114,14 +118,12 @@ export default function OfficeModal({ visible, onClose, office }) {
   // ── Animated drag-down offset ──
   const translateY = useRef(new Animated.Value(0)).current;
 
-  // Reset slide offset when modal opens
   useEffect(() => {
     if (visible) {
       translateY.setValue(0);
     }
   }, [visible]);
 
-  // PanResponder to handle drag-down gestures on the top header/handle
   const panResponder = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => true,
@@ -151,7 +153,6 @@ export default function OfficeModal({ visible, onClose, office }) {
     })
   ).current;
 
-  // ── Live network listener ──
   useEffect(() => {
     isOnline().then(setOnline);
 
@@ -194,13 +195,20 @@ export default function OfficeModal({ visible, onClose, office }) {
         );
 
         if (myReview) {
+          const currentRating = myReview.rating || 0;
+          const currentText = myReview.review_text || "";
+
           setExistingReviewId(myReview.review_id);
-          setRating(myReview.rating);
-          setReviewText(myReview.review_text || "");
+          setRating(currentRating);
+          setReviewText(currentText);
+          setInitialRating(currentRating);
+          setInitialReviewText(currentText);
         } else {
           setExistingReviewId(null);
           setRating(0);
           setReviewText("");
+          setInitialRating(0);
+          setInitialReviewText("");
         }
       }
     } catch (err) {
@@ -217,6 +225,14 @@ export default function OfficeModal({ visible, onClose, office }) {
     }
   }, [office, visible]);
 
+  // Validation logic:
+  // - Editing: changes made to rating or text AND rating > 0
+  // - New Post: rating > 0
+  const isEditing = existingReviewId !== null;
+  const isChanged =
+    rating !== initialRating || reviewText.trim() !== initialReviewText.trim();
+  const canSubmit = isEditing ? isChanged && rating > 0 : rating > 0;
+
   const handlePostReview = async () => {
     const currentlyOnline = await isOnline();
     if (!currentlyOnline) {
@@ -226,16 +242,11 @@ export default function OfficeModal({ visible, onClose, office }) {
       return;
     }
 
-    if (rating === 0) {
-      setAlertModalMessage("Please select a star rating before posting.");
-      setAlertModalVisible(true);
-      return;
-    }
+    if (!canSubmit) return;
 
     setIsSubmitting(true);
     try {
       const userId = await getUser();
-      const isEditing = existingReviewId !== null;
       const endpoint = isEditing
         ? `https://foundnest-backend.onrender.com/api/reviews/${existingReviewId}`
         : `https://foundnest-backend.onrender.com/api/offices/${office.office_id}/reviews`;
@@ -250,7 +261,7 @@ export default function OfficeModal({ visible, onClose, office }) {
         body: JSON.stringify({
           user_id: userId.user_id,
           rating: rating,
-          review_text: reviewText,
+          review_text: reviewText.trim(),
         }),
       });
 
@@ -318,7 +329,6 @@ export default function OfficeModal({ visible, onClose, office }) {
               { transform: [{ translateY }] },
             ]}
           >
-            {/* Draggable header container */}
             <View {...panResponder.panHandlers} style={styles.dragHeaderContainer}>
               <View style={styles.dragHandle} />
               <View style={styles.header}>
@@ -373,7 +383,7 @@ export default function OfficeModal({ visible, onClose, office }) {
 
                 <View style={styles.divider} />
 
-                {/* ── Rate and review interactive area (locked when offline) ── */}
+                {/* ── Rate and review interactive area ── */}
                 <View pointerEvents={!online ? "none" : "auto"}>
                   <Text
                     style={[
@@ -381,7 +391,7 @@ export default function OfficeModal({ visible, onClose, office }) {
                       !online && styles.disabledText,
                     ]}
                   >
-                    {existingReviewId ? "Edit Your Review" : "Rate and Review"}
+                    {isEditing ? "Edit Your Review" : "Rate and Review"}
                   </Text>
 
                   <View
@@ -432,14 +442,11 @@ export default function OfficeModal({ visible, onClose, office }) {
                   <TouchableOpacity
                     style={[
                       styles.postButton,
-                      (reviewText.length > 0 || rating > 0) &&
-                        !isLoadingReviews &&
-                        online &&
-                        styles.postButtonActive,
-                      !online && styles.disabledPostButton,
+                      canSubmit && !isLoadingReviews && online && styles.postButtonActive,
+                      (!online || !canSubmit) && styles.disabledPostButton,
                     ]}
                     onPress={handlePostReview}
-                    disabled={isSubmitting || isLoadingReviews || !online}
+                    disabled={isSubmitting || isLoadingReviews || !online || !canSubmit}
                   >
                     {isSubmitting ? (
                       <ActivityIndicator
@@ -447,8 +454,13 @@ export default function OfficeModal({ visible, onClose, office }) {
                         color={AppColors.surface}
                       />
                     ) : (
-                      <Text style={styles.postButtonText}>
-                        {existingReviewId ? "Update Review" : "Post Review"}
+                      <Text
+                        style={[
+                          styles.postButtonText,
+                          !canSubmit && styles.disabledButtonText,
+                        ]}
+                      >
+                        {isEditing ? "Update Review" : "Post Review"}
                       </Text>
                     )}
                   </TouchableOpacity>
@@ -703,6 +715,9 @@ const styles = StyleSheet.create({
     color: AppColors.surface,
     fontWeight: "bold",
   },
+  disabledButtonText: {
+    color: "#7A7A7A",
+  },
   reviewItem: {
     marginTop: 10,
   },
@@ -758,7 +773,7 @@ const styles = StyleSheet.create({
     color: "#888888",
   },
   disabledPostButton: {
-    backgroundColor: "#C5C5C5",
-    opacity: 0.6,
+    backgroundColor: "#D6D6D6",
+    opacity: 0.7,
   },
 });

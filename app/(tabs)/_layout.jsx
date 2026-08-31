@@ -6,12 +6,13 @@ import { API_BASE_URL } from "@/constants/api";
 
 import CustomHeader from "@/components/CustomHeader";
 import CustomTabBar from "@/components/CustomTabBar";
-import ConfirmDiscardModal from "@/components/ConfirmDiscardModal"; 
 import AppColors from "@/constants/AppColors";
-import { getReportDraft, clearReportDraft } from "@/constants/reportDraft";
+import { getIsAnalyzing } from "@/constants/lostReports";
 import { getToken, getUser } from "@/constants/StudentData";
 import * as Notifications from "expo-notifications";
 import { fetchWithAuth } from "@/constants/authApi";
+import { useToast } from "@/context/ToastContext";
+import { useReportLeaveGuard } from "@/hooks/useReportLeaveGuard";
 
 // Set the handler OUTSIDE of your component
 Notifications.setNotificationHandler({
@@ -28,12 +29,21 @@ export default function TabLayout() {
   const [loggedIn, setLoggedIn] = useState(false);
   const pathname = usePathname();
   const router = useRouter();
-  
-  // ── MODAL & NAVIGATION BLOCKER STATES ──
-  const [modalVisible, setModalVisible] = useState(false);
-  const [pendingTargetRoute, setPendingTargetRoute] = useState(null);
-  const isResetting = useRef(false); 
-  const lastPath = useRef(pathname);
+  const { showToast } = useToast();
+  const { guardedNavigate, LeaveGuardModal } = useReportLeaveGuard();
+
+  // The notification listener effect below only subscribes once ([] deps)
+  // to avoid resubscribing on every pathname change, so it reads
+  // guardedNavigate through a ref to always call the current version
+  // instead of the one captured at mount time.
+  const guardedNavigateRef = useRef(guardedNavigate);
+  useEffect(() => {
+    guardedNavigateRef.current = guardedNavigate;
+  }, [guardedNavigate]);
+
+  // ── AI ANALYSIS NAVIGATION BLOCKER ──
+  const analyzingLastPath = useRef(pathname);
+  const isAnalyzingResetting = useRef(false);
 
 useEffect(() => {
   // Shared logic: look up match details and navigate
@@ -67,27 +77,31 @@ useEffect(() => {
         return;
       }
 
-      router.push({
-        pathname: "/profileReportHistoryView",
-        params: { match: JSON.stringify(matchData) },
-      });
+      guardedNavigateRef.current(() =>
+        router.push({
+          pathname: "/profileReportHistoryView",
+          params: { match: JSON.stringify(matchData) },
+        })
+      );
     } catch (err) {
       console.error("Failed to handle match notification:", err);
     }
   };
   
+  // 1. Fires when a notification arrives while the app is in the foreground.
+  //    This is display-only — the user hasn't interacted with it yet, so it
+  //    must NOT trigger navigation (that would yank them off their current screen).
   const foregroundSubscription = Notifications.addNotificationReceivedListener(
     (notification) => {
       const data = notification.request.content.data;
       console.log(
         "Foreground Notification Data:", data
       );
-      handleMatchNavigation(data);
     }
   );
 
-  // 2. Fires ONLY when the user taps the notification (foreground, background,
-  //    or killed state). This is where navigation belongs.
+  // 2. Fires when the user taps the notification while the app is running
+  //    (foreground or backgrounded). This is where navigation belongs.
   const responseSubscription = Notifications.addNotificationResponseReceivedListener(
     (response) => {
       const data = response.notification.request.content.data;
@@ -111,60 +125,23 @@ useEffect(() => {
     });
   }, [pathname]);
 
-  // Intercept route changes when a draft is modified
+  // Block navigation away from whichever screen is mid AI-photo-analysis
   useEffect(() => {
-    const activeDraft = getReportDraft();
-
-    // If we are currently forcing a snap-back to the report screen, skip the check
-    if (isResetting.current) {
-      if (pathname === "/report") {
-        isResetting.current = false; // If we go back successfully yo report page it turns off
-      }
-      lastPath.current = pathname; // The last step to store the lastpath and skip the checking again
+    if (isAnalyzingResetting.current) {
+      analyzingLastPath.current = pathname;
+      isAnalyzingResetting.current = false;
       return;
     }
 
-    // Check if user is navigating away from the report wizard fields with an active draft
-    if (
-      activeDraft && 
-      (lastPath.current === "/report" || lastPath.current === "/reportNextPage") &&
-      pathname !== "/report" && 
-      pathname !== "/reportNextPage"
-    ) {
-      // 1. Activate the route check lock
-      isResetting.current = true;
-      
-      // 2. Temporarily store the tab route they clicked
-      setPendingTargetRoute(pathname);
-      
-      // 3. Force them to stay on the report tab in the background
-      router.push("/(tabs)/report");
-      
-      // 4. Open your custom modal overlay cleanly
-      setModalVisible(true);
-    } else {
-      // Sync the tracking path if no alert conditions are met
-      lastPath.current = pathname;
+    if (getIsAnalyzing() && pathname !== analyzingLastPath.current) {
+      isAnalyzingResetting.current = true;
+      showToast("Please wait until the photo analysis finishes.");
+      router.replace(analyzingLastPath.current);
+      return;
     }
+
+    analyzingLastPath.current = pathname;
   }, [pathname]);
-
-  const handleConfirmDiscard = () => {
-    setModalVisible(false);
-    clearReportDraft(); // Wipe background cache data storage clean
-    
-    if (pendingTargetRoute) {
-      isResetting.current = true; // Set lock to let this specific navigation through
-      lastPath.current = pendingTargetRoute; 
-      router.push(pendingTargetRoute); // Complete blocked navigation path move
-      setPendingTargetRoute(null);
-    }
-  };
-
-  const handleCancelDiscard = () => {
-    setModalVisible(false);
-    setPendingTargetRoute(null);
-    isResetting.current = false; // Unlock standard behaviors
-  };
 
   // Still checking SecureStore — show a spinner
   if (!authChecked) {
@@ -188,15 +165,8 @@ useEffect(() => {
 
   return (
     <View style={{ flex: 1 }}>
-      {/* Custom Confirm Modal Layer */}
-      <ConfirmDiscardModal
-        visible={modalVisible}
-        message="Discard changes? Unsaved edits will be lost."
-        cancelLabel="Keep Editing"
-        confirmLabel="Discard"
-        onKeepEditing={handleCancelDiscard}
-        onDiscard={handleConfirmDiscard}
-      />
+      {/* Confirm-before-leaving modal for the notification-tap navigation above */}
+      {LeaveGuardModal}
 
       <Tabs
         tabBar={(props) => <CustomTabBar {...props} />}

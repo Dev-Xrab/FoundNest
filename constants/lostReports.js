@@ -10,6 +10,22 @@ function cacheKey(userId) {
 }
 
 /**
+ * In-memory flag: true while AI is analyzing an uploaded photo on a report
+ * form (report.jsx, profileReportHistoryEdit.jsx, qrItemRegister.jsx).
+ * The tabs layout reads this to block navigation away from the screen
+ * mid-analysis and show a toast instead.
+ */
+let analyzingPhoto = false;
+
+export function setIsAnalyzing(value) {
+  analyzingPhoto = value;
+}
+
+export function getIsAnalyzing() {
+  return analyzingPhoto;
+}
+
+/**
  * Get all lost reports for the logged-in user.
  * Online: fetches from API and saves to SQLite.
  * Offline: returns last saved data from SQLite.
@@ -28,6 +44,7 @@ export async function getUserLostReports() {
       );
       if (res.ok) {
         const data = await res.json();
+        console.log("[lostReports] raw API response:", JSON.stringify(data, null, 2));
         await saveCache(key, data);
         return data;
       }

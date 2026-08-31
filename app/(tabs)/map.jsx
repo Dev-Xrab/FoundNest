@@ -65,7 +65,6 @@ export default function MapScreen() {
     onConfirm: () => {},
   });
 
-  // Helper function to trigger custom modal dialogs easily
   const showCustomAlert = ({
     message,
     cancelLabel = "Cancel",
@@ -91,7 +90,6 @@ export default function MapScreen() {
 
   // --- Incoming params ---
   const { officeId } = useLocalSearchParams();
-  const lastProcessedIdRef = useRef(null);
 
   const [cameraConfig, setCameraConfig] = useState({
     center: BULSU_CENTER,
@@ -235,7 +233,6 @@ export default function MapScreen() {
     setIsDropdownVisible(false);
   }
 
-  // Directly clears the search input without confirmation dialog
   function requestClearSearch() {
     setSearchQuery("");
     setFilteredColleges([]);
@@ -363,14 +360,16 @@ export default function MapScreen() {
           })}
       </Map>
 
-      {/* Office Details Modal */}
-      <OfficeModal
-        visible={modalVisible}
-        onClose={handleCloseModal}
-        office={selectedOffice}
-      />
+      {/* Office Details Modal mounted only when office data exists */}
+      {selectedOffice && (
+        <OfficeModal
+          visible={modalVisible}
+          onClose={handleCloseModal}
+          office={selectedOffice}
+        />
+      )}
 
-      {/* Reusable ConfirmDiscardModal for all alert/confirmation popups */}
+      {/* Reusable Alert/Confirmation Modal */}
       <ConfirmDiscardModal
         visible={modalConfig.visible}
         message={modalConfig.message}

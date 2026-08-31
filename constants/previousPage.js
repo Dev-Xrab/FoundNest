@@ -1,16 +1,13 @@
 /**
- * Simple back history — like a stack of pages.
+ * Back history manager — stores navigation history with parameter preservation.
  *
  * Example:
- *   User goes: Home → Profile → Report History
- *   pageHistory = ["/", "/profile", "/profileReportHistory"]
- *
- *   User presses back:
- *   - pop last item
- *   - go to the new last item (Report History → Profile)
- *
- *   User presses back on Home:
- *   - only ["/"] left, so we stop (do NOT go to login)
+ *   Home -> ItemDetails (with itemString) -> Map (with officeId)
+ *   pageHistory = [
+ *     { path: "/", params: {} },
+ *     { path: "/itemDetails", params: { itemString: "..." } },
+ *     { path: "/map", params: { officeId: "4" } }
+ *   ]
  */
 
 let pageHistory = [];
@@ -40,15 +37,19 @@ function toRoutePath(page) {
     return "/(tabs)";
   }
 
-  if (page === "/allNotification") {
+  if (page === "/allNotification" || page.startsWith("/(tabs)")) {
     return page;
   }
 
   return `/(tabs)${page}`;
 }
 
-/** Call when user opens a new page (adds to the list). */
-export function addPage(path) {
+/** 
+ * Call when user opens a new page (saves path and associated params).
+ * @param {string} path - Route pathname
+ * @param {object} [params={}] - Route parameters to retain on back navigation
+ */
+export function addPage(path, params = {}) {
   const page = cleanPath(path);
 
   // Never save login / forgot-password pages in history
@@ -56,17 +57,25 @@ export function addPage(path) {
     return;
   }
 
-  const lastPage = pageHistory[pageHistory.length - 1];
-  if (lastPage === page) {
+  const lastEntry = pageHistory[pageHistory.length - 1];
+
+  // If we are on the same page, update the stored params if new ones are passed
+  if (lastEntry && lastEntry.path === page) {
+    if (params && Object.keys(params).length > 0) {
+      lastEntry.params = { ...lastEntry.params, ...params };
+    }
     return;
   }
 
-  pageHistory.push(page);
+  pageHistory.push({
+    path: page,
+    params: params || {},
+  });
 }
 
 /** Call on login — start fresh with Home only. */
 export function startAtHome() {
-  pageHistory = ["/"];
+  pageHistory = [{ path: "/", params: {} }];
 }
 
 /** Call on logout — wipe the list. */
@@ -79,16 +88,31 @@ export function getPageHistory() {
   return [...pageHistory];
 }
 
-/** Go back one page (used by phone back button and screen back buttons). */
+/** Go back one page and restore its original params. */
 export function goBack(router) {
   // On Home (or only 1 page left): block back so it won't go to login
   if (pageHistory.length <= 1) {
     return true;
   }
 
-  // Remove current page, then go to the one before it
+  // Remove current page
   pageHistory.pop();
-  const previousPage = pageHistory[pageHistory.length - 1];
-  router.replace(toRoutePath(previousPage));
+
+  // Retrieve previous page entry
+  const previousEntry = pageHistory[pageHistory.length - 1];
+  if (!previousEntry) return true;
+
+  const targetRoute = toRoutePath(previousEntry.path);
+
+  // Re-attach stored parameters if they exist
+  if (previousEntry.params && Object.keys(previousEntry.params).length > 0) {
+    router.replace({
+      pathname: targetRoute,
+      params: previousEntry.params,
+    });
+  } else {
+    router.replace(targetRoute);
+  }
+
   return true;
 }
