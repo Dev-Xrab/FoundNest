@@ -6,7 +6,8 @@ import { fetchWithAuth, uploadWithAuth } from "@/constants/authApi";
 import { getUserProfile, saveProfileCache } from "@/constants/profile";
 import PhotoPickerModal from "@/shared/components/PhotoPickerModal";
 import { useUnsavedChangesGuard } from "@/shared/hooks/useUnsavedChangesGuard";
-import { showPermissionAlert } from "@/shared/utils/permissions";
+import { useAlertModal } from "@/shared/hooks/useAlertModal";
+import { buildPermissionAlertConfig } from "@/shared/utils/permissions";
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect } from "@react-navigation/native";
 import * as ImagePicker from "expo-image-picker";
@@ -14,7 +15,6 @@ import { useRouter } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   Image,
   KeyboardAvoidingView,
   Platform,
@@ -37,6 +37,7 @@ export default function AccountDetailsScreen() {
   const [isSaving, setIsSaving] = useState(false);
   const [contactError, setContactError] = useState("");
   const [confirmSaveVisible, setConfirmSaveVisible] = useState(false);
+  const { alertModal, showAlert } = useAlertModal();
 
   const [photoModalVisible, setPhotoModalVisible] = useState(false);
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
@@ -230,7 +231,7 @@ export default function AccountDetailsScreen() {
     setPhotoModalVisible(false);
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
     if (status !== "granted") {
-      showPermissionAlert("Camera access is required to take a profile photo.");
+      showAlert(buildPermissionAlertConfig("Camera access is required to take a profile photo."));
       return;
     }
 
@@ -250,7 +251,7 @@ export default function AccountDetailsScreen() {
     setPhotoModalVisible(false);
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== "granted") {
-      showPermissionAlert("Photo library access is required to choose a profile photo.");
+      showAlert(buildPermissionAlertConfig("Photo library access is required to choose a profile photo."));
       return;
     }
 
@@ -268,14 +269,12 @@ export default function AccountDetailsScreen() {
 
   const handleRemovePhoto = () => {
     setPhotoModalVisible(false);
-    Alert.alert(
-      "Remove Profile Picture",
-      "Are you sure you want to remove your profile picture?",
-      [
-        { text: "Cancel", style: "cancel" },
-        { text: "Remove", style: "destructive", onPress: removeProfileImage },
-      ],
-    );
+    showAlert({
+      message: "Are you sure you want to remove your profile picture?",
+      cancelLabel: "Cancel",
+      confirmLabel: "Remove",
+      onConfirm: removeProfileImage,
+    });
   };
 
   if (!user) {
@@ -305,6 +304,8 @@ export default function AccountDetailsScreen() {
         onKeepEditing={() => setConfirmSaveVisible(false)}
         onDiscard={executeSave}
       />
+
+      {alertModal}
 
       <PhotoPickerModal
         visible={photoModalVisible}

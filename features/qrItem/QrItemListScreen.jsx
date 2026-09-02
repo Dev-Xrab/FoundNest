@@ -1,12 +1,12 @@
 import ConfirmDiscardModal from '@/components/ConfirmDiscardModal';
 import AppColors from '@/constants/AppColors';
 import { deleteQrItem, getUserQrItems } from '@/constants/qrItems';
+import { useAlertModal } from '@/shared/hooks/useAlertModal';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   FlatList,
   Image,
   StyleSheet,
@@ -80,6 +80,7 @@ export default function QrItemListScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [deleteModalVisible, setDeleteModalVisible] = useState(false);
   const [itemToDelete, setItemToDelete] = useState(null);
+  const { alertModal, showAlert } = useAlertModal();
 
   // Reload list every time screen comes into focus
   useFocusEffect(
@@ -115,11 +116,11 @@ export default function QrItemListScreen() {
         setItems((prev) => prev.filter((i) => i.qr_code_id !== itemToDelete.qr_code_id));
       } else {
         const data = await res.json();
-        Alert.alert('Error', data.message || 'Failed to delete item.');
+        showAlert({ message: data.message || 'Failed to delete item.' });
       }
     } catch (err) {
       console.error('Delete QR item error:', err);
-      Alert.alert('Error', 'Could not connect to server.');
+      showAlert({ message: 'Could not connect to server.' });
     } finally {
       setItemToDelete(null);
     }
@@ -155,6 +156,8 @@ export default function QrItemListScreen() {
         cancelLabel="No, keep it"
         confirmLabel="Confirm Cancel"
       />
+
+      {alertModal}
 
       {/* RED HEADER */}
       <View style={[styles.redHeader, { paddingTop: insets.top }]}>

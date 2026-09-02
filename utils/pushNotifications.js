@@ -20,7 +20,7 @@ import {
 import * as Device from "expo-device";
 import * as Notifications from "expo-notifications";
 import { router } from "expo-router";
-import { Alert, Platform } from "react-native";
+import { Platform } from "react-native";
 
 const PUSH_API = `${API_BASE_URL}/api/push-notification`;
 
@@ -39,7 +39,7 @@ async function getExpoPushToken() {
   }
 
   if (!Device.isDevice) {
-    Alert.alert("Push notifications only work on a real phone, not a simulator.");
+    console.warn("Push notifications only work on a real phone, not a simulator.");
     return { token: null, reason: "no-device" };
   }
 

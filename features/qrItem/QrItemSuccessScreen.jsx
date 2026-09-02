@@ -1,13 +1,13 @@
 import FoundNestLogo from '@/assets/images/app-logo.png';
 import AppColors from '@/constants/AppColors';
 import { useUnsavedChangesGuard } from '@/shared/hooks/useUnsavedChangesGuard';
-import { showPermissionAlert } from '@/shared/utils/permissions';
+import { useAlertModal } from '@/shared/hooks/useAlertModal';
+import { buildPermissionAlertConfig } from '@/shared/utils/permissions';
 import { Ionicons } from '@expo/vector-icons';
 import * as MediaLibrary from 'expo-media-library';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useRef } from 'react';
 import {
-  Alert,
   Image,
   ScrollView,
   StyleSheet,
@@ -32,21 +32,22 @@ export default function QrItemSuccessScreen() {
     : 'Item Successfully Registered!';
   const qrRef = useRef(null);
   const viewShotRef = useRef(null);
+  const { alertModal, showAlert } = useAlertModal();
 
   const handleDownload = async () => {
     try {
       const { status } = await MediaLibrary.requestPermissionsAsync(false, ['photo']);
       if (status !== 'granted') {
-        showPermissionAlert('Allow media library access to save the QR code.');
+        showAlert(buildPermissionAlertConfig('Allow media library access to save the QR code.'));
         return;
       }
 
       const uri = await viewShotRef.current.capture();
       await MediaLibrary.saveToLibraryAsync(uri);
-      Alert.alert('Saved!', 'QR code image saved to your gallery.');
+      showAlert({ message: 'QR code image saved to your gallery.' });
     } catch (err) {
       console.error('Download error:', err);
-      Alert.alert('Error', 'Failed to save QR code image.');
+      showAlert({ message: 'Failed to save QR code image.' });
     }
   };
 
@@ -71,6 +72,8 @@ export default function QrItemSuccessScreen() {
       contentContainerStyle={[styles.container, { paddingTop: insets.top + 30 }]}
       showsVerticalScrollIndicator={false}
     >
+      {alertModal}
+
       {/* SUCCESS BANNER */}
       <View style={styles.successBanner}>
         <View style={styles.checkCircle}>

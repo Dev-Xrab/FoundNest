@@ -6,6 +6,8 @@ import { DescribeItem } from "@/constants/geminiAI";
 import { isOnline } from "@/constants/offlineDb";
 import { setIsAnalyzing } from "@/constants/lostReports";
 import { setReportDraft, getReportDraft, setReportPage1Dirty, getReportPage1Dirty } from "@/constants/reportDraft";
+import { useAlertModal } from "@/shared/hooks/useAlertModal";
+import { buildPermissionAlertConfig } from "@/shared/utils/permissions";
 import { validateReportPage1 } from "@/utils/lostReport";
 import { MaterialIcons } from "@expo/vector-icons";
 import NetInfo from "@react-native-community/netinfo";
@@ -16,7 +18,6 @@ import {
   ActivityIndicator,
   Image,
   KeyboardAvoidingView,
-  Linking,
   Platform,
   ScrollView,
   StyleSheet,
@@ -46,32 +47,7 @@ export default function ReportScreen() {
   const [online, setOnline] = useState(true);
   const router = useRouter();
 
-  // --- Generic Alert Modal Config State ---
-  const [alertConfig, setAlertConfig] = useState({
-    visible: false,
-    message: "",
-    cancelLabel: "Dismiss",
-    confirmLabel: null,
-    onConfirm: () => {},
-  });
-
-  const showAlert = ({
-    message,
-    cancelLabel = "Dismiss",
-    confirmLabel = null,
-    onConfirm = () => {},
-  }) => {
-    setAlertConfig({
-      visible: true,
-      message,
-      cancelLabel,
-      confirmLabel,
-      onConfirm: () => {
-        onConfirm();
-        setAlertConfig((prev) => ({ ...prev, visible: false }));
-      },
-    });
-  };
+  const { alertModal, showAlert } = useAlertModal();
 
   // ── LIVE NETWORK LISTENER ──
   useEffect(() => {
@@ -173,6 +149,7 @@ export default function ReportScreen() {
       console.error("AI Analysis Failed:", error);
       showAlert({
         message: "Failed to auto-fill details. Please fill them out manually.",
+        cancelLabel: "Dismiss",
       });
     } finally {
       setIsLoading(false);
@@ -201,12 +178,7 @@ export default function ReportScreen() {
     const permissionResult =
       await ImagePicker.requestCameraPermissionsAsync();
     if (!permissionResult.granted) {
-      showAlert({
-        message: "You need to allow camera access to take photos.",
-        cancelLabel: "Cancel",
-        confirmLabel: "Open Settings",
-        onConfirm: () => Linking.openSettings(),
-      });
+      showAlert(buildPermissionAlertConfig("You need to allow camera access to take photos."));
       return;
     }
 
@@ -228,12 +200,7 @@ export default function ReportScreen() {
     const permissionResult =
       await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permissionResult.granted) {
-      showAlert({
-        message: "You need to allow library access to select files.",
-        cancelLabel: "Cancel",
-        confirmLabel: "Open Settings",
-        onConfirm: () => Linking.openSettings(),
-      });
+      showAlert(buildPermissionAlertConfig("You need to allow library access to select files."));
       return;
     }
 
@@ -261,6 +228,7 @@ export default function ReportScreen() {
       setOnline(false);
       showAlert({
         message: "Form submission is unavailable while offline.",
+        cancelLabel: "Dismiss",
       });
       return;
     }
@@ -512,16 +480,7 @@ export default function ReportScreen() {
           onDiscard={confirmClearAll}
         />
 
-        <ConfirmDiscardModal
-          visible={alertConfig.visible}
-          message={alertConfig.message}
-          cancelLabel={alertConfig.cancelLabel}
-          confirmLabel={alertConfig.confirmLabel}
-          onKeepEditing={() =>
-            setAlertConfig((prev) => ({ ...prev, visible: false }))
-          }
-          onDiscard={alertConfig.onConfirm}
-        />
+        {alertModal}
       </ScrollView>
     </KeyboardAvoidingView>
   );

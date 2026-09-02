@@ -8,7 +8,8 @@ import { getLostReportDetail, setIsAnalyzing } from '@/constants/lostReports';
 import { clearReportDraft, getReportDraft, getReportDraftFor, setReportDraft } from '@/constants/reportDraft';
 import { formatReportId } from '@/shared/utils/reportFormatters';
 import { useUnsavedChangesGuard } from '@/shared/hooks/useUnsavedChangesGuard';
-import { showPermissionAlert } from '@/shared/utils/permissions';
+import { useAlertModal } from '@/shared/hooks/useAlertModal';
+import { buildPermissionAlertConfig } from '@/shared/utils/permissions';
 import { validateReportPage1 } from '@/utils/lostReport';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
@@ -16,7 +17,6 @@ import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   Image,
   KeyboardAvoidingView,
   Platform,
@@ -57,6 +57,7 @@ export default function ReportHistoryEditScreen() {
   const [photoModalVisible, setPhotoModalVisible] = useState(false);
   const [imageViewerVisible, setImageViewerVisible] = useState(false);
   const scrollRef = useRef(null);
+  const { alertModal, showAlert } = useAlertModal();
 
   const categoryDropdownData = categories.map((cat) => ({
     label: cat.category_name,
@@ -177,7 +178,7 @@ export default function ReportHistoryEditScreen() {
       }
     } catch (error) {
       console.error('AI Analysis Failed:', error);
-      Alert.alert('AI Error', 'Failed to auto-fill details. Please fill them out manually.');
+      showAlert({ message: 'Failed to auto-fill details. Please fill them out manually.' });
     } finally {
       setIsLoading(false);
       setIsAnalyzing(false);
@@ -188,7 +189,7 @@ export default function ReportHistoryEditScreen() {
     setPhotoModalVisible(false);
     const permissionResult = await ImagePicker.requestCameraPermissionsAsync();
     if (!permissionResult.granted) {
-      showPermissionAlert('You need to allow camera access to take photos.');
+      showAlert(buildPermissionAlertConfig('You need to allow camera access to take photos.'));
       return;
     }
     const result = await ImagePicker.launchCameraAsync({
@@ -207,7 +208,7 @@ export default function ReportHistoryEditScreen() {
     setPhotoModalVisible(false);
     const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permissionResult.granted) {
-      showPermissionAlert('You need to allow library access to select files.');
+      showAlert(buildPermissionAlertConfig('You need to allow library access to select files.'));
       return;
     }
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -248,7 +249,7 @@ export default function ReportHistoryEditScreen() {
 
     if (!validation.valid) {
       setErrors(validation.errors);
-      Alert.alert('Missing information', 'Please fix the highlighted fields before continuing.');
+      showAlert({ message: 'Please fix the highlighted fields before continuing.' });
       return;
     }
 
@@ -366,6 +367,8 @@ export default function ReportHistoryEditScreen() {
         onKeepEditing={dismissDiscard}
         onDiscard={handleDiscardConfirm}
       />
+
+      {alertModal}
 
       <PhotoPickerModal
         visible={photoModalVisible}

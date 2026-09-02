@@ -14,13 +14,13 @@ import {
 } from "@/constants/reportDraft";
 import fetchSharedStudentSpaces from "@/constants/SharedStudentSpaces";
 import { useUnsavedChangesGuard } from "@/shared/hooks/useUnsavedChangesGuard";
+import { useAlertModal } from "@/shared/hooks/useAlertModal";
 import { buildLocationLost, validateReportPage2 } from "@/utils/lostReport";
 import { Feather, MaterialIcons } from "@expo/vector-icons";
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -213,6 +213,7 @@ function EditNextScreen() {
   const [openClock, setOpenClock] = useState(false);
   const [openSubSection, setOpenSubSection] = useState(null);
   const [saveConfirmVisible, setSaveConfirmVisible] = useState(false);
+  const { alertModal, showAlert } = useAlertModal();
 
   const mainRotation = useSharedValue(0);
   const mainAnimatedStyle = useAnimatedStyle(() => ({
@@ -293,15 +294,15 @@ function EditNextScreen() {
       const fresh = reportParam ? JSON.parse(reportParam) : {};
       const saved = getReportDraftFor(fresh.lost_report_id);
       if (!saved) {
-        Alert.alert("Incomplete form", "Please start from page 1.", [
-          {
-            text: "OK",
-            onPress: () => {
-              bypassNextLeave();
-              router.replace("/(tabs)/profileReportHistory");
-            },
+        showAlert({
+          message: "Please start from page 1.",
+          cancelLabel: null,
+          confirmLabel: "OK",
+          onConfirm: () => {
+            bypassNextLeave();
+            router.replace("/(tabs)/profileReportHistory");
           },
-        ]);
+        });
         return;
       }
 
@@ -542,7 +543,7 @@ function EditNextScreen() {
         setShowLocation(true);
         mainRotation.value = withTiming(180, { duration: 300 });
       }
-      Alert.alert("Missing information", Object.values(validation.errors).join("\n"));
+      showAlert({ message: Object.values(validation.errors).join("\n") });
       scrollRef.current?.scrollToEnd({ animated: true });
       return;
     }
@@ -640,10 +641,9 @@ function EditNextScreen() {
       });
     } catch (error) {
       console.error("Update lost report error:", error);
-      Alert.alert(
-        "Update failed",
-        error?.message ?? "Could not update your report. Please try again.",
-      );
+      showAlert({
+        message: error?.message ?? "Could not update your report. Please try again.",
+      });
     } finally {
       setIsSubmitting(false);
     }
@@ -676,6 +676,8 @@ function EditNextScreen() {
         onKeepEditing={() => setSaveConfirmVisible(false)}
         onDiscard={executeSubmit}
       />
+
+      {alertModal}
 
       <DatePicker
         modal

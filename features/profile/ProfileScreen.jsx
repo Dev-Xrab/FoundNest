@@ -1,13 +1,13 @@
 import ConfirmDiscardModal from '@/components/ConfirmDiscardModal';
 import AppColors from '@/constants/AppColors';
 import { getUserProfile } from '@/constants/profile';
+import { useAlertModal } from '@/shared/hooks/useAlertModal';
 import { logoutUser } from '@/utils/pushNotifications';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
 import {
-  Alert,
   Image,
   StyleSheet,
   Text,
@@ -49,6 +49,7 @@ export default function ProfileScreen() {
   const router = useRouter();
   const [logoutVisible, setLogoutVisible] = useState(false);
   const [user, setUser] = useState(null);
+  const { alertModal, showAlert } = useAlertModal();
 
   useFocusEffect(
     useCallback(() => {
@@ -99,7 +100,7 @@ export default function ProfileScreen() {
       return;
     }
 
-    Alert.alert('Coming soon', `"${key}" screen is not yet implemented.`);
+    showAlert({ message: `"${key}" screen is not yet implemented.` });
   };
 
   return (
@@ -114,6 +115,8 @@ export default function ProfileScreen() {
         cancelLabel="Cancel"
         confirmLabel="Log out"
       />
+
+      {alertModal}
 
       {/* ── User card ─────────────────────────────────────────────────── */}
       <View style={styles.userCard}>

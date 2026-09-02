@@ -11,7 +11,8 @@ import { getUserProfile } from "@/constants/profile";
 import { upsertQrItemInCache, validateQrItemForm } from "@/constants/qrItems";
 import { guessImageMimeType } from "@/shared/utils/imageMime";
 import { useUnsavedChangesGuard } from "@/shared/hooks/useUnsavedChangesGuard";
-import { showPermissionAlert } from "@/shared/utils/permissions";
+import { useAlertModal } from "@/shared/hooks/useAlertModal";
+import { buildPermissionAlertConfig } from "@/shared/utils/permissions";
 import { FieldError, ReadOnlyField, RequiredLabel } from "./components/QrItemFormFields";
 import { Ionicons, MaterialIcons } from "@expo/vector-icons";
 import NetInfo from "@react-native-community/netinfo";
@@ -20,7 +21,6 @@ import { useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   Image,
   KeyboardAvoidingView,
   Platform,
@@ -60,32 +60,7 @@ export default function QrItemRegisterScreen() {
   const [modalVisible, setModalVisible] = useState(false);
   const [online, setOnline] = useState(true);
 
-  // --- Custom Confirm/Alert Modal Config State ---
-  const [modalConfig, setModalConfig] = useState({
-    visible: false,
-    message: "",
-    cancelLabel: "Cancel",
-    confirmLabel: "OK",
-    onConfirm: () => {},
-  });
-
-  const showCustomAlert = ({
-    message,
-    cancelLabel = "Cancel",
-    confirmLabel = "OK",
-    onConfirm = () => {},
-  }) => {
-    setModalConfig({
-      visible: true,
-      message,
-      cancelLabel,
-      confirmLabel,
-      onConfirm: () => {
-        onConfirm();
-        setModalConfig((prev) => ({ ...prev, visible: false }));
-      },
-    });
-  };
+  const { alertModal, showAlert: showCustomAlert } = useAlertModal();
 
   // ── LIVE NETWORK LISTENER ──
   useEffect(() => {
@@ -177,10 +152,9 @@ export default function QrItemRegisterScreen() {
       }
     } catch (err) {
       console.error("AI analysis failed:", err);
-      Alert.alert(
-        "AI Error",
-        "Failed to auto-fill details. Please fill them in manually."
-      );
+      showCustomAlert({
+        message: "Failed to auto-fill details. Please fill them in manually.",
+      });
     } finally {
       setIsAnalyzing(false);
       setGlobalAnalyzing(false);
@@ -192,7 +166,11 @@ export default function QrItemRegisterScreen() {
     const permissionResult =
       await ImagePicker.requestCameraPermissionsAsync();
     if (!permissionResult.granted) {
-      showPermissionAlert("You need to allow camera access to take photos.");
+      showCustomAlert(
+        buildPermissionAlertConfig(
+          "You need to allow camera access to take photos."
+        )
+      );
       return;
     }
 
@@ -213,7 +191,11 @@ export default function QrItemRegisterScreen() {
     const permissionResult =
       await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permissionResult.granted) {
-      showPermissionAlert("You need to allow library access to select files.");
+      showCustomAlert(
+        buildPermissionAlertConfig(
+          "You need to allow library access to select files."
+        )
+      );
       return;
     }
 
@@ -272,7 +254,7 @@ export default function QrItemRegisterScreen() {
       const data = await res.json();
 
       if (!res.ok) {
-        Alert.alert("Error", data.message || "Failed to register item.");
+        showCustomAlert({ message: data.message || "Failed to register item." });
         return;
       }
 
@@ -289,7 +271,7 @@ export default function QrItemRegisterScreen() {
       });
     } catch (err) {
       console.error("Register QR item error:", err);
-      Alert.alert("Error", "Could not connect to server.");
+      showCustomAlert({ message: "Could not connect to server." });
     } finally {
       setIsSubmitting(false);
     }
@@ -299,14 +281,14 @@ export default function QrItemRegisterScreen() {
     const currentlyOnline = await isOnline();
     if (!currentlyOnline) {
       setOnline(false);
-      Alert.alert("Offline", "Cannot register items while offline.");
+      showCustomAlert({ message: "Cannot register items while offline." });
       return;
     }
 
     const newErrors = validate();
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
-      Alert.alert("Missing information", "Please fix the highlighted fields.");
+      showCustomAlert({ message: "Please fix the highlighted fields." });
       return;
     }
 
@@ -346,16 +328,7 @@ export default function QrItemRegisterScreen() {
         onDiscard={handleDiscard}
       />
 
-      <ConfirmDiscardModal
-        visible={modalConfig.visible}
-        message={modalConfig.message}
-        cancelLabel={modalConfig.cancelLabel}
-        confirmLabel={modalConfig.confirmLabel}
-        onKeepEditing={() =>
-          setModalConfig((prev) => ({ ...prev, visible: false }))
-        }
-        onDiscard={modalConfig.onConfirm}
-      />
+      {alertModal}
 
       {/* RED HEADER */}
       <View style={[styles.redHeader, { paddingTop: insets.top }]}>

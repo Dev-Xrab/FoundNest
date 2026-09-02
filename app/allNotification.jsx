@@ -44,6 +44,8 @@ export default function NotificationsScreen() {
           "Push alerts are off — enable notifications for FoundNest in your phone's Settings to get them.",
           "info",
         );
+      } else if (reason === "no-device") {
+        showToast("Push notifications only work on a real phone, not a simulator.", "info");
       }
     });
     getNotifications();

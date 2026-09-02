@@ -1,4 +1,3 @@
-import ConfirmDiscardModal from "@/components/ConfirmDiscardModal";
 import AppColors from "@/constants/AppColors";
 import { fetchBulsuColleges } from "@/constants/CollegeBuildings";
 import fetchGates from "@/constants/Gates";
@@ -10,6 +9,7 @@ import {
   setReportPage1Dirty,
 } from "@/constants/reportDraft";
 import fetchSharedStudentSpaces from "@/constants/SharedStudentSpaces";
+import { useAlertModal } from "@/shared/hooks/useAlertModal";
 import {
   buildLocationLost,
   submitLostReport,
@@ -99,32 +99,7 @@ export default function ReportLocationScreen() {
   const [openSubSection, setOpenSubSection] = useState(null);
   const [online, setOnline] = useState(true);
 
-  // --- Confirm Discard Modal Config State ---
-  const [modalConfig, setModalConfig] = useState({
-    visible: false,
-    message: "",
-    cancelLabel: "Cancel",
-    confirmLabel: "OK",
-    onConfirm: () => {},
-  });
-
-  const showCustomAlert = ({
-    message,
-    cancelLabel = "Cancel",
-    confirmLabel = "OK",
-    onConfirm = () => {},
-  }) => {
-    setModalConfig({
-      visible: true,
-      message,
-      cancelLabel,
-      confirmLabel,
-      onConfirm: () => {
-        onConfirm();
-        setModalConfig((prev) => ({ ...prev, visible: false }));
-      },
-    });
-  };
+  const { alertModal, showAlert: showCustomAlert } = useAlertModal();
 
   // The date picker already caps at today; when today is the selected date,
   // the time picker needs its own cap so the combined date+time can't land
@@ -373,19 +348,6 @@ export default function ReportLocationScreen() {
       onConfirm: executeSubmission,
     });
   };
-
-  const alertModal = (
-    <ConfirmDiscardModal
-      visible={modalConfig.visible}
-      message={modalConfig.message}
-      cancelLabel={modalConfig.cancelLabel}
-      confirmLabel={modalConfig.confirmLabel}
-      onKeepEditing={() =>
-        setModalConfig((prev) => ({ ...prev, visible: false }))
-      }
-      onDiscard={modalConfig.onConfirm}
-    />
-  );
 
   if (!draft || isLoadingData) {
     return (

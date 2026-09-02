@@ -1,5 +1,5 @@
-import ConfirmDiscardModal from "@/components/ConfirmDiscardModal";
 import AppColors from "@/constants/AppColors";
+import { useAlertModal } from "@/shared/hooks/useAlertModal";
 import { Ionicons } from "@expo/vector-icons";
 import {
   Camera,
@@ -58,36 +58,11 @@ export default function MapScreen() {
   const [selectedOffice, setSelectedOffice] = useState(null);
   const [modalVisible, setModalVisible] = useState(false);
 
-  // --- Confirm Discard Modal Config State ---
-  const [modalConfig, setModalConfig] = useState({
-    visible: false,
-    message: "",
-    cancelLabel: "Cancel",
-    confirmLabel: "OK",
-    onConfirm: () => {},
-  });
-
-  const showCustomAlert = ({
-    message,
-    cancelLabel = "Cancel",
-    confirmLabel = "OK",
-    onConfirm = () => {},
-  }) => {
-    setModalConfig({
-      visible: true,
-      message,
-      cancelLabel,
-      confirmLabel,
-      onConfirm: () => {
-        onConfirm();
-        setModalConfig((prev) => ({ ...prev, visible: false }));
-      },
-    });
-  };
+  const { alertModal, showAlert } = useAlertModal();
 
   useEffect(() => {
     if (permissionDenied) {
-      showCustomAlert({
+      showAlert({
         message:
           "Location Access Needed: FoundNest can still show campus offices, but enable location to view your live distance.",
         cancelLabel: "Dismiss",
@@ -255,16 +230,7 @@ export default function MapScreen() {
       )}
 
       {/* Reusable Alert/Confirmation Modal */}
-      <ConfirmDiscardModal
-        visible={modalConfig.visible}
-        message={modalConfig.message}
-        cancelLabel={modalConfig.cancelLabel}
-        confirmLabel={modalConfig.confirmLabel}
-        onKeepEditing={() =>
-          setModalConfig((prev) => ({ ...prev, visible: false }))
-        }
-        onDiscard={modalConfig.onConfirm}
-      />
+      {alertModal}
     </View>
   );
 }

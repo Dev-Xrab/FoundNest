@@ -8,7 +8,8 @@ import { getCategories } from '@/constants/category';
 import { getQrItemDetail, validateQrItemForm } from '@/constants/qrItems';
 import { guessImageMimeType } from '@/shared/utils/imageMime';
 import { useUnsavedChangesGuard } from '@/shared/hooks/useUnsavedChangesGuard';
-import { showPermissionAlert } from '@/shared/utils/permissions';
+import { useAlertModal } from '@/shared/hooks/useAlertModal';
+import { buildPermissionAlertConfig } from '@/shared/utils/permissions';
 import { FieldError, ReadOnlyField, RequiredLabel } from './components/QrItemFormFields';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
@@ -16,7 +17,6 @@ import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   Image,
   KeyboardAvoidingView,
   Platform,
@@ -54,32 +54,7 @@ export default function QrItemEditScreen() {
   const [isSaving, setIsSaving]                     = useState(false);
   const [modalVisible, setModalVisible]             = useState(false);
 
-  // --- Custom Confirm/Alert Modal Config State ---
-  const [modalConfig, setModalConfig] = useState({
-    visible: false,
-    message: '',
-    cancelLabel: 'Cancel',
-    confirmLabel: 'OK',
-    onConfirm: () => {},
-  });
-
-  const showCustomAlert = ({
-    message,
-    cancelLabel = 'Cancel',
-    confirmLabel = 'OK',
-    onConfirm = () => {},
-  }) => {
-    setModalConfig({
-      visible: true,
-      message,
-      cancelLabel,
-      confirmLabel,
-      onConfirm: () => {
-        onConfirm();
-        setModalConfig((prev) => ({ ...prev, visible: false }));
-      },
-    });
-  };
+  const { alertModal, showAlert: showCustomAlert } = useAlertModal();
 
   // "Base" values mirror what's actually saved on the server so hasChanges and
   // the discard reset are always accurate.
@@ -178,7 +153,7 @@ export default function QrItemEditScreen() {
     setModalVisible(false);
     const { granted } = await ImagePicker.requestCameraPermissionsAsync();
     if (!granted) {
-      showPermissionAlert('Allow camera access to take photos.');
+      showCustomAlert(buildPermissionAlertConfig('Allow camera access to take photos.'));
       return;
     }
     const result = await ImagePicker.launchCameraAsync({ quality: 0.8 });
@@ -192,7 +167,7 @@ export default function QrItemEditScreen() {
     setModalVisible(false);
     const { granted } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!granted) {
-      showPermissionAlert('Allow library access to select files.');
+      showCustomAlert(buildPermissionAlertConfig('Allow library access to select files.'));
       return;
     }
     const result = await ImagePicker.launchImageLibraryAsync({ quality: 0.8 });
@@ -254,7 +229,7 @@ export default function QrItemEditScreen() {
         );
         const data = await res.json();
         if (!res.ok) {
-          Alert.alert('Error', data.message || 'Failed to save changes.');
+          showCustomAlert({ message: data.message || 'Failed to save changes.' });
           return;
         }
       } else {
@@ -273,7 +248,7 @@ export default function QrItemEditScreen() {
         );
         const data = await res.json();
         if (!res.ok) {
-          Alert.alert('Error', data.message || 'Failed to save changes.');
+          showCustomAlert({ message: data.message || 'Failed to save changes.' });
           return;
         }
       }
@@ -307,7 +282,7 @@ export default function QrItemEditScreen() {
     const newErrors = validate();
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
-      Alert.alert('Missing information', 'Please fix the highlighted fields.');
+      showCustomAlert({ message: 'Please fix the highlighted fields.' });
       return;
     }
 
@@ -343,14 +318,7 @@ export default function QrItemEditScreen() {
         onDiscard={handleDiscard}
       />
 
-      <ConfirmDiscardModal
-        visible={modalConfig.visible}
-        message={modalConfig.message}
-        cancelLabel={modalConfig.cancelLabel}
-        confirmLabel={modalConfig.confirmLabel}
-        onKeepEditing={() => setModalConfig((prev) => ({ ...prev, visible: false }))}
-        onDiscard={modalConfig.onConfirm}
-      />
+      {alertModal}
 
       {/* RED HEADER */}
       <View style={[styles.redHeader, { paddingTop: insets.top }]}>
