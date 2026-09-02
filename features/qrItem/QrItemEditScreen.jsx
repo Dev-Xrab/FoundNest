@@ -8,6 +8,7 @@ import { getCategories } from '@/constants/category';
 import { getQrItemDetail, validateQrItemForm } from '@/constants/qrItems';
 import { guessImageMimeType } from '@/shared/utils/imageMime';
 import { useUnsavedChangesGuard } from '@/shared/hooks/useUnsavedChangesGuard';
+import { showPermissionAlert } from '@/shared/utils/permissions';
 import { FieldError, ReadOnlyField, RequiredLabel } from './components/QrItemFormFields';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
@@ -177,7 +178,7 @@ export default function QrItemEditScreen() {
     setModalVisible(false);
     const { granted } = await ImagePicker.requestCameraPermissionsAsync();
     if (!granted) {
-      Alert.alert('Permission Denied', 'Allow camera access to take photos.');
+      showPermissionAlert('Allow camera access to take photos.');
       return;
     }
     const result = await ImagePicker.launchCameraAsync({ quality: 0.8 });
@@ -191,7 +192,7 @@ export default function QrItemEditScreen() {
     setModalVisible(false);
     const { granted } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!granted) {
-      Alert.alert('Permission Denied', 'Allow library access to select files.');
+      showPermissionAlert('Allow library access to select files.');
       return;
     }
     const result = await ImagePicker.launchImageLibraryAsync({ quality: 0.8 });

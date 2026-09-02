@@ -206,7 +206,9 @@ export default function HomeScreen() {
               style={styles.findsLoader}
             />
           ) : foundReports.length === 0 ? (
-            <Text style={styles.emptyFindsText}>No found items yet.</Text>
+            <Text style={styles.emptyFindsText}>
+              No items available — they may have already been surrendered.
+            </Text>
           ) : (
             <RecentFindsCarousel
               items={foundReports}
@@ -367,5 +369,6 @@ const styles = StyleSheet.create({
     fontSize: 15,
     textAlign: "center",
     marginVertical: 24,
+    marginBottom: 70,
   },
 });

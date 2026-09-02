@@ -16,6 +16,7 @@ import {
   ActivityIndicator,
   Image,
   KeyboardAvoidingView,
+  Linking,
   Platform,
   ScrollView,
   StyleSheet,
@@ -202,6 +203,9 @@ export default function ReportScreen() {
     if (!permissionResult.granted) {
       showAlert({
         message: "You need to allow camera access to take photos.",
+        cancelLabel: "Cancel",
+        confirmLabel: "Open Settings",
+        onConfirm: () => Linking.openSettings(),
       });
       return;
     }
@@ -226,6 +230,9 @@ export default function ReportScreen() {
     if (!permissionResult.granted) {
       showAlert({
         message: "You need to allow library access to select files.",
+        cancelLabel: "Cancel",
+        confirmLabel: "Open Settings",
+        onConfirm: () => Linking.openSettings(),
       });
       return;
     }

@@ -11,6 +11,7 @@ import { getUserProfile } from "@/constants/profile";
 import { upsertQrItemInCache, validateQrItemForm } from "@/constants/qrItems";
 import { guessImageMimeType } from "@/shared/utils/imageMime";
 import { useUnsavedChangesGuard } from "@/shared/hooks/useUnsavedChangesGuard";
+import { showPermissionAlert } from "@/shared/utils/permissions";
 import { FieldError, ReadOnlyField, RequiredLabel } from "./components/QrItemFormFields";
 import { Ionicons, MaterialIcons } from "@expo/vector-icons";
 import NetInfo from "@react-native-community/netinfo";
@@ -191,10 +192,7 @@ export default function QrItemRegisterScreen() {
     const permissionResult =
       await ImagePicker.requestCameraPermissionsAsync();
     if (!permissionResult.granted) {
-      Alert.alert(
-        "Permission Denied",
-        "You need to allow camera access to take photos."
-      );
+      showPermissionAlert("You need to allow camera access to take photos.");
       return;
     }
 
@@ -215,10 +213,7 @@ export default function QrItemRegisterScreen() {
     const permissionResult =
       await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permissionResult.granted) {
-      Alert.alert(
-        "Permission Denied",
-        "You need to allow library access to select files."
-      );
+      showPermissionAlert("You need to allow library access to select files.");
       return;
     }
 

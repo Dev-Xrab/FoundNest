@@ -8,6 +8,7 @@ import { getLostReportDetail, setIsAnalyzing } from '@/constants/lostReports';
 import { clearReportDraft, getReportDraft, getReportDraftFor, setReportDraft } from '@/constants/reportDraft';
 import { formatReportId } from '@/shared/utils/reportFormatters';
 import { useUnsavedChangesGuard } from '@/shared/hooks/useUnsavedChangesGuard';
+import { showPermissionAlert } from '@/shared/utils/permissions';
 import { validateReportPage1 } from '@/utils/lostReport';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
@@ -187,7 +188,7 @@ export default function ReportHistoryEditScreen() {
     setPhotoModalVisible(false);
     const permissionResult = await ImagePicker.requestCameraPermissionsAsync();
     if (!permissionResult.granted) {
-      Alert.alert('Permission Denied', 'You need to allow camera access.');
+      showPermissionAlert('You need to allow camera access to take photos.');
       return;
     }
     const result = await ImagePicker.launchCameraAsync({
@@ -206,7 +207,7 @@ export default function ReportHistoryEditScreen() {
     setPhotoModalVisible(false);
     const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permissionResult.granted) {
-      Alert.alert('Permission Denied', 'You need to allow library access.');
+      showPermissionAlert('You need to allow library access to select files.');
       return;
     }
     const result = await ImagePicker.launchImageLibraryAsync({

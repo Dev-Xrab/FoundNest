@@ -25,6 +25,11 @@ import { Alert, Platform } from "react-native";
 const PUSH_API = `${API_BASE_URL}/api/push-notification`;
 
 // ── Step 1: Get permission + Expo token from the phone ──
+// Returns { token, reason } — reason is "granted", "denied" (permission
+// missing, whether never asked, declined, or revoked later in Settings), or
+// "no-device" (running on a simulator). Callers use `reason` to tell the
+// user why push notifications aren't working, since a null token alone
+// doesn't distinguish "denied" from "no simulator support."
 async function getExpoPushToken() {
   if (Platform.OS === "android") {
     await Notifications.setNotificationChannelAsync("default", {
@@ -35,7 +40,7 @@ async function getExpoPushToken() {
 
   if (!Device.isDevice) {
     Alert.alert("Push notifications only work on a real phone, not a simulator.");
-    return null;
+    return { token: null, reason: "no-device" };
   }
 
   const { status: existing } = await Notifications.getPermissionsAsync();
@@ -48,20 +53,22 @@ async function getExpoPushToken() {
 
   if (finalStatus !== "granted") {
     console.log("User denied notification permission.");
-    return null;
+    return { token: null, reason: "denied" };
   }
 
   const result = await Notifications.getExpoPushTokenAsync({
     projectId: "5b513b9e-ddf8-47a2-b919-16c9c7e8e540",
   });
 
-  return result.data;
+  return { token: result.data, reason: "granted" };
 }
 
 // ── Step 2: Save token to your backend (POST = new, PUT = update) ──
+// Returns the same "granted" / "denied" / "no-device" reason as above, so
+// the Notifications screen can tell the user when push alerts are off.
 export async function setupAndSavePushToken() {
-  const expoToken = await getExpoPushToken();
-  if (!expoToken) return;
+  const { token: expoToken, reason } = await getExpoPushToken();
+  if (!expoToken) return reason;
 
   const user = await getUser();
   if (!user?.user_id) return;

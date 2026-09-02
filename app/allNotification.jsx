@@ -1,3 +1,4 @@
+import { showToast } from "@/components/GlobalToast";
 import AppColors from "@/constants/AppColors";
 import { getUserNotifications, markNotificationRead } from "@/constants/notifications";
 import { goBack } from "@/constants/previousPage";
@@ -37,7 +38,14 @@ export default function NotificationsScreen() {
 
   useEffect(() => {
     // Ask for notification permission and save push token when user opens this page
-    setupAndSavePushToken();
+    setupAndSavePushToken().then((reason) => {
+      if (reason === "denied") {
+        showToast(
+          "Push alerts are off — enable notifications for FoundNest in your phone's Settings to get them.",
+          "info",
+        );
+      }
+    });
     getNotifications();
   }, []);
 

@@ -3,6 +3,7 @@ import AppColors from "@/constants/AppColors";
 import { fetchBulsuColleges } from "@/constants/CollegeBuildings";
 import fetchGates from "@/constants/Gates";
 import { isOnline } from "@/constants/offlineDb";
+import { startAtHome } from "@/constants/previousPage";
 import {
   clearReportDraft,
   getReportDraft,
@@ -287,6 +288,11 @@ export default function ReportLocationScreen() {
 
       clearReportDraft();
       setReportPage1Dirty(false);
+
+      // Neither page of the just-submitted report should remain a "back"
+      // target — reset history so swiping/pressing back from the success
+      // screen lands on Home instead of re-entering the stale form.
+      startAtHome();
 
       setDraft(null);
       setDate(new Date());
@@ -652,11 +658,20 @@ export default function ReportLocationScreen() {
             <Text style={styles.pageIndicator}>Page 2 out of 2</Text>
             <View style={styles.buttonSection}>
               <TouchableOpacity
-                style={styles.cancelButton}
-                disabled={isSubmitting}
+                style={[
+                  styles.cancelButton,
+                  (isSubmitting || !online) && styles.cancelButtonDisabled,
+                ]}
                 onPress={() => router.navigate("/report")}
               >
-                <Text style={styles.backButtonText}>Back</Text>
+                <Text
+                  style={[
+                    styles.backButtonText,
+                    (isSubmitting || !online) && styles.backButtonTextDisabled,
+                  ]}
+                >
+                  Back
+                </Text>
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -735,6 +750,11 @@ const styles = StyleSheet.create({
   submitButtonDisabled: {
     backgroundColor: "#A0A0A0",
     opacity: 0.7,
+  },
+  cancelButtonDisabled: {
+    borderColor: "#A0A0A0",
+    opacity: 0.7,
+    color: "#A0A0A0",
   },
   cancelButton: {
     paddingVertical: 12,
@@ -819,6 +839,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#E2D7CC",
     borderColor: "#C5B8AC",
   },
+  backButtonTextDisabled: { color: "#A0A0A0" },
   disabledOpacity: { opacity: 0.5 },
   fieldError: {
     color: "#C62828",

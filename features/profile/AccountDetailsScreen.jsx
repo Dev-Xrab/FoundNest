@@ -6,6 +6,7 @@ import { fetchWithAuth, uploadWithAuth } from "@/constants/authApi";
 import { getUserProfile, saveProfileCache } from "@/constants/profile";
 import PhotoPickerModal from "@/shared/components/PhotoPickerModal";
 import { useUnsavedChangesGuard } from "@/shared/hooks/useUnsavedChangesGuard";
+import { showPermissionAlert } from "@/shared/utils/permissions";
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect } from "@react-navigation/native";
 import * as ImagePicker from "expo-image-picker";
@@ -229,7 +230,7 @@ export default function AccountDetailsScreen() {
     setPhotoModalVisible(false);
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
     if (status !== "granted") {
-      showToast("Camera permission is required.", "error");
+      showPermissionAlert("Camera access is required to take a profile photo.");
       return;
     }
 
@@ -249,7 +250,7 @@ export default function AccountDetailsScreen() {
     setPhotoModalVisible(false);
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== "granted") {
-      showToast("Photo library permission is required.", "error");
+      showPermissionAlert("Photo library access is required to choose a profile photo.");
       return;
     }
 

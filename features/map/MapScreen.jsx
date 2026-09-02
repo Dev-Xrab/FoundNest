@@ -12,6 +12,7 @@ import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
+  Linking,
   StyleSheet,
   Text,
   TextInput,
@@ -90,7 +91,8 @@ export default function MapScreen() {
         message:
           "Location Access Needed: FoundNest can still show campus offices, but enable location to view your live distance.",
         cancelLabel: "Dismiss",
-        confirmLabel: "Got It",
+        confirmLabel: "Open Settings",
+        onConfirm: () => Linking.openSettings(),
       });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps

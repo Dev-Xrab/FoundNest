@@ -2,6 +2,12 @@ import { Ionicons } from "@expo/vector-icons";
 import { useEffect, useRef } from "react";
 import { Animated, StyleSheet, Text, View } from "react-native";
 
+const ICONS_BY_TYPE = {
+  success: "checkmark-circle",
+  error: "alert-circle",
+  info: "information-circle",
+};
+
 export default function Toast({ visible, type = "success", message, onHide }) {
   const opacity = useRef(new Animated.Value(0)).current;
 
@@ -27,16 +33,12 @@ export default function Toast({ visible, type = "success", message, onHide }) {
 
   if (!visible) return null;
 
-  const isSuccess = type === "success";
+  const iconName = ICONS_BY_TYPE[type] ?? ICONS_BY_TYPE.info;
 
   return (
     <Animated.View style={[styles.toast, { opacity }]}>
       <View style={styles.iconWrapper}>
-        <Ionicons
-          name={isSuccess ? "checkmark-circle" : "information-circle"}
-          size={20}
-          color="#FFFFFF"
-        />
+        <Ionicons name={iconName} size={20} color="#FFFFFF" />
       </View>
       <Text style={styles.message}>{message}</Text>
     </Animated.View>

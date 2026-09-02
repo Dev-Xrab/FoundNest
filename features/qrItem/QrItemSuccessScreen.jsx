@@ -1,6 +1,7 @@
 import FoundNestLogo from '@/assets/images/app-logo.png';
 import AppColors from '@/constants/AppColors';
 import { useUnsavedChangesGuard } from '@/shared/hooks/useUnsavedChangesGuard';
+import { showPermissionAlert } from '@/shared/utils/permissions';
 import { Ionicons } from '@expo/vector-icons';
 import * as MediaLibrary from 'expo-media-library';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -36,7 +37,7 @@ export default function QrItemSuccessScreen() {
     try {
       const { status } = await MediaLibrary.requestPermissionsAsync(false, ['photo']);
       if (status !== 'granted') {
-        Alert.alert('Permission Denied', 'Allow media library access to save the QR code.');
+        showPermissionAlert('Allow media library access to save the QR code.');
         return;
       }
 

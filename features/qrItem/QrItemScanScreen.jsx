@@ -6,6 +6,7 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Linking,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -22,7 +23,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 export default function QrItemScanScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const [permission, requestPermission] = useCameraPermissions();
+  const [permission, requestPermission, getPermission] = useCameraPermissions();
   const [scanState, setScanState] = useState('scanning');
   const [errorMessage, setErrorMessage] = useState('');
   const isProcessing = useRef(false);
@@ -35,6 +36,17 @@ export default function QrItemScanScreen() {
       setErrorMessage('');
       isProcessing.current = false;
     }, [])
+  );
+
+  // useCameraPermissions() only checks status once, on mount — it won't
+  // notice if the user grants access, backgrounds the app to revoke it from
+  // Settings, then returns here. Re-checking on every focus (including
+  // coming back from the OS Settings screen via the button below) keeps
+  // `permission` honest instead of trusting a stale "granted" from before.
+  useFocusEffect(
+    useCallback(() => {
+      getPermission();
+    }, [getPermission])
   );
 
   // Also reset the processing lock whenever scanState returns to 'scanning'
@@ -120,10 +132,12 @@ export default function QrItemScanScreen() {
           </Text>
           <TouchableOpacity
             style={styles.primaryButton}
-            onPress={requestPermission}
+            onPress={permission.canAskAgain ? requestPermission : Linking.openSettings}
             activeOpacity={0.8}
           >
-            <Text style={styles.primaryButtonText}>Grant Permission</Text>
+            <Text style={styles.primaryButtonText}>
+              {permission.canAskAgain ? 'Grant Permission' : 'Open Settings'}
+            </Text>
           </TouchableOpacity>
         </View>
       </View>
