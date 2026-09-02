@@ -1,5 +1,6 @@
 import { API_BASE_URL, DESCRIBE_ITEM_PATH } from "@/constants/api";
 import { uploadWithAuth } from "@/constants/authApi";
+import { guessImageMimeType } from "@/shared/utils/imageMime";
 import { parseApiError } from "@/utils/lostReport";
 
 export async function DescribeItem({ imageUri }) {
@@ -7,14 +8,7 @@ export async function DescribeItem({ imageUri }) {
     throw new Error("Image URI is required for analysis.");
   }
 
-  const fileName = imageUri.split("/").pop() || "item-photo.jpg";
-  const extension = fileName.split(".").pop()?.toLowerCase();
-  const mimeType =
-    extension === "png"
-      ? "image/png"
-      : extension === "webp"
-        ? "image/webp"
-        : "image/jpeg";
+  const { fileName, mimeType } = guessImageMimeType(imageUri);
 
   const formData = new FormData();
   formData.append("image", {

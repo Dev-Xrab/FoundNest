@@ -95,6 +95,29 @@ export async function upsertQrItemInCache(item) {
   await saveCache(key, cached);
 }
 
+/**
+ * Resolve a scanned QR code: does it exist, and does the current user own
+ * it? Returns the parsed response merged with `ok` (the HTTP status), since
+ * the scan screen needs both to drive its result states.
+ */
+export async function resolveQrScan(qrData) {
+  const res = await fetchWithAuth(`${API_BASE_URL}/api/qr-items/scan`, {
+    method: "POST",
+    body: JSON.stringify({ qr_data: qrData }),
+  });
+  const json = await res.json();
+  return { ok: res.ok, ...json };
+}
+
+/** Validates the register/edit form fields shared by both screens. */
+export function validateQrItemForm({ categoryId, itemName, description }) {
+  const errors = {};
+  if (!categoryId) errors.category = "Please select a category.";
+  if (!itemName?.trim()) errors.itemName = "Item name is required.";
+  if (!description?.trim()) errors.description = "Description is required.";
+  return errors;
+}
+
 /** Remove one item from offline cache after a successful delete. */
 export async function removeQrItemFromCache(qrCodeId) {
   const user = await getUser();

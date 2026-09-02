@@ -1,10 +1,10 @@
 import AppColors from '@/constants/AppColors';
 import { Ionicons } from '@expo/vector-icons';
-import React from 'react';
 import { Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
-export default function InsertEditImage({
+export default function PhotoPickerModal({
   visible,
+  title = 'Upload Item Photo',
   hasPhoto,
   onTakePhoto,
   onChooseFromLibrary,
@@ -20,7 +20,7 @@ export default function InsertEditImage({
     >
       <TouchableOpacity style={styles.overlay} activeOpacity={1} onPress={onClose}>
         <View style={styles.sheet} onStartShouldSetResponder={() => true}>
-          <Text style={styles.title}>Upload Item Photo</Text>
+          <Text style={styles.title}>{title}</Text>
 
           <TouchableOpacity style={styles.option} onPress={onTakePhoto} activeOpacity={0.7}>
             <Ionicons name="camera-outline" size={22} color={AppColors.textOnLight} />
