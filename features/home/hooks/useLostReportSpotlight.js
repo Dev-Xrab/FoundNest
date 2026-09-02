@@ -2,10 +2,23 @@ import { getReportHistory } from "@/constants/lostReports";
 import { useEffect, useState } from "react";
 
 /**
- * Determines which lost report to feature on Home: the report with the most
- * recently notified match if any report has matches, otherwise the most
- * recently lost report. Stays loading until `userId` is known — Home has
- * nothing to show until it knows who's asking.
+ * A report's "activity" timestamp for spotlight ranking: the most recent
+ * match notification if it has any matches, otherwise when it was lost.
+ * This lets a brand-new unmatched report outrank an old stale match, and
+ * vice versa — whichever is genuinely more recent wins.
+ */
+function getActivityTimestamp(report) {
+  if (report.matches && report.matches.length > 0) {
+    return Math.max(...report.matches.map((m) => new Date(m.created_at).getTime()));
+  }
+  return new Date(report.lost_date).getTime();
+}
+
+/**
+ * Determines which lost report to feature on Home: whichever report has the
+ * most recent activity — a new match notification, or (if nothing has ever
+ * matched) simply being the most recently lost report. Stays loading until
+ * `userId` is known — Home has nothing to show until it knows who's asking.
  */
 export function useLostReportSpotlight(userId) {
   const [displayReport, setDisplayReport] = useState(null);
@@ -26,29 +39,11 @@ export function useLostReportSpotlight(userId) {
           return;
         }
 
-        const reportsWithMatches = mergedReports.filter(
-          (r) => r.matches && r.matches.length > 0,
-        );
+        const mostRecentReport = [...mergedReports].sort(
+          (a, b) => getActivityTimestamp(b) - getActivityTimestamp(a),
+        )[0];
 
-        if (reportsWithMatches.length > 0) {
-          const targetedReport = reportsWithMatches.sort((a, b) => {
-            const newestNotifA = new Date(
-              Math.max(...a.matches.map((m) => new Date(m.created_at))),
-            );
-            const newestNotifB = new Date(
-              Math.max(...b.matches.map((m) => new Date(m.created_at))),
-            );
-            return newestNotifB - newestNotifA;
-          })[0];
-
-          setDisplayReport(targetedReport);
-        } else {
-          const latestReportFallback = mergedReports.sort(
-            (a, b) => new Date(b.lost_date) - new Date(a.lost_date),
-          )[0];
-
-          setDisplayReport(latestReportFallback);
-        }
+        setDisplayReport(mostRecentReport);
       } catch (err) {
         console.error("Error setting focus layout data cards:", err);
         setDisplayReport(null);

@@ -24,10 +24,13 @@ export default function NavigationBackHandler() {
 
   // Phone back button
   useEffect(() => {
-    const subscription = BackHandler.addEventListener("hardwareBackPress", () => {
-      guardedNavigateRef.current(() => goBack(router));
-      return true; // always handled — goBack() itself already blocks the default exit on Home
-    });
+    const subscription = BackHandler.addEventListener(
+      "hardwareBackPress",
+      () => {
+        guardedNavigateRef.current(() => goBack(router));
+        return true; // always handled — goBack() itself already blocks the default exit on Home
+      },
+    );
 
     return () => subscription.remove();
   }, [router]);

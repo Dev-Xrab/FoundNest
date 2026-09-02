@@ -3,7 +3,11 @@ import AppColors from "@/constants/AppColors";
 import { fetchBulsuColleges } from "@/constants/CollegeBuildings";
 import fetchGates from "@/constants/Gates";
 import { isOnline } from "@/constants/offlineDb";
-import { clearReportDraft, getReportDraft } from "@/constants/reportDraft";
+import {
+  clearReportDraft,
+  getReportDraft,
+  setReportPage1Dirty,
+} from "@/constants/reportDraft";
 import fetchSharedStudentSpaces from "@/constants/SharedStudentSpaces";
 import {
   buildLocationLost,
@@ -120,6 +124,18 @@ export default function ReportLocationScreen() {
       },
     });
   };
+
+  // The date picker already caps at today; when today is the selected date,
+  // the time picker needs its own cap so the combined date+time can't land
+  // in the future (any time is fine on a past date).
+  const isDateToday = date.toDateString() === new Date().toDateString();
+
+  // Flat, plain-text recap of every selected location, shown under the picker.
+  const allSelectedLocations = [
+    ...selectedColleges,
+    ...selectedSpaces,
+    ...selectedGates,
+  ];
 
   const mainRotation = useSharedValue(0);
   const mainAnimatedStyle = useAnimatedStyle(() => ({
@@ -270,6 +286,7 @@ export default function ReportLocationScreen() {
       };
 
       clearReportDraft();
+      setReportPage1Dirty(false);
 
       setDraft(null);
       setDate(new Date());
@@ -395,6 +412,7 @@ export default function ReportLocationScreen() {
         open={openClock && online}
         mode="time"
         date={time}
+        maximumDate={isDateToday ? new Date() : undefined}
         onConfirm={(t) => {
           setOpenClock(false);
           setTime(t);
@@ -606,6 +624,14 @@ export default function ReportLocationScreen() {
           </View>
           <FieldError message={errors.location} />
 
+          <Text style={styles.selectedLocationsText}>
+            {cantRemember
+              ? "Selected: Can't Remember"
+              : allSelectedLocations.length > 0
+                ? `Selected: ${allSelectedLocations.join(", ")}`
+                : "No location selected yet."}
+          </Text>
+
           <View style={styles.infoCard}>
             <View style={styles.infoTitleRow}>
               <Feather
@@ -800,6 +826,12 @@ const styles = StyleSheet.create({
     marginHorizontal: 20,
     marginTop: 4,
     marginBottom: 8,
+  },
+  selectedLocationsText: {
+    fontSize: 13,
+    color: AppColors.textOnLight,
+    marginHorizontal: 20,
+    marginTop: 4,
   },
   infoCard: {
     backgroundColor: "#E3D5CA",

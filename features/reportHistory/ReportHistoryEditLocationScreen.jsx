@@ -696,6 +696,7 @@ function EditNextScreen() {
         open={openClock}
         mode="time"
         date={time}
+        maximumDate={date.toDateString() === new Date().toDateString() ? new Date() : undefined}
         onConfirm={(selectedTime) => {
           setOpenClock(false);
           setTime(selectedTime);
