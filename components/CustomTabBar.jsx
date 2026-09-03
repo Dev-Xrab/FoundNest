@@ -4,6 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import AppColors from '@/constants/AppColors';
 import { useReportLeaveGuard } from '@/hooks/useReportLeaveGuard';
+import { getActiveUnsavedChangesGuard } from '@/shared/hooks/useUnsavedChangesGuard';
 
 // --- Sizes (change these if you want a bigger/smaller bar) ---
 const FLOAT_BUTTON_SIZE = 72;
@@ -38,15 +39,29 @@ const TAB_ICONS = {
  * Switches to a tab when the user taps a button.
  * (React Navigation needs this small ceremony instead of only changing UI.)
  *
- * Routed through `guardedNavigate` so that leaving the report wizard with
- * unsaved data asks first — checking before calling navigate() (rather than
- * reacting to the tab switch after the fact) avoids a visible flash of the
- * destination tab before snapping back.
+ * Checked against two guards before actually switching, in order:
+ *  1. Whichever screen is currently focused and has its own
+ *     `useUnsavedChangesGuard` active (Edit Report, Change Password, QR
+ *     Register/Edit, etc.) — tab switches don't fire `beforeRemove`, so
+ *     that hook can't see this on its own; this reads its live state via
+ *     the shared registry instead.
+ *  2. `guardedNavigate`, which is specifically about the report-creation
+ *     wizard's draft (a different, older mechanism kept as-is).
+ * Checking before calling navigate() (rather than reacting to the tab
+ * switch after the fact) avoids a visible flash of the destination tab
+ * before snapping back.
  */
 function goToTab(navigation, routeName, isAlreadySelected, guardedNavigate) {
   if (isAlreadySelected) {
     return;
   }
+
+  const activeGuard = getActiveUnsavedChangesGuard();
+  if (activeGuard && activeGuard.hasChanges()) {
+    activeGuard.attemptLeave(() => navigation.navigate(routeName));
+    return;
+  }
+
   guardedNavigate(() => navigation.navigate(routeName));
 }
 

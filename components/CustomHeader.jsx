@@ -11,6 +11,7 @@ import FoundNestLogo from "@/assets/images/app-logo.png";
 import AppColors from "@/constants/AppColors";
 import { getUserNotifications } from "@/constants/notifications";
 import { useReportLeaveGuard } from "@/hooks/useReportLeaveGuard";
+import { getActiveUnsavedChangesGuard } from "@/shared/hooks/useUnsavedChangesGuard";
 
 export default function CustomHeader({ title }) {
   const insets = useSafeAreaInsets();
@@ -33,6 +34,11 @@ export default function CustomHeader({ title }) {
   }, []);
 
   function openNotifications() {
+    const activeGuard = getActiveUnsavedChangesGuard();
+    if (activeGuard && activeGuard.hasChanges()) {
+      activeGuard.attemptLeave(() => router.push("/allNotification"));
+      return;
+    }
     guardedNavigate(() => router.push("/allNotification"));
   }
 

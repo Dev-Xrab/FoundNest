@@ -5,8 +5,8 @@ import AppColors from "@/constants/AppColors";
 import { fetchWithAuth, uploadWithAuth } from "@/constants/authApi";
 import { getUserProfile, saveProfileCache } from "@/constants/profile";
 import PhotoPickerModal from "@/shared/components/PhotoPickerModal";
-import { useUnsavedChangesGuard } from "@/shared/hooks/useUnsavedChangesGuard";
 import { useAlertModal } from "@/shared/hooks/useAlertModal";
+import { useUnsavedChangesGuard } from "@/shared/hooks/useUnsavedChangesGuard";
 import { buildPermissionAlertConfig } from "@/shared/utils/permissions";
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect } from "@react-navigation/native";
@@ -231,7 +231,11 @@ export default function AccountDetailsScreen() {
     setPhotoModalVisible(false);
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
     if (status !== "granted") {
-      showAlert(buildPermissionAlertConfig("Camera access is required to take a profile photo."));
+      showAlert(
+        buildPermissionAlertConfig(
+          "Camera access is required to take a profile photo.",
+        ),
+      );
       return;
     }
 
@@ -251,7 +255,11 @@ export default function AccountDetailsScreen() {
     setPhotoModalVisible(false);
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== "granted") {
-      showAlert(buildPermissionAlertConfig("Photo library access is required to choose a profile photo."));
+      showAlert(
+        buildPermissionAlertConfig(
+          "Photo library access is required to choose a profile photo.",
+        ),
+      );
       return;
     }
 
@@ -260,7 +268,6 @@ export default function AccountDetailsScreen() {
       allowsEditing: true,
       aspect: [1, 1],
       quality: 0.7,
-      legacy: true,
     });
 
     if (!result.canceled) {

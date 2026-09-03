@@ -1,11 +1,10 @@
 import ConfirmDiscardModal from '@/components/ConfirmDiscardModal';
-import { showToast } from '@/components/GlobalToast';
 import PhotoPickerModal from '@/shared/components/PhotoPickerModal';
 import AppColors from '@/constants/AppColors';
 import { getCategories, matchCategoryFromAi } from '@/constants/category';
 import { DescribeItem } from '@/constants/geminiAI';
 import { getLostReportDetail, setIsAnalyzing } from '@/constants/lostReports';
-import { clearReportDraft, getReportDraft, getReportDraftFor, setReportDraft } from '@/constants/reportDraft';
+import { getReportDraft, getReportDraftFor, setReportDraft } from '@/constants/reportDraft';
 import { formatReportId } from '@/shared/utils/reportFormatters';
 import { useUnsavedChangesGuard } from '@/shared/hooks/useUnsavedChangesGuard';
 import { useAlertModal } from '@/shared/hooks/useAlertModal';
@@ -124,17 +123,22 @@ export default function ReportHistoryEditScreen() {
       if (isFirstFocus.current) {
         isFirstFocus.current = false;
 
-        if (fromBack === 'true') {
-          const saved = getReportDraft();
-          if (saved) {
-            setSelectedCategoryId(saved.categoryId ?? '');
-            setItemName(saved.itemName ?? '');
-            setDetailedDescription(saved.description ?? '');
-            setContents(saved.contents ?? '');
-            setSelectedImage(saved.imageUri ?? null);
-            setIsImageRemoved(saved.isImageRemoved ?? false);
-            setExistingImageUrl(saved.existingImageUrl ?? (report.lost_item_image ?? null));
-          }
+        // Resume from a preserved draft either on the page-2 ↔ page-1 round
+        // trip (fromBack), or on a fresh re-entry if leaving earlier left a
+        // draft for THIS report behind (scoped by getReportDraftFor so a
+        // leftover draft from a different report never leaks in).
+        const savedDraft = fromBack === 'true'
+          ? getReportDraft()
+          : getReportDraftFor(report.lost_report_id);
+
+        if (savedDraft) {
+          setSelectedCategoryId(savedDraft.categoryId ?? '');
+          setItemName(savedDraft.itemName ?? '');
+          setDetailedDescription(savedDraft.description ?? '');
+          setContents(savedDraft.contents ?? '');
+          setSelectedImage(savedDraft.imageUri ?? null);
+          setIsImageRemoved(savedDraft.isImageRemoved ?? false);
+          setExistingImageUrl(savedDraft.existingImageUrl ?? (report.lost_item_image ?? null));
           return;
         }
 
@@ -214,7 +218,6 @@ export default function ReportHistoryEditScreen() {
     const result = await ImagePicker.launchImageLibraryAsync({
       allowsEditing: false,
       quality: 0.8,
-      legacy: true,
     });
     if (!result.canceled) {
       const uri = result.assets[0].uri;
@@ -346,15 +349,9 @@ export default function ReportHistoryEditScreen() {
     confirmDiscard: handleDiscardConfirm,
     dismissDiscard,
   } = useUnsavedChangesGuard(hasChanges, () => {
-    if (isViewOnly) {
-      router.navigate('/(tabs)/profileReportHistory');
-      return;
-    }
-
-    clearReportDraft();
-    if (isSessionDirty()) {
-      showToast('Edit has been cancelled.', 'info');
-    }
+    // Leaving with unsaved edits preserves the draft (like the create-report
+    // wizard already does) instead of wiping it — re-entering this same
+    // report's edit screen later resumes from it, via the focus effect above.
     router.navigate('/(tabs)/profileReportHistory');
   });
 
@@ -365,6 +362,9 @@ export default function ReportHistoryEditScreen() {
     >
       <ConfirmDiscardModal
         visible={discardModalVisible}
+        message="Leave this report? Your progress will be saved as a draft so you can continue later."
+        cancelLabel="Keep Editing"
+        confirmLabel="Leave"
         onKeepEditing={dismissDiscard}
         onDiscard={handleDiscardConfirm}
       />

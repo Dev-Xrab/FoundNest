@@ -95,10 +95,15 @@ export default function NotificationsScreen() {
     const diffMins = Math.floor(diffMs / 60000);
     const diffHrs = Math.floor(diffMins / 60);
     const diffDays = Math.floor(diffHrs / 24);
+    const diffMonths = Math.floor(diffDays / 30);
+    const diffYears = Math.floor(diffDays / 365);
 
-    if (diffMins < 60) return `${diffMins} minutes ago`;
-    if (diffHrs < 24) return `${diffHrs} hours ago`;
-    return `${diffDays} days ago`;
+    if (diffMins < 1) return "Just now";
+    if (diffMins < 60) return `${diffMins} minute${diffMins === 1 ? "" : "s"} ago`;
+    if (diffHrs < 24) return `${diffHrs} hour${diffHrs === 1 ? "" : "s"} ago`;
+    if (diffDays < 30) return `${diffDays} day${diffDays === 1 ? "" : "s"} ago`;
+    if (diffDays < 365) return `${diffMonths} month${diffMonths === 1 ? "" : "s"} ago`;
+    return `${diffYears} year${diffYears === 1 ? "" : "s"} ago`;
   };
 
   const renderNotification = ({ item }) => {

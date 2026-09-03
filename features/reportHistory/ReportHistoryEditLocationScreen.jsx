@@ -1,8 +1,7 @@
-import ConfirmDiscardModal from '@/components/ConfirmDiscardModal';
-import { showToast } from '@/components/GlobalToast';
+import ConfirmDiscardModal from "@/components/ConfirmDiscardModal";
 import { API_BASE_URL } from "@/constants/api";
 import AppColors from "@/constants/AppColors";
-import { uploadWithAuth } from '@/constants/authApi';
+import { uploadWithAuth } from "@/constants/authApi";
 import { fetchBulsuColleges } from "@/constants/CollegeBuildings";
 import fetchGates from "@/constants/Gates";
 import { getLostReportDetail } from "@/constants/lostReports";
@@ -13,8 +12,8 @@ import {
   setReportDraft,
 } from "@/constants/reportDraft";
 import fetchSharedStudentSpaces from "@/constants/SharedStudentSpaces";
-import { useUnsavedChangesGuard } from "@/shared/hooks/useUnsavedChangesGuard";
 import { useAlertModal } from "@/shared/hooks/useAlertModal";
+import { useUnsavedChangesGuard } from "@/shared/hooks/useUnsavedChangesGuard";
 import { buildLocationLost, validateReportPage2 } from "@/utils/lostReport";
 import { Feather, MaterialIcons } from "@expo/vector-icons";
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
@@ -257,7 +256,9 @@ function EditNextScreen() {
             imageUri: null,
           });
 
-          const d = parseLostDateToDate(data.actual_lost_date ?? data.lost_date);
+          const d = parseLostDateToDate(
+            data.actual_lost_date ?? data.lost_date,
+          );
           if (d) {
             setDate(d);
             setTime(d);
@@ -283,7 +284,7 @@ function EditNextScreen() {
                 actual_lost_date: data.lost_date,
               });
             } catch (err) {
-              console.warn('Background report refresh failed:', err.message);
+              console.warn("Background report refresh failed:", err.message);
             }
           })();
         }
@@ -337,7 +338,11 @@ function EditNextScreen() {
     setSelectedGates(parsed.gates);
     setCantRemember(parsed.cantRemember);
 
-    if (parsed.colleges.length > 0 || parsed.spaces.length > 0 || parsed.gates.length > 0) {
+    if (
+      parsed.colleges.length > 0 ||
+      parsed.spaces.length > 0 ||
+      parsed.gates.length > 0
+    ) {
       setShowLocation(true);
       mainRotation.value = 180;
     }
@@ -375,17 +380,18 @@ function EditNextScreen() {
     clearLocationError();
   };
 
-  const handleLocationSelectionChange = (currentSelection, setter) => (item) => {
-    let newSelection = [...currentSelection];
-    if (newSelection.includes(item)) {
-      newSelection = newSelection.filter((i) => i !== item);
-    } else {
-      newSelection.push(item);
-    }
-    setter(newSelection);
-    setCantRemember(false);
-    clearLocationError();
-  };
+  const handleLocationSelectionChange =
+    (currentSelection, setter) => (item) => {
+      let newSelection = [...currentSelection];
+      if (newSelection.includes(item)) {
+        newSelection = newSelection.filter((i) => i !== item);
+      } else {
+        newSelection.push(item);
+      }
+      setter(newSelection);
+      setCantRemember(false);
+      clearLocationError();
+    };
 
   const formatDataList = (sourceData) => {
     return Array.isArray(sourceData)
@@ -414,20 +420,26 @@ function EditNextScreen() {
 
     const originalReport = draft.reportParam
       ? JSON.parse(draft.reportParam)
-      : (reportParam ? JSON.parse(reportParam) : {});
+      : reportParam
+        ? JSON.parse(reportParam)
+        : {};
 
-    const originalCategoryId = originalReport.category_id ? String(originalReport.category_id) : '';
-    const originalItemName = (originalReport.item_name ?? '').trim();
-    const originalDescription = (originalReport.description ?? '').trim();
-    const originalContents = (originalReport.contents ?? '').trim();
+    const originalCategoryId = originalReport.category_id
+      ? String(originalReport.category_id)
+      : "";
+    const originalItemName = (originalReport.item_name ?? "").trim();
+    const originalDescription = (originalReport.description ?? "").trim();
+    const originalContents = (originalReport.contents ?? "").trim();
     const originalPhoto = originalReport.lost_item_image ?? null;
 
-    if ((draft.categoryId ?? '') !== originalCategoryId) return true;
-    if ((draft.itemName ?? '').trim() !== originalItemName) return true;
-    if ((draft.description ?? '').trim() !== originalDescription) return true;
-    if ((draft.contents ?? '').trim() !== originalContents) return true;
+    if ((draft.categoryId ?? "") !== originalCategoryId) return true;
+    if ((draft.itemName ?? "").trim() !== originalItemName) return true;
+    if ((draft.description ?? "").trim() !== originalDescription) return true;
+    if ((draft.contents ?? "").trim() !== originalContents) return true;
 
-    const draftPhoto = draft.isImageRemoved ? null : (draft.imageUri ?? draft.existingImageUrl ?? null);
+    const draftPhoto = draft.isImageRemoved
+      ? null
+      : (draft.imageUri ?? draft.existingImageUrl ?? null);
     if (draftPhoto !== originalPhoto) return true;
 
     // Compare structured selections (not rebuilt strings) so formatting
@@ -439,7 +451,7 @@ function EditNextScreen() {
     };
 
     const originalLocation = parseLocationLost(
-      originalReport.location_lost ?? '',
+      originalReport.location_lost ?? "",
       collegesList,
       spacesList,
       gatesList,
@@ -452,8 +464,11 @@ function EditNextScreen() {
 
     // Compare actual timestamps at minute precision (matches the precision
     // the app itself saves at) rather than strings, to avoid timezone drift.
-    const toMinuteMs = (ms) => (ms === null ? null : Math.floor(ms / 60000) * 60000);
-    const originalDate = parseLostDateToDate(originalReport.actual_lost_date ?? originalReport.lost_date);
+    const toMinuteMs = (ms) =>
+      ms === null ? null : Math.floor(ms / 60000) * 60000;
+    const originalDate = parseLostDateToDate(
+      originalReport.actual_lost_date ?? originalReport.lost_date,
+    );
     const combined = new Date(date);
     combined.setHours(time.getHours(), time.getMinutes(), 0, 0);
 
@@ -481,11 +496,10 @@ function EditNextScreen() {
       return;
     }
 
-    clearReportDraft();
-    if (isSessionDirty()) {
-      showToast('Edit has been cancelled.', 'info');
-    }
-    router.navigate('/(tabs)/profileReportHistory');
+    // Leaving with unsaved edits preserves the draft (like the create-report
+    // wizard already does) instead of wiping it — re-entering this report's
+    // edit screen later resumes from it.
+    router.navigate("/(tabs)/profileReportHistory");
   });
 
   const handleBack = () => {
@@ -575,32 +589,42 @@ function EditNextScreen() {
       const backupReport = reportParam ? JSON.parse(reportParam) : {};
 
       const finalItemName = draft.itemName || backupReport.item_name || "";
-      const finalDescription = draft.description || backupReport.description || "";
-      const finalContents = draft.contents !== undefined ? draft.contents : (backupReport.contents || "");
-      
+      const finalDescription =
+        draft.description || backupReport.description || "";
+      const finalContents =
+        draft.contents !== undefined
+          ? draft.contents
+          : backupReport.contents || "";
+
       const rawCategoryId = draft.categoryId || backupReport.category_id || "";
-      const finalCategoryId = rawCategoryId ? parseInt(String(rawCategoryId), 10) : "";
+      const finalCategoryId = rawCategoryId
+        ? parseInt(String(rawCategoryId), 10)
+        : "";
 
       const formData = new FormData();
       formData.append("item_name", String(finalItemName));
       formData.append("description", String(finalDescription));
       formData.append("contents", String(finalContents));
-      
+
       if (finalCategoryId) {
         formData.append("category_id", String(finalCategoryId));
       }
-      
+
       formData.append("location_lost", locationLost);
       formData.append("lost_date", localISO);
 
       // profileReportHistoryEditNext.jsx - in handleSubmit
       if (draft.isImageRemoved === true) {
-        formData.append("image_url", "REMOVE"); 
+        formData.append("image_url", "REMOVE");
       } else if (draft.imageUri) {
         const fileName = draft.imageUri.split("/").pop() || "image.jpg";
         const ext = fileName?.split(".").pop()?.toLowerCase();
         const mimeType = ext === "png" ? "image/png" : "image/jpeg";
-        formData.append("image", { uri: draft.imageUri, name: fileName, type: mimeType });
+        formData.append("image", {
+          uri: draft.imageUri,
+          name: fileName,
+          type: mimeType,
+        });
       }
 
       const res = await uploadWithAuth(
@@ -642,7 +666,8 @@ function EditNextScreen() {
     } catch (error) {
       console.error("Update lost report error:", error);
       showAlert({
-        message: error?.message ?? "Could not update your report. Please try again.",
+        message:
+          error?.message ?? "Could not update your report. Please try again.",
       });
     } finally {
       setIsSubmitting(false);
@@ -664,6 +689,9 @@ function EditNextScreen() {
     >
       <ConfirmDiscardModal
         visible={discardModalVisible}
+        message="Leave this report? Your progress will be saved as a draft so you can continue later."
+        cancelLabel="Keep Editing"
+        confirmLabel="Leave"
         onKeepEditing={dismissDiscard}
         onDiscard={handleDiscardConfirm}
       />
@@ -688,7 +716,8 @@ function EditNextScreen() {
         onConfirm={(selectedDate) => {
           setOpenCalendar(false);
           setDate(selectedDate);
-          if (errors.dateTime) setErrors((prev) => ({ ...prev, dateTime: undefined }));
+          if (errors.dateTime)
+            setErrors((prev) => ({ ...prev, dateTime: undefined }));
         }}
         onCancel={() => setOpenCalendar(false)}
       />
@@ -698,16 +727,25 @@ function EditNextScreen() {
         open={openClock}
         mode="time"
         date={time}
-        maximumDate={date.toDateString() === new Date().toDateString() ? new Date() : undefined}
+        maximumDate={
+          date.toDateString() === new Date().toDateString()
+            ? new Date()
+            : undefined
+        }
         onConfirm={(selectedTime) => {
           setOpenClock(false);
           setTime(selectedTime);
-          if (errors.dateTime) setErrors((prev) => ({ ...prev, dateTime: undefined }));
+          if (errors.dateTime)
+            setErrors((prev) => ({ ...prev, dateTime: undefined }));
         }}
         onCancel={() => setOpenClock(false)}
       />
 
-      <ScrollView ref={scrollRef} keyboardShouldPersistTaps="handled" contentContainerStyle={styles.scrollContent}>
+      <ScrollView
+        ref={scrollRef}
+        keyboardShouldPersistTaps="handled"
+        contentContainerStyle={styles.scrollContent}
+      >
         <View style={styles.titleRow}>
           <TouchableOpacity
             onPress={() => {
@@ -716,7 +754,7 @@ function EditNextScreen() {
               // same screen, which goes back to page 1) — preserved as-is.
               if (isViewOnly) {
                 bypassNextLeave();
-                router.navigate('/(tabs)/profileReportHistory');
+                router.navigate("/(tabs)/profileReportHistory");
                 return;
               }
               handleLeavePress();
@@ -724,30 +762,65 @@ function EditNextScreen() {
             activeOpacity={0.6}
             style={styles.titleBackButton}
           >
-            <MaterialIcons name="arrow-back" size={24} color={AppColors.surface} />
+            <MaterialIcons
+              name="arrow-back"
+              size={24}
+              color={AppColors.surface}
+            />
           </TouchableOpacity>
-          <Text style={styles.title}>{isViewOnly ? "Report Details" : "Edit Lost Item Report"}</Text>
+          <Text style={styles.title}>
+            {isViewOnly ? "Report Details" : "Edit Lost Item Report"}
+          </Text>
         </View>
         <Text style={styles.subTitle}>When & Where</Text>
 
         <Text style={styles.sectionTitle}>Date Lost</Text>
-        <TouchableOpacity onPress={() => setOpenCalendar(true)} activeOpacity={isViewOnly ? 1 : 0.8} disabled={isViewOnly}>
+        <TouchableOpacity
+          onPress={() => setOpenCalendar(true)}
+          activeOpacity={isViewOnly ? 1 : 0.8}
+          disabled={isViewOnly}
+        >
           <View style={styles.dataPickerButton}>
-            <Text style={styles.pickerValueText}>{date.toLocaleDateString()}</Text>
-            {!isViewOnly && <MaterialIcons name="calendar-month" size={24} color={AppColors.background} />}
+            <Text style={styles.pickerValueText}>
+              {date.toLocaleDateString()}
+            </Text>
+            {!isViewOnly && (
+              <MaterialIcons
+                name="calendar-month"
+                size={24}
+                color={AppColors.background}
+              />
+            )}
           </View>
         </TouchableOpacity>
 
         <Text style={styles.sectionTitle}>Time Lost</Text>
-        <TouchableOpacity onPress={() => setOpenClock(true)} activeOpacity={isViewOnly ? 1 : 0.8} disabled={isViewOnly}>
+        <TouchableOpacity
+          onPress={() => setOpenClock(true)}
+          activeOpacity={isViewOnly ? 1 : 0.8}
+          disabled={isViewOnly}
+        >
           <View style={styles.dataPickerButton}>
-            <Text style={styles.pickerValueText}>{time.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</Text>
-            {!isViewOnly && <MaterialIcons name="access-time" size={24} color={AppColors.background} />}
+            <Text style={styles.pickerValueText}>
+              {time.toLocaleTimeString([], {
+                hour: "2-digit",
+                minute: "2-digit",
+              })}
+            </Text>
+            {!isViewOnly && (
+              <MaterialIcons
+                name="access-time"
+                size={24}
+                color={AppColors.background}
+              />
+            )}
           </View>
         </TouchableOpacity>
         <FieldError message={errors.dateTime} />
 
-        <Text style={styles.sectionTitle}>{isViewOnly ? "Location" : "Select Location"}</Text>
+        <Text style={styles.sectionTitle}>
+          {isViewOnly ? "Location" : "Select Location"}
+        </Text>
 
         {isViewOnly ? (
           <View style={styles.locationViewBox}>
@@ -755,57 +828,139 @@ function EditNextScreen() {
               {cantRemember
                 ? "Can't Remember"
                 : allSelectedLocations.length > 0
-                ? allSelectedLocations.join(", ")
-                : "Not specified"}
+                  ? allSelectedLocations.join(", ")
+                  : "Not specified"}
             </Text>
           </View>
         ) : (
-        <View style={styles.dropdownMainContainer}>
-          <TouchableOpacity onPress={handleMainLocationPress} activeOpacity={0.9}>
-            <View style={[styles.dataPickerButton, styles.locationMainSelector, showLocation && styles.dataPickerButtonActive, errors.location && !showLocation && styles.inputErrorBorder]}>
-              <Text style={styles.selectLocationLabel}>Select Location</Text>
-              <Animated.View style={mainAnimatedStyle}>
-                <MaterialIcons name="keyboard-arrow-down" size={24} color={showLocation ? "#900014" : AppColors.background} />
-              </Animated.View>
-            </View>
-          </TouchableOpacity>
+          <View style={styles.dropdownMainContainer}>
+            <TouchableOpacity
+              onPress={handleMainLocationPress}
+              activeOpacity={0.9}
+            >
+              <View
+                style={[
+                  styles.dataPickerButton,
+                  styles.locationMainSelector,
+                  showLocation && styles.dataPickerButtonActive,
+                  errors.location && !showLocation && styles.inputErrorBorder,
+                ]}
+              >
+                <Text style={styles.selectLocationLabel}>Select Location</Text>
+                <Animated.View style={mainAnimatedStyle}>
+                  <MaterialIcons
+                    name="keyboard-arrow-down"
+                    size={24}
+                    color={showLocation ? "#900014" : AppColors.background}
+                  />
+                </Animated.View>
+              </View>
+            </TouchableOpacity>
 
-          {showLocation && (
-            <View style={styles.integratedMenuBlock}>
-              <NestedDropdownHeader title="College Buildings" isOpen={openSubSection === "colleges"} disabled={cantRemember} onPress={() => toggleSubSection("colleges")} />
-              {openSubSection === "colleges" && (
-                <View style={styles.nestedCheckboxList}>
-                  {formatDataList(collegesList).map((item, idx) => (
-                    <CustomCheckbox key={`college-${idx}`} label={item} value={selectedColleges.includes(item)} disabled={isViewOnly} onValueChange={() => handleLocationSelectionChange(selectedColleges, setSelectedColleges)(item)} />
-                  ))}
-                </View>
-              )}
+            {showLocation && (
+              <View style={styles.integratedMenuBlock}>
+                <NestedDropdownHeader
+                  title="College Buildings"
+                  isOpen={openSubSection === "colleges"}
+                  disabled={cantRemember}
+                  onPress={() => toggleSubSection("colleges")}
+                />
+                {openSubSection === "colleges" && (
+                  <View style={styles.nestedCheckboxList}>
+                    {formatDataList(collegesList).map((item, idx) => (
+                      <CustomCheckbox
+                        key={`college-${idx}`}
+                        label={item}
+                        value={selectedColleges.includes(item)}
+                        disabled={isViewOnly}
+                        onValueChange={() =>
+                          handleLocationSelectionChange(
+                            selectedColleges,
+                            setSelectedColleges,
+                          )(item)
+                        }
+                      />
+                    ))}
+                  </View>
+                )}
 
-              <NestedDropdownHeader title="Shared Student Spaces" isOpen={openSubSection === "spaces"} disabled={cantRemember} onPress={() => toggleSubSection("spaces")} />
-              {openSubSection === "spaces" && (
-                <View style={styles.nestedCheckboxList}>
-                  {formatDataList(spacesList).map((item, idx) => (
-                    <CustomCheckbox key={`space-${idx}`} label={item} value={selectedSpaces.includes(item)} disabled={isViewOnly} onValueChange={() => handleLocationSelectionChange(selectedSpaces, setSelectedSpaces)(item)} />
-                  ))}
-                </View>
-              )}
+                <NestedDropdownHeader
+                  title="Shared Student Spaces"
+                  isOpen={openSubSection === "spaces"}
+                  disabled={cantRemember}
+                  onPress={() => toggleSubSection("spaces")}
+                />
+                {openSubSection === "spaces" && (
+                  <View style={styles.nestedCheckboxList}>
+                    {formatDataList(spacesList).map((item, idx) => (
+                      <CustomCheckbox
+                        key={`space-${idx}`}
+                        label={item}
+                        value={selectedSpaces.includes(item)}
+                        disabled={isViewOnly}
+                        onValueChange={() =>
+                          handleLocationSelectionChange(
+                            selectedSpaces,
+                            setSelectedSpaces,
+                          )(item)
+                        }
+                      />
+                    ))}
+                  </View>
+                )}
 
-              <NestedDropdownHeader title="Gates" isOpen={openSubSection === "gates"} disabled={cantRemember} onPress={() => toggleSubSection("gates")} />
-              {openSubSection === "gates" && (
-                <View style={styles.nestedCheckboxList}>
-                  {formatDataList(gatesList).map((item, idx) => (
-                    <CustomCheckbox key={`gate-${idx}`} label={item} value={selectedGates.includes(item)} disabled={isViewOnly} onValueChange={() => handleLocationSelectionChange(selectedGates, setSelectedGates)(item)} />
-                  ))}
-                </View>
-              )}
+                <NestedDropdownHeader
+                  title="Gates"
+                  isOpen={openSubSection === "gates"}
+                  disabled={cantRemember}
+                  onPress={() => toggleSubSection("gates")}
+                />
+                {openSubSection === "gates" && (
+                  <View style={styles.nestedCheckboxList}>
+                    {formatDataList(gatesList).map((item, idx) => (
+                      <CustomCheckbox
+                        key={`gate-${idx}`}
+                        label={item}
+                        value={selectedGates.includes(item)}
+                        disabled={isViewOnly}
+                        onValueChange={() =>
+                          handleLocationSelectionChange(
+                            selectedGates,
+                            setSelectedGates,
+                          )(item)
+                        }
+                      />
+                    ))}
+                  </View>
+                )}
 
-              <TouchableOpacity style={[styles.nestedHeader, styles.cantRememberRow]} onPress={handleCantRememberChange} activeOpacity={0.7} disabled={isViewOnly}>
-                <Text style={[styles.nestedHeaderTitle, isViewOnly && styles.disabledText]}>Can't Remember</Text>
-                <MaterialIcons name={cantRemember ? "radio-button-checked" : "radio-button-unchecked"} size={22} color="#900014" />
-              </TouchableOpacity>
-            </View>
-          )}
-        </View>
+                <TouchableOpacity
+                  style={[styles.nestedHeader, styles.cantRememberRow]}
+                  onPress={handleCantRememberChange}
+                  activeOpacity={0.7}
+                  disabled={isViewOnly}
+                >
+                  <Text
+                    style={[
+                      styles.nestedHeaderTitle,
+                      isViewOnly && styles.disabledText,
+                    ]}
+                  >
+                    Can't Remember
+                  </Text>
+                  <MaterialIcons
+                    name={
+                      cantRemember
+                        ? "radio-button-checked"
+                        : "radio-button-unchecked"
+                    }
+                    size={22}
+                    color="#900014"
+                  />
+                </TouchableOpacity>
+              </View>
+            )}
+          </View>
         )}
         <FieldError message={errors.location} />
 
@@ -822,11 +977,17 @@ function EditNextScreen() {
         {!isViewOnly && (
           <View style={styles.infoCard}>
             <View style={styles.infoTitleRow}>
-              <Feather name="info" size={20} color="#000000" style={styles.infoIcon} />
+              <Feather
+                name="info"
+                size={20}
+                color="#000000"
+                style={styles.infoIcon}
+              />
               <Text style={styles.infoTitle}>What happens next?</Text>
             </View>
             <Text style={styles.infoBody}>
-              We’ll check for matching found items and notify you if we find a potential match. You’ll receive updates via the notification bell.
+              We’ll check for matching found items and notify you if we find a
+              potential match. You’ll receive updates via the notification bell.
             </Text>
           </View>
         )}
@@ -835,22 +996,43 @@ function EditNextScreen() {
           <Text style={styles.pageIndicator}>Page 2 out of 2</Text>
           <View style={styles.buttonSection}>
             {isViewOnly ? (
-              <TouchableOpacity style={styles.cancelButton} onPress={() => {
-                bypassNextLeave();
-                router.navigate({ pathname: "/(tabs)/profileReportHistoryEdit", params: { report: reportParam, viewOnly: "true" } });
-              }}>
+              <TouchableOpacity
+                style={styles.cancelButton}
+                onPress={() => {
+                  bypassNextLeave();
+                  router.navigate({
+                    pathname: "/(tabs)/profileReportHistoryEdit",
+                    params: { report: reportParam, viewOnly: "true" },
+                  });
+                }}
+              >
                 <Text style={styles.backButtonText}>Back to Page 1</Text>
               </TouchableOpacity>
             ) : (
               <>
-                <TouchableOpacity style={styles.cancelButton} disabled={isSubmitting} onPress={() => {
-                  handleBack();
-                }}>
+                <TouchableOpacity
+                  style={styles.cancelButton}
+                  disabled={isSubmitting}
+                  onPress={() => {
+                    handleBack();
+                  }}
+                >
                   <Text style={styles.backButtonText}>Back to Page 1</Text>
                 </TouchableOpacity>
 
-                <TouchableOpacity style={[styles.submitButton, isSubmitting && styles.submitButtonDisabled]} onPress={handleSubmit} disabled={isSubmitting}>
-                  {isSubmitting ? <ActivityIndicator color={AppColors.surface} /> : <Text style={styles.submitButtonText}>Confirm</Text>}
+                <TouchableOpacity
+                  style={[
+                    styles.submitButton,
+                    isSubmitting && styles.submitButtonDisabled,
+                  ]}
+                  onPress={handleSubmit}
+                  disabled={isSubmitting}
+                >
+                  {isSubmitting ? (
+                    <ActivityIndicator color={AppColors.surface} />
+                  ) : (
+                    <Text style={styles.submitButtonText}>Confirm</Text>
+                  )}
                 </TouchableOpacity>
               </>
             )}
@@ -868,44 +1050,189 @@ export default function ReportHistoryEditLocationScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#FFF1E0" },
-  loadingScreen: { flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#FFF1E0" },
+  loadingScreen: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#FFF1E0",
+  },
   scrollContent: { flexGrow: 1, paddingBottom: 48 },
-  title: { backgroundColor: AppColors.background, fontSize: 22, fontWeight: "700", color: AppColors.surface, paddingVertical: 20, paddingRight: 20, paddingLeft: 8, flex: 1 },
-  titleRow: { flexDirection: "row", alignItems: "center", backgroundColor: AppColors.background },
+  title: {
+    backgroundColor: AppColors.background,
+    fontSize: 22,
+    fontWeight: "700",
+    color: AppColors.surface,
+    paddingVertical: 20,
+    paddingRight: 20,
+    paddingLeft: 8,
+    flex: 1,
+  },
+  titleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: AppColors.background,
+  },
   titleBackButton: { paddingLeft: 16, paddingVertical: 20 },
-  subTitle: { borderBottomWidth: 1, borderColor: "#000000", fontSize: 17, fontWeight: "900", color: AppColors.textOnLight, padding: 20, paddingLeft: 10, paddingBottom: 15, marginHorizontal: 10, marginBottom: 20 },
-  nextSection: { flexDirection: "row", justifyContent: "space-between", marginHorizontal: 20, marginTop: 20, paddingVertical: 24, borderTopWidth: 1, borderColor: "rgba(0, 0, 0, 0.15)", alignItems: "center", flexWrap: "wrap", gap: 12 },
+  subTitle: {
+    borderBottomWidth: 1,
+    borderColor: "#000000",
+    fontSize: 17,
+    fontWeight: "900",
+    color: AppColors.textOnLight,
+    padding: 20,
+    paddingLeft: 10,
+    paddingBottom: 15,
+    marginHorizontal: 10,
+    marginBottom: 20,
+  },
+  nextSection: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginHorizontal: 20,
+    marginTop: 20,
+    paddingVertical: 24,
+    borderTopWidth: 1,
+    borderColor: "rgba(0, 0, 0, 0.15)",
+    alignItems: "center",
+    flexWrap: "wrap",
+    gap: 12,
+  },
   pageIndicator: { fontSize: 15, fontWeight: "500", color: "#212121" },
-  submitButton: { paddingVertical: 12, paddingHorizontal: 26, backgroundColor: AppColors.background, borderRadius: 14, minWidth: 100, alignItems: "center" },
+  submitButton: {
+    paddingVertical: 12,
+    paddingHorizontal: 26,
+    backgroundColor: AppColors.background,
+    borderRadius: 14,
+    minWidth: 100,
+    alignItems: "center",
+  },
   submitButtonDisabled: { opacity: 0.7 },
-  cancelButton: { paddingVertical: 12, paddingHorizontal: 28, backgroundColor: "transparent", borderRadius: 14, borderWidth: 1.5, borderColor: "#900014" },
+  cancelButton: {
+    paddingVertical: 12,
+    paddingHorizontal: 28,
+    backgroundColor: "transparent",
+    borderRadius: 14,
+    borderWidth: 1.5,
+    borderColor: "#900014",
+  },
   submitButtonText: { color: "#FFFFFF", fontSize: 15, fontWeight: "500" },
   backButtonText: { color: "#900014", fontSize: 15, fontWeight: "500" },
   buttonSection: { gap: 10, flexDirection: "row" },
-  sectionTitle: { fontSize: 17, fontWeight: "800", color: AppColors.textOnLight, paddingLeft: 20, marginTop: 20, marginBottom: 8 },
-  dataPickerButton: { justifyContent: "space-between", alignItems: "center", flexDirection: "row", marginHorizontal: 20, marginBottom: 10, padding: 14, backgroundColor: "#fff", borderWidth: 1, borderColor: "#E0E0E0", borderRadius: 6 },
-  locationViewBox: { marginHorizontal: 20, marginBottom: 10, padding: 14, backgroundColor: "#fff", borderWidth: 1, borderColor: "#E0E0E0", borderRadius: 6 },
+  sectionTitle: {
+    fontSize: 17,
+    fontWeight: "800",
+    color: AppColors.textOnLight,
+    paddingLeft: 20,
+    marginTop: 20,
+    marginBottom: 8,
+  },
+  dataPickerButton: {
+    justifyContent: "space-between",
+    alignItems: "center",
+    flexDirection: "row",
+    marginHorizontal: 20,
+    marginBottom: 10,
+    padding: 14,
+    backgroundColor: "#fff",
+    borderWidth: 1,
+    borderColor: "#E0E0E0",
+    borderRadius: 6,
+  },
+  locationViewBox: {
+    marginHorizontal: 20,
+    marginBottom: 10,
+    padding: 14,
+    backgroundColor: "#fff",
+    borderWidth: 1,
+    borderColor: "#E0E0E0",
+    borderRadius: 6,
+  },
   locationViewText: { fontSize: 15, color: "#333", lineHeight: 22 },
   pickerValueText: { fontSize: 15, color: "#333" },
   locationMainSelector: { marginHorizontal: 0, marginBottom: 0 },
-  dataPickerButtonActive: { backgroundColor: "#FFFFFF", borderBottomLeftRadius: 0, borderBottomRightRadius: 0, borderBottomWidth: 0 },
+  dataPickerButtonActive: {
+    backgroundColor: "#FFFFFF",
+    borderBottomLeftRadius: 0,
+    borderBottomRightRadius: 0,
+    borderBottomWidth: 0,
+  },
   selectLocationLabel: { fontWeight: "600", fontSize: 15, color: "#A2938A" },
   inputErrorBorder: { borderWidth: 1, borderColor: "#C62828" },
-  dropdownMainContainer: { marginHorizontal: 20, boxShadow: "0px 2px 4px rgba(0,0,0,0.06)" },
-  integratedMenuBlock: { backgroundColor: "#FFFFFF", borderLeftWidth: 1, borderRightWidth: 1, borderBottomWidth: 1, borderColor: "#E0E0E0", borderBottomLeftRadius: 6, borderBottomRightRadius: 6, marginTop: 0 },
-  nestedHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingVertical: 14, paddingHorizontal: 16, borderTopWidth: 1, borderColor: "#EEEEEE", backgroundColor: "#FFFFFF" },
+  dropdownMainContainer: {
+    marginHorizontal: 20,
+    boxShadow: "0px 2px 4px rgba(0,0,0,0.06)",
+  },
+  integratedMenuBlock: {
+    backgroundColor: "#FFFFFF",
+    borderLeftWidth: 1,
+    borderRightWidth: 1,
+    borderBottomWidth: 1,
+    borderColor: "#E0E0E0",
+    borderBottomLeftRadius: 6,
+    borderBottomRightRadius: 6,
+    marginTop: 0,
+  },
+  nestedHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderTopWidth: 1,
+    borderColor: "#EEEEEE",
+    backgroundColor: "#FFFFFF",
+  },
   nestedHeaderDisabled: { opacity: 0.5 },
   nestedHeaderTitle: { fontSize: 15, fontWeight: "600", color: "#212121" },
   cantRememberRow: { borderBottomLeftRadius: 6, borderBottomRightRadius: 6 },
-  nestedCheckboxList: { backgroundColor: "#F9F9F9", paddingVertical: 6, borderTopWidth: 1, borderColor: "#EEEEEE" },
-  checkboxContainer: { flexDirection: "row", alignItems: "center", paddingVertical: 10, paddingHorizontal: 24 },
+  nestedCheckboxList: {
+    backgroundColor: "#F9F9F9",
+    paddingVertical: 6,
+    borderTopWidth: 1,
+    borderColor: "#EEEEEE",
+  },
+  checkboxContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 10,
+    paddingHorizontal: 24,
+  },
   checkboxLabel: { marginLeft: 12, fontSize: 15, color: "#212121" },
   disabledText: { color: "#A0A0A0" },
-  fieldError: { color: '#C62828', fontSize: 13, marginHorizontal: 20, marginTop: 4, marginBottom: 8 },
-  selectedLocationsText: { fontSize: 13, color: AppColors.textOnLight, marginHorizontal: 20, marginTop: 4 },
-  infoCard: { backgroundColor: "#E3D5CA", borderRadius: 8, padding: 16, marginHorizontal: 20, marginTop: 28, marginBottom: 12, boxShadow: "0px 1px 3px rgba(0,0,0,0.05)" },
-  infoTitleRow: { flexDirection: "row", alignItems: "center", marginBottom: 10 },
+  fieldError: {
+    color: "#C62828",
+    fontSize: 13,
+    marginHorizontal: 20,
+    marginTop: 4,
+    marginBottom: 8,
+  },
+  selectedLocationsText: {
+    fontSize: 13,
+    color: AppColors.textOnLight,
+    marginHorizontal: 20,
+    marginTop: 4,
+  },
+  infoCard: {
+    backgroundColor: "#E3D5CA",
+    borderRadius: 8,
+    padding: 16,
+    marginHorizontal: 20,
+    marginTop: 28,
+    marginBottom: 12,
+    boxShadow: "0px 1px 3px rgba(0,0,0,0.05)",
+  },
+  infoTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 10,
+  },
   infoIcon: { marginRight: 8 },
   infoTitle: { fontSize: 16, fontWeight: "bold", color: "#000000" },
-  infoBody: { fontSize: 14, color: AppColors.activeIcon, lineHeight: 20, fontWeight: "400", paddingLeft: 28 },
+  infoBody: {
+    fontSize: 14,
+    color: AppColors.activeIcon,
+    lineHeight: 20,
+    fontWeight: "400",
+    paddingLeft: 28,
+  },
 });
