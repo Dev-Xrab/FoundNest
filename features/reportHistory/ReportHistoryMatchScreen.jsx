@@ -1,6 +1,5 @@
 import AppColors from "@/constants/AppColors";
 import { getMatchDetail } from "@/constants/lostReports";
-import { goBack } from "@/constants/previousPage";
 import { formatFoundId, formatReportId } from "@/shared/utils/reportFormatters";
 import { Ionicons } from "@expo/vector-icons";
 import ImageModal from "./components/ImageViewerModal";
@@ -325,9 +324,7 @@ export default function ReportHistoryMatchScreen() {
       <View style={[styles.redHeader, { paddingTop: insets.top }]}>
         <View style={styles.headerRow}>
           <TouchableOpacity
-            onPress={() =>{
-             goBack(router)
-            } }
+            onPress={() => router.replace("/(tabs)/profileReportHistory")}
             activeOpacity={0.7}
             style={styles.backButton}
           >

@@ -9,6 +9,7 @@ import {
   setReportDraft
 } from "@/constants/reportDraft";
 import PhotoPickerModal from "@/shared/components/PhotoPickerModal";
+import { useAlertModal } from "@/shared/hooks/useAlertModal";
 import { useUnsavedChangesGuard } from "@/shared/hooks/useUnsavedChangesGuard";
 import { buildPermissionAlertConfig } from "@/shared/utils/permissions";
 import { formatReportId } from "@/shared/utils/reportFormatters";
@@ -67,6 +68,11 @@ export default function ReportHistoryEditScreen() {
   const [errors, setErrors] = useState({});
   const [photoModalVisible, setPhotoModalVisible] = useState(false);
   const [imageViewerVisible, setImageViewerVisible] = useState(false);
+
+  // Bumped every time text fields are set in bulk from outside typing
+  // to prevent Android native TextInput sync drops.
+  const [dataVersion, setDataVersion] = useState(0);
+
   const scrollRef = useRef(null);
   const { alertModal, showAlert } = useAlertModal();
 
@@ -87,11 +93,7 @@ export default function ReportHistoryEditScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      // Only the Page 1 ↔ Page 2 round trip (fromBack) should keep the
-      // scroll position where the user left it — any other arrival (a
-      // fresh tap from profileReportHistory, a different report) should
-      // start at the top rather than carry over a stale offset from
-      // whichever report was viewed here last.
+      // Start at top unless returning from Page 2
       if (fromBack !== "true") {
         scrollRef.current?.scrollTo({ y: 0, animated: false });
       }
@@ -108,19 +110,19 @@ export default function ReportHistoryEditScreen() {
           setDetailedDescription(data.description ?? "");
           setContents(data.contents ?? "");
           setErrors({});
+          setDataVersion((v) => v + 1);
         };
 
         const fresh = reportParam ? JSON.parse(reportParam) : {};
         applyReportData(fresh);
 
-        // Silently refresh with live server data so edits made
-        // elsewhere aren't shown as a stale snapshot forever
+        // Background live refresh
         const reportId = fresh.lost_report_id;
         if (reportId) {
           (async () => {
             try {
               const data = await getLostReportDetail(reportId);
-              if (!data) return; // keep showing cached data, fail silently
+              if (!data) return;
               applyReportData({
                 ...data,
                 lost_item_image: data.image_url,
@@ -137,10 +139,7 @@ export default function ReportHistoryEditScreen() {
       if (isFirstFocus.current) {
         isFirstFocus.current = false;
 
-        // Resume from a preserved draft either on the page-2 ↔ page-1 round
-        // trip (fromBack), or on a fresh re-entry if leaving earlier left a
-        // draft for THIS report behind (scoped by getReportDraftFor so a
-        // leftover draft from a different report never leaks in).
+        // Resume from preserved draft either from back button or returning to an active edit session
         const savedDraft =
           fromBack === "true"
             ? getReportDraft()
@@ -156,6 +155,7 @@ export default function ReportHistoryEditScreen() {
           setExistingImageUrl(
             savedDraft.existingImageUrl ?? report.lost_item_image ?? null,
           );
+          setDataVersion((v) => v + 1);
           return;
         }
 
@@ -170,6 +170,7 @@ export default function ReportHistoryEditScreen() {
         setDetailedDescription(fresh.description ?? "");
         setContents(fresh.contents ?? "");
         setErrors({});
+        setDataVersion((v) => v + 1);
       }
     }, [reportParam, editSession, fromBack, isViewOnly]),
   );
@@ -193,6 +194,7 @@ export default function ReportHistoryEditScreen() {
         setItemName(aiResult.itemName || "");
         setDetailedDescription(aiResult.detailedDescription || "");
         setContents(aiResult.contents || "");
+        setDataVersion((v) => v + 1);
 
         const matched = matchCategoryFromAi(aiResult.category, categoryList);
         if (matched) {
@@ -289,10 +291,6 @@ export default function ReportHistoryEditScreen() {
       return;
     }
 
-    // Only reuse a previously-saved draft if it belongs to THIS report.
-    // Otherwise a draft left behind by editing a different report (e.g. via
-    // the swipe-back gesture, which skips our cleanup) would leak its
-    // location/date into this session.
     const existingDraft = getReportDraftFor(report.lost_report_id);
 
     setErrors({});
@@ -333,9 +331,6 @@ export default function ReportHistoryEditScreen() {
     ? null
     : (selectedImage ?? existingImageUrl ?? null);
 
-  // Normalizes a lost-date value to epoch-ms truncated to the minute, so
-  // second/millisecond noise (which the app doesn't let users edit anyway)
-  // never causes a false "unsaved changes" positive.
   const parseDateToMinuteMs = (value) => {
     if (!value) return null;
     const cleaned = String(value)
@@ -348,8 +343,6 @@ export default function ReportHistoryEditScreen() {
     return Math.floor(d.getTime() / 60000) * 60000;
   };
 
-  // True value comparison against the original report — only flags "dirty"
-  // if something actually differs, on this page or (via the draft) page 2.
   const isSessionDirty = () => {
     const originalCategoryId = report.category_id
       ? String(report.category_id)
@@ -369,9 +362,6 @@ export default function ReportHistoryEditScreen() {
       : (selectedImage ?? existingImageUrl ?? null);
     if (currentPhoto !== originalPhoto) return true;
 
-    // Location/date only matter if page 2 was already visited this session —
-    // otherwise the draft simply mirrors the untouched original. Scoped to
-    // this report so a leftover draft from a different report never counts.
     const existingDraft = getReportDraftFor(report.lost_report_id);
 
     const originalLocationLost = report.location_lost ?? "";
@@ -398,9 +388,7 @@ export default function ReportHistoryEditScreen() {
     confirmDiscard: handleDiscardConfirm,
     dismissDiscard,
   } = useUnsavedChangesGuard(hasChanges, () => {
-    // Leaving with unsaved edits preserves the draft (like the create-report
-    // wizard already does) instead of wiping it — re-entering this same
-    // report's edit screen later resumes from it, via the focus effect above.
+    // Preserves drafts for this report so the user can resume later
     router.navigate("/(tabs)/profileReportHistory");
   });
 
@@ -589,6 +577,7 @@ export default function ReportHistoryEditScreen() {
 
         <Text style={styles.sectionTitle}>Item Name</Text>
         <TextInput
+          key={`itemName-${dataVersion}`}
           style={[styles.picker, errors.itemName && styles.inputErrorBorder]}
           placeholder="e.g., iPhone 13 Pro Max, Bag, Umbrella"
           placeholderTextColor="#8C7A70"
@@ -604,6 +593,7 @@ export default function ReportHistoryEditScreen() {
 
         <Text style={styles.sectionTitle}>Detailed Description</Text>
         <TextInput
+          key={`description-${dataVersion}`}
           style={[
             styles.picker,
             styles.multilineInput,
@@ -626,6 +616,7 @@ export default function ReportHistoryEditScreen() {
 
         <Text style={styles.sectionTitle}>Contents (if applicable)</Text>
         <TextInput
+          key={`contents-${dataVersion}`}
           style={[styles.picker]}
           placeholder="e.g., wallet contents, keys, notes..."
           placeholderTextColor="#8C7A70"
