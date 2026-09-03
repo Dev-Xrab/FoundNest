@@ -810,6 +810,16 @@ function EditNextScreen() {
         <FieldError message={errors.location} />
 
         {!isViewOnly && (
+          <Text style={styles.selectedLocationsText}>
+            {cantRemember
+              ? "Selected: Can't Remember"
+              : allSelectedLocations.length > 0
+                ? `Selected: ${allSelectedLocations.join(", ")}`
+                : "No location selected yet."}
+          </Text>
+        )}
+
+        {!isViewOnly && (
           <View style={styles.infoCard}>
             <View style={styles.infoTitleRow}>
               <Feather name="info" size={20} color="#000000" style={styles.infoIcon} />
@@ -892,6 +902,7 @@ const styles = StyleSheet.create({
   checkboxLabel: { marginLeft: 12, fontSize: 15, color: "#212121" },
   disabledText: { color: "#A0A0A0" },
   fieldError: { color: '#C62828', fontSize: 13, marginHorizontal: 20, marginTop: 4, marginBottom: 8 },
+  selectedLocationsText: { fontSize: 13, color: AppColors.textOnLight, marginHorizontal: 20, marginTop: 4 },
   infoCard: { backgroundColor: "#E3D5CA", borderRadius: 8, padding: 16, marginHorizontal: 20, marginTop: 28, marginBottom: 12, boxShadow: "0px 1px 3px rgba(0,0,0,0.05)" },
   infoTitleRow: { flexDirection: "row", alignItems: "center", marginBottom: 10 },
   infoIcon: { marginRight: 8 },
