@@ -1,9 +1,7 @@
-import { API_BASE_URL } from "@/constants/api";
+import { showToast } from "@/components/GlobalToast";
 import AppColors from "@/constants/AppColors";
-import { fetchWithAuth } from "@/constants/authApi";
-import { getUserNotifications } from "@/constants/notifications";
+import { getUserNotifications, markNotificationRead } from "@/constants/notifications";
 import { goBack } from "@/constants/previousPage";
-import { getToken } from "@/constants/StudentData";
 import { setupAndSavePushToken } from "@/utils/pushNotifications";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
@@ -40,27 +38,22 @@ export default function NotificationsScreen() {
 
   useEffect(() => {
     // Ask for notification permission and save push token when user opens this page
-    setupAndSavePushToken();
+    setupAndSavePushToken().then((reason) => {
+      if (reason === "denied") {
+        showToast(
+          "Push alerts are off — enable notifications for FoundNest in your phone's Settings to get them.",
+          "info",
+        );
+      } else if (reason === "no-device") {
+        showToast("Push notifications only work on a real phone, not a simulator.", "info");
+      }
+    });
     getNotifications();
   }, []);
 
   const markAsRead = async (notificationId) => {
     try {
-      const token = await getToken();
-      const response = await fetchWithAuth(
-        `${API_BASE_URL}/api/notifications/${notificationId}/read`,
-        {
-          method: "PATCH",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
+      await markNotificationRead(notificationId);
 
       // Optimistically update item locally
       setNotifications((prev) =>
@@ -77,26 +70,15 @@ export default function NotificationsScreen() {
   const markAllAsRead = async () => {
     setMarkingAll(true);
     try {
-      const token = await getToken();
       const unreadItems = notifications.filter((n) => !n.is_read);
 
       // Execute all mark-as-read requests in parallel
       await Promise.all(
-        unreadItems.map((n) =>
-          fetchWithAuth(
-            `${API_BASE_URL}/api/notifications/${n.notification_id}/read`,
-            {
-              method: "PATCH",
-              headers: {
-                "Content-Type": "application/json",
-                Authorization: `Bearer ${token}`,
-              },
-            }
-          )
-        )
+        unreadItems.map((n) => markNotificationRead(n.notification_id))
       );
 
-      
+      setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })));
+      setNumberOfUnreadNotifications(0);
     } catch (error) {
       console.error("Failed to mark all as read:", error);
       getNotifications(); // Refresh on failure
@@ -120,7 +102,7 @@ export default function NotificationsScreen() {
   };
 
   const renderNotification = ({ item }) => {
-    const isItemUnread = item.is_read;
+    const isRead = item.is_read;
 
     return (
       <TouchableOpacity
@@ -148,7 +130,7 @@ export default function NotificationsScreen() {
                 <Text style={styles.timeText}>
                   {getTimeAgo(item.created_at)}
                 </Text>
-                {!isItemUnread && <View style={styles.unreadDot} />}
+                {!isRead && <View style={styles.unreadDot} />}
               </View>
             </View>
 

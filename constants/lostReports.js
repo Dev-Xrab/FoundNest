@@ -68,3 +68,41 @@ export async function getReportHistory() {
   ]);
   return mergeReportsAndNotifs(reportsData, notifsData);
 }
+
+/**
+ * Cancel a lost report with a reason. Throws with the server's error
+ * message on failure so the caller can surface it.
+ */
+export async function cancelLostReport(reportId, reason) {
+  const res = await fetchWithAuth(`${API_BASE_URL}/api/lost-reports/${reportId}/cancel`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ reason }),
+  });
+
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error ?? "Failed to cancel report.");
+  }
+}
+
+/**
+ * Fetch the freshest copy of a single lost report — used by the edit
+ * wizard's two pages to silently refresh a snapshot that may have gone
+ * stale since it was passed in via route params.
+ */
+export async function getLostReportDetail(reportId) {
+  const res = await fetchWithAuth(`${API_BASE_URL}/api/lost-reports/${reportId}/detail`);
+  if (!res.ok) return null;
+  return res.json();
+}
+
+/**
+ * Fetch the freshest copy of a lost-vs-found match record — used by the
+ * match-comparison screen to silently refresh past its initial snapshot.
+ */
+export async function getMatchDetail(matchId) {
+  const res = await fetchWithAuth(`${API_BASE_URL}/api/match-records/${matchId}/match`);
+  if (!res.ok) return null;
+  return res.json();
+}

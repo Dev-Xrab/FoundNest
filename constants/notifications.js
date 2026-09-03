@@ -40,6 +40,20 @@ export async function getUserNotifications() {
 }
 
 /**
+ * Mark a single notification as read.
+ */
+export async function markNotificationRead(notificationId) {
+  const res = await fetchWithAuth(
+    `${API_BASE_URL}/api/notifications/${notificationId}/read`,
+    { method: "PATCH" },
+  );
+
+  if (!res.ok) {
+    throw new Error(`HTTP error! status: ${res.status}`);
+  }
+}
+
+/**
  * Merges lost reports (base list) with notification rows (matches).
  * Used by Report History and Home screen.
  */

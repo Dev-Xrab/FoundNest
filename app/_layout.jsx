@@ -90,7 +90,6 @@ function RootLayoutNav() {
           name="allNotification"
           options={{ headerShown: false }}
         />
-        <Stack.Screen name="modal" options={{ presentation: "modal" }} />
       </Stack>
       <GlobalToast />
     </ThemeProvider>
