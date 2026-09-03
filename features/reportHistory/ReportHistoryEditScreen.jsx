@@ -1,15 +1,15 @@
 import ConfirmDiscardModal from '@/components/ConfirmDiscardModal';
 import { showToast } from '@/components/GlobalToast';
-import PhotoPickerModal from '@/shared/components/PhotoPickerModal';
 import AppColors from '@/constants/AppColors';
 import { getCategories, matchCategoryFromAi } from '@/constants/category';
 import { DescribeItem } from '@/constants/geminiAI';
 import { getLostReportDetail, setIsAnalyzing } from '@/constants/lostReports';
 import { clearReportDraft, getReportDraft, getReportDraftFor, setReportDraft } from '@/constants/reportDraft';
-import { formatReportId } from '@/shared/utils/reportFormatters';
-import { useUnsavedChangesGuard } from '@/shared/hooks/useUnsavedChangesGuard';
+import PhotoPickerModal from '@/shared/components/PhotoPickerModal';
 import { useAlertModal } from '@/shared/hooks/useAlertModal';
+import { useUnsavedChangesGuard } from '@/shared/hooks/useUnsavedChangesGuard';
 import { buildPermissionAlertConfig } from '@/shared/utils/permissions';
+import { formatReportId } from '@/shared/utils/reportFormatters';
 import { validateReportPage1 } from '@/utils/lostReport';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
@@ -535,7 +535,7 @@ export default function ReportHistoryEditScreen() {
           style={[styles.picker]}
           placeholder="e.g., wallet contents, keys, notes..."
           placeholderTextColor="#8C7A70"
-          value={contents}
+          value={isViewOnly ? (contents || '—') : contents}
           editable={!isViewOnly}
           onChangeText={setContents}
         />
