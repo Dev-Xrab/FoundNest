@@ -51,3 +51,6 @@ yarn-error.*
 # generated native folders
 /ios
 /android
+
+neon-backend/
+build.log
