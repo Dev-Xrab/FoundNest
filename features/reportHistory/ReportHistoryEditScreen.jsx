@@ -1,19 +1,22 @@
-import ConfirmDiscardModal from '@/components/ConfirmDiscardModal';
-import PhotoPickerModal from '@/shared/components/PhotoPickerModal';
-import AppColors from '@/constants/AppColors';
-import { getCategories, matchCategoryFromAi } from '@/constants/category';
-import { DescribeItem } from '@/constants/geminiAI';
-import { getLostReportDetail, setIsAnalyzing } from '@/constants/lostReports';
-import { getReportDraft, getReportDraftFor, setReportDraft } from '@/constants/reportDraft';
-import { formatReportId } from '@/shared/utils/reportFormatters';
-import { useUnsavedChangesGuard } from '@/shared/hooks/useUnsavedChangesGuard';
-import { useAlertModal } from '@/shared/hooks/useAlertModal';
-import { buildPermissionAlertConfig } from '@/shared/utils/permissions';
-import { validateReportPage1 } from '@/utils/lostReport';
-import { Ionicons, MaterialIcons } from '@expo/vector-icons';
-import * as ImagePicker from 'expo-image-picker';
-import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import ConfirmDiscardModal from "@/components/ConfirmDiscardModal";
+import AppColors from "@/constants/AppColors";
+import { getCategories, matchCategoryFromAi } from "@/constants/category";
+import { DescribeItem } from "@/constants/geminiAI";
+import { getLostReportDetail, setIsAnalyzing } from "@/constants/lostReports";
+import {
+  getReportDraft,
+  getReportDraftFor,
+  setReportDraft
+} from "@/constants/reportDraft";
+import PhotoPickerModal from "@/shared/components/PhotoPickerModal";
+import { useUnsavedChangesGuard } from "@/shared/hooks/useUnsavedChangesGuard";
+import { buildPermissionAlertConfig } from "@/shared/utils/permissions";
+import { formatReportId } from "@/shared/utils/reportFormatters";
+import { validateReportPage1 } from "@/utils/lostReport";
+import { Ionicons, MaterialIcons } from "@expo/vector-icons";
+import * as ImagePicker from "expo-image-picker";
+import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Image,
@@ -25,10 +28,10 @@ import {
   TextInput,
   TouchableOpacity,
   View,
-} from 'react-native';
-import { Dropdown } from 'react-native-element-dropdown';
+} from "react-native";
+import { Dropdown } from "react-native-element-dropdown";
 
-import ImageModal from './components/ImageViewerModal';
+import ImageModal from "./components/ImageViewerModal";
 
 function FieldError({ message }) {
   if (!message) return null;
@@ -37,19 +40,28 @@ function FieldError({ message }) {
 
 export default function ReportHistoryEditScreen() {
   const router = useRouter();
-  const { report: reportParam, editSession, fromBack, viewOnly } = useLocalSearchParams();
+  const {
+    report: reportParam,
+    editSession,
+    fromBack,
+    viewOnly,
+  } = useLocalSearchParams();
   const report = reportParam ? JSON.parse(reportParam) : {};
-  const isViewOnly = viewOnly === 'true';
+  const isViewOnly = viewOnly === "true";
 
   const [selectedImage, setSelectedImage] = useState(null);
   const [isImageRemoved, setIsImageRemoved] = useState(false);
-  const [existingImageUrl, setExistingImageUrl] = useState(report.lost_item_image ?? null); 
-  const [selectedCategoryId, setSelectedCategoryId] = useState(
-    report.category_id ? String(report.category_id) : ''
+  const [existingImageUrl, setExistingImageUrl] = useState(
+    report.lost_item_image ?? null,
   );
-  const [itemName, setItemName] = useState(report.item_name ?? '');
-  const [detailedDescription, setDetailedDescription] = useState(report.description ?? '');
-  const [contents, setContents] = useState(report.contents ?? '');
+  const [selectedCategoryId, setSelectedCategoryId] = useState(
+    report.category_id ? String(report.category_id) : "",
+  );
+  const [itemName, setItemName] = useState(report.item_name ?? "");
+  const [detailedDescription, setDetailedDescription] = useState(
+    report.description ?? "",
+  );
+  const [contents, setContents] = useState(report.contents ?? "");
   const [isLoading, setIsLoading] = useState(false);
   const [categories, setCategories] = useState([]);
   const [errors, setErrors] = useState({});
@@ -80,7 +92,7 @@ export default function ReportHistoryEditScreen() {
       // fresh tap from profileReportHistory, a different report) should
       // start at the top rather than carry over a stale offset from
       // whichever report was viewed here last.
-      if (fromBack !== 'true') {
+      if (fromBack !== "true") {
         scrollRef.current?.scrollTo({ y: 0, animated: false });
       }
 
@@ -89,10 +101,12 @@ export default function ReportHistoryEditScreen() {
           setSelectedImage(null);
           setIsImageRemoved(false);
           setExistingImageUrl(data.lost_item_image ?? null);
-          setSelectedCategoryId(data.category_id ? String(data.category_id) : '');
-          setItemName(data.item_name ?? '');
-          setDetailedDescription(data.description ?? '');
-          setContents(data.contents ?? '');
+          setSelectedCategoryId(
+            data.category_id ? String(data.category_id) : "",
+          );
+          setItemName(data.item_name ?? "");
+          setDetailedDescription(data.description ?? "");
+          setContents(data.contents ?? "");
           setErrors({});
         };
 
@@ -112,7 +126,7 @@ export default function ReportHistoryEditScreen() {
                 lost_item_image: data.image_url,
               });
             } catch (err) {
-              console.warn('Background report refresh failed:', err.message);
+              console.warn("Background report refresh failed:", err.message);
             }
           })();
         }
@@ -127,18 +141,21 @@ export default function ReportHistoryEditScreen() {
         // trip (fromBack), or on a fresh re-entry if leaving earlier left a
         // draft for THIS report behind (scoped by getReportDraftFor so a
         // leftover draft from a different report never leaks in).
-        const savedDraft = fromBack === 'true'
-          ? getReportDraft()
-          : getReportDraftFor(report.lost_report_id);
+        const savedDraft =
+          fromBack === "true"
+            ? getReportDraft()
+            : getReportDraftFor(report.lost_report_id);
 
         if (savedDraft) {
-          setSelectedCategoryId(savedDraft.categoryId ?? '');
-          setItemName(savedDraft.itemName ?? '');
-          setDetailedDescription(savedDraft.description ?? '');
-          setContents(savedDraft.contents ?? '');
+          setSelectedCategoryId(savedDraft.categoryId ?? "");
+          setItemName(savedDraft.itemName ?? "");
+          setDetailedDescription(savedDraft.description ?? "");
+          setContents(savedDraft.contents ?? "");
           setSelectedImage(savedDraft.imageUri ?? null);
           setIsImageRemoved(savedDraft.isImageRemoved ?? false);
-          setExistingImageUrl(savedDraft.existingImageUrl ?? (report.lost_item_image ?? null));
+          setExistingImageUrl(
+            savedDraft.existingImageUrl ?? report.lost_item_image ?? null,
+          );
           return;
         }
 
@@ -146,13 +163,15 @@ export default function ReportHistoryEditScreen() {
         setSelectedImage(null);
         setIsImageRemoved(false);
         setExistingImageUrl(fresh.lost_item_image ?? null);
-        setSelectedCategoryId(fresh.category_id ? String(fresh.category_id) : '');
-        setItemName(fresh.item_name ?? '');
-        setDetailedDescription(fresh.description ?? '');
-        setContents(fresh.contents ?? '');
+        setSelectedCategoryId(
+          fresh.category_id ? String(fresh.category_id) : "",
+        );
+        setItemName(fresh.item_name ?? "");
+        setDetailedDescription(fresh.description ?? "");
+        setContents(fresh.contents ?? "");
         setErrors({});
       }
-    }, [reportParam, editSession, fromBack, isViewOnly])
+    }, [reportParam, editSession, fromBack, isViewOnly]),
   );
 
   const analyzeImage = async (uri) => {
@@ -171,9 +190,9 @@ export default function ReportHistoryEditScreen() {
       });
 
       if (aiResult) {
-        setItemName(aiResult.itemName || '');
-        setDetailedDescription(aiResult.detailedDescription || '');
-        setContents(aiResult.contents || '');
+        setItemName(aiResult.itemName || "");
+        setDetailedDescription(aiResult.detailedDescription || "");
+        setContents(aiResult.contents || "");
 
         const matched = matchCategoryFromAi(aiResult.category, categoryList);
         if (matched) {
@@ -181,8 +200,10 @@ export default function ReportHistoryEditScreen() {
         }
       }
     } catch (error) {
-      console.error('AI Analysis Failed:', error);
-      showAlert({ message: 'Failed to auto-fill details. Please fill them out manually.' });
+      console.error("AI Analysis Failed:", error);
+      showAlert({
+        message: "Failed to auto-fill details. Please fill them out manually.",
+      });
     } finally {
       setIsLoading(false);
       setIsAnalyzing(false);
@@ -193,7 +214,11 @@ export default function ReportHistoryEditScreen() {
     setPhotoModalVisible(false);
     const permissionResult = await ImagePicker.requestCameraPermissionsAsync();
     if (!permissionResult.granted) {
-      showAlert(buildPermissionAlertConfig('You need to allow camera access to take photos.'));
+      showAlert(
+        buildPermissionAlertConfig(
+          "You need to allow camera access to take photos.",
+        ),
+      );
       return;
     }
     const result = await ImagePicker.launchCameraAsync({
@@ -203,16 +228,21 @@ export default function ReportHistoryEditScreen() {
     if (!result.canceled) {
       const uri = result.assets[0].uri;
       setSelectedImage(uri);
-      setIsImageRemoved(false); 
+      setIsImageRemoved(false);
       analyzeImage(uri);
     }
   };
 
   const handleChooseFromLibrary = async () => {
     setPhotoModalVisible(false);
-    const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    const permissionResult =
+      await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permissionResult.granted) {
-      showAlert(buildPermissionAlertConfig('You need to allow library access to select files.'));
+      showAlert(
+        buildPermissionAlertConfig(
+          "You need to allow library access to select files.",
+        ),
+      );
       return;
     }
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -222,7 +252,7 @@ export default function ReportHistoryEditScreen() {
     if (!result.canceled) {
       const uri = result.assets[0].uri;
       setSelectedImage(uri);
-      setIsImageRemoved(false); 
+      setIsImageRemoved(false);
       analyzeImage(uri);
     }
   };
@@ -230,16 +260,16 @@ export default function ReportHistoryEditScreen() {
   const handleRemovePhoto = () => {
     setPhotoModalVisible(false);
     setSelectedImage(null);
-    setIsImageRemoved(true); 
+    setIsImageRemoved(true);
   };
 
   const handleNext = () => {
     if (isViewOnly) {
       router.push({
-        pathname: '/(tabs)/profileReportHistoryEditNext',
+        pathname: "/(tabs)/profileReportHistoryEditNext",
         params: {
           report: reportParam,
-          viewOnly: 'true',
+          viewOnly: "true",
         },
       });
       return;
@@ -253,7 +283,9 @@ export default function ReportHistoryEditScreen() {
 
     if (!validation.valid) {
       setErrors(validation.errors);
-      showAlert({ message: 'Please fix the highlighted fields before continuing.' });
+      showAlert({
+        message: "Please fix the highlighted fields before continuing.",
+      });
       return;
     }
 
@@ -265,23 +297,31 @@ export default function ReportHistoryEditScreen() {
 
     setErrors({});
     const nextDraft = {
-      reportId:         report.lost_report_id,
-      reportParam:      reportParam,
-      editSession:      editSession,
-      imageUri:         isImageRemoved ? null : selectedImage,
-      isImageRemoved:   isImageRemoved, 
-      existingImageUrl: isImageRemoved ? null : (selectedImage ? null : existingImageUrl),
-      categoryId:       selectedCategoryId,
-      itemName:         itemName.trim(),
-      description:      detailedDescription.trim(),
-      contents:         contents.trim(),
-      locationLost:     existingDraft?.locationLost ?? report.location_lost ?? '',
-      lostDate:         existingDraft?.lostDate ?? report.actual_lost_date ?? report.lost_date ?? null,
+      reportId: report.lost_report_id,
+      reportParam: reportParam,
+      editSession: editSession,
+      imageUri: isImageRemoved ? null : selectedImage,
+      isImageRemoved: isImageRemoved,
+      existingImageUrl: isImageRemoved
+        ? null
+        : selectedImage
+          ? null
+          : existingImageUrl,
+      categoryId: selectedCategoryId,
+      itemName: itemName.trim(),
+      description: detailedDescription.trim(),
+      contents: contents.trim(),
+      locationLost: existingDraft?.locationLost ?? report.location_lost ?? "",
+      lostDate:
+        existingDraft?.lostDate ??
+        report.actual_lost_date ??
+        report.lost_date ??
+        null,
     };
     setReportDraft(nextDraft);
 
     router.push({
-      pathname: '/(tabs)/profileReportHistoryEditNext',
+      pathname: "/(tabs)/profileReportHistoryEditNext",
       params: {
         report: reportParam,
         editSession: editSession,
@@ -289,7 +329,9 @@ export default function ReportHistoryEditScreen() {
     });
   };
 
-  const displayImage = isImageRemoved ? null : (selectedImage ?? existingImageUrl ?? null);
+  const displayImage = isImageRemoved
+    ? null
+    : (selectedImage ?? existingImageUrl ?? null);
 
   // Normalizes a lost-date value to epoch-ms truncated to the minute, so
   // second/millisecond noise (which the app doesn't let users edit anyway)
@@ -297,11 +339,11 @@ export default function ReportHistoryEditScreen() {
   const parseDateToMinuteMs = (value) => {
     if (!value) return null;
     const cleaned = String(value)
-      .replace(/\+\d{2}(:\d{2})?$/, '')
-      .replace(/\+00$/, '')
-      .replace('T', ' ')
+      .replace(/\+\d{2}(:\d{2})?$/, "")
+      .replace(/\+00$/, "")
+      .replace("T", " ")
       .trim();
-    const d = new Date(cleaned.replace(' ', 'T'));
+    const d = new Date(cleaned.replace(" ", "T"));
     if (isNaN(d.getTime())) return null;
     return Math.floor(d.getTime() / 60000) * 60000;
   };
@@ -309,10 +351,12 @@ export default function ReportHistoryEditScreen() {
   // True value comparison against the original report — only flags "dirty"
   // if something actually differs, on this page or (via the draft) page 2.
   const isSessionDirty = () => {
-    const originalCategoryId = report.category_id ? String(report.category_id) : '';
-    const originalItemName = (report.item_name ?? '').trim();
-    const originalDescription = (report.description ?? '').trim();
-    const originalContents = (report.contents ?? '').trim();
+    const originalCategoryId = report.category_id
+      ? String(report.category_id)
+      : "";
+    const originalItemName = (report.item_name ?? "").trim();
+    const originalDescription = (report.description ?? "").trim();
+    const originalContents = (report.contents ?? "").trim();
     const originalPhoto = report.lost_item_image ?? null;
 
     if (selectedCategoryId !== originalCategoryId) return true;
@@ -320,7 +364,9 @@ export default function ReportHistoryEditScreen() {
     if (detailedDescription.trim() !== originalDescription) return true;
     if (contents.trim() !== originalContents) return true;
 
-    const currentPhoto = isImageRemoved ? null : (selectedImage ?? existingImageUrl ?? null);
+    const currentPhoto = isImageRemoved
+      ? null
+      : (selectedImage ?? existingImageUrl ?? null);
     if (currentPhoto !== originalPhoto) return true;
 
     // Location/date only matter if page 2 was already visited this session —
@@ -328,11 +374,14 @@ export default function ReportHistoryEditScreen() {
     // this report so a leftover draft from a different report never counts.
     const existingDraft = getReportDraftFor(report.lost_report_id);
 
-    const originalLocationLost = report.location_lost ?? '';
-    const currentLocationLost = existingDraft?.locationLost ?? originalLocationLost;
+    const originalLocationLost = report.location_lost ?? "";
+    const currentLocationLost =
+      existingDraft?.locationLost ?? originalLocationLost;
     if (currentLocationLost !== originalLocationLost) return true;
 
-    const originalLostDateMs = parseDateToMinuteMs(report.actual_lost_date ?? report.lost_date);
+    const originalLostDateMs = parseDateToMinuteMs(
+      report.actual_lost_date ?? report.lost_date,
+    );
     const currentLostDateMs = existingDraft?.lostDate
       ? parseDateToMinuteMs(existingDraft.lostDate)
       : originalLostDateMs;
@@ -352,12 +401,12 @@ export default function ReportHistoryEditScreen() {
     // Leaving with unsaved edits preserves the draft (like the create-report
     // wizard already does) instead of wiping it — re-entering this same
     // report's edit screen later resumes from it, via the focus effect above.
-    router.navigate('/(tabs)/profileReportHistory');
+    router.navigate("/(tabs)/profileReportHistory");
   });
 
   return (
     <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
       style={styles.screenContainer}
     >
       <ConfirmDiscardModal
@@ -389,15 +438,29 @@ export default function ReportHistoryEditScreen() {
       <ScrollView ref={scrollRef} contentContainerStyle={styles.container}>
         {isViewOnly ? (
           <View style={styles.titleRow}>
-            <TouchableOpacity onPress={handleCancelPress} style={styles.backButton}>
-              <MaterialIcons name="arrow-back" size={24} color={AppColors.surface} />
+            <TouchableOpacity
+              onPress={handleCancelPress}
+              style={styles.backButton}
+            >
+              <MaterialIcons
+                name="arrow-back"
+                size={24}
+                color={AppColors.surface}
+              />
             </TouchableOpacity>
             <Text style={styles.titleInRow}>Report Details</Text>
           </View>
         ) : (
           <View style={styles.titleRow}>
-            <TouchableOpacity onPress={handleCancelPress} style={styles.backButton}>
-              <MaterialIcons name="arrow-back" size={24} color={AppColors.surface} />
+            <TouchableOpacity
+              onPress={handleCancelPress}
+              style={styles.backButton}
+            >
+              <MaterialIcons
+                name="arrow-back"
+                size={24}
+                color={AppColors.surface}
+              />
             </TouchableOpacity>
             <Text style={styles.titleInRow}>Edit Lost Item Report</Text>
           </View>
@@ -419,15 +482,22 @@ export default function ReportHistoryEditScreen() {
               disabled={isLoading || (isViewOnly && !displayImage)}
             >
               {isLoading ? (
-                <View style={[styles.dashedRing, { borderColor: '#CCC' }]}>
+                <View style={[styles.dashedRing, { borderColor: "#CCC" }]}>
                   <ActivityIndicator size="large" color="#900000" />
                 </View>
               ) : displayImage ? (
                 <View style={styles.imagePreviewContainer}>
-                  <Image source={{ uri: displayImage }} style={styles.previewImage} />
+                  <Image
+                    source={{ uri: displayImage }}
+                    style={styles.previewImage}
+                  />
                   {isViewOnly ? (
                     <View style={styles.expandIcon}>
-                      <Ionicons name="expand-outline" size={18} color="#FFFFFF" />
+                      <Ionicons
+                        name="expand-outline"
+                        size={18}
+                        color="#FFFFFF"
+                      />
                     </View>
                   ) : (
                     <View style={styles.changeBadge}>
@@ -437,7 +507,11 @@ export default function ReportHistoryEditScreen() {
                 </View>
               ) : isViewOnly ? (
                 <View style={[styles.dashedRing, styles.dashedRingViewOnly]}>
-                  <MaterialIcons name="image-not-supported" size={28} color="#B0A09A" />
+                  <MaterialIcons
+                    name="image-not-supported"
+                    size={28}
+                    color="#B0A09A"
+                  />
                 </View>
               ) : (
                 <View style={styles.dashedRing}>
@@ -450,10 +524,12 @@ export default function ReportHistoryEditScreen() {
 
             <Text style={styles.titleText}>
               {isLoading
-                ? 'Analyzing image...'
+                ? "Analyzing image..."
                 : isViewOnly
-                ? (displayImage ? 'Item Photo' : 'No Photo Attached')
-                : 'Upload Item Photo (Optional)'}
+                  ? displayImage
+                    ? "Item Photo"
+                    : "No Photo Attached"
+                  : "Upload Item Photo (Optional)"}
             </Text>
             {!isViewOnly && (
               <Text style={styles.subText}>
@@ -474,7 +550,10 @@ export default function ReportHistoryEditScreen() {
 
         <Text style={styles.sectionTitle}>Category</Text>
         <Dropdown
-          style={[styles.categoryDropdown, errors.category && styles.inputErrorBorder]}
+          style={[
+            styles.categoryDropdown,
+            errors.category && styles.inputErrorBorder,
+          ]}
           placeholderStyle={styles.categoryPlaceholder}
           selectedTextStyle={styles.categorySelectedText}
           containerStyle={styles.categoryDropdownContainer}
@@ -484,16 +563,25 @@ export default function ReportHistoryEditScreen() {
           maxHeight={280}
           labelField="label"
           valueField="value"
-          placeholder={categoryDropdownData.length === 0 ? 'Loading categories...' : 'Select a category...'}
+          placeholder={
+            categoryDropdownData.length === 0
+              ? "Loading categories..."
+              : "Select a category..."
+          }
           disable={categoryDropdownData.length === 0 || isViewOnly}
           value={selectedCategoryId || null}
           onChange={(item) => {
             setSelectedCategoryId(item.value);
-            if (errors.category) setErrors((prev) => ({ ...prev, category: undefined }));
+            if (errors.category)
+              setErrors((prev) => ({ ...prev, category: undefined }));
           }}
           renderRightIcon={() =>
             isViewOnly ? null : (
-              <MaterialIcons name="keyboard-arrow-down" size={24} color={AppColors.background} />
+              <MaterialIcons
+                name="keyboard-arrow-down"
+                size={24}
+                color={AppColors.background}
+              />
             )
           }
         />
@@ -508,14 +596,19 @@ export default function ReportHistoryEditScreen() {
           editable={!isViewOnly}
           onChangeText={(text) => {
             setItemName(text);
-            if (errors.itemName) setErrors((prev) => ({ ...prev, itemName: undefined }));
+            if (errors.itemName)
+              setErrors((prev) => ({ ...prev, itemName: undefined }));
           }}
         />
         <FieldError message={errors.itemName} />
 
         <Text style={styles.sectionTitle}>Detailed Description</Text>
         <TextInput
-          style={[styles.picker, styles.multilineInput, errors.description && styles.inputErrorBorder]}
+          style={[
+            styles.picker,
+            styles.multilineInput,
+            errors.description && styles.inputErrorBorder,
+          ]}
           multiline
           numberOfLines={8}
           textAlignVertical="top"
@@ -525,7 +618,8 @@ export default function ReportHistoryEditScreen() {
           editable={!isViewOnly}
           onChangeText={(text) => {
             setDetailedDescription(text);
-            if (errors.description) setErrors((prev) => ({ ...prev, description: undefined }));
+            if (errors.description)
+              setErrors((prev) => ({ ...prev, description: undefined }));
           }}
         />
         <FieldError message={errors.description} />
@@ -535,7 +629,7 @@ export default function ReportHistoryEditScreen() {
           style={[styles.picker]}
           placeholder="e.g., wallet contents, keys, notes..."
           placeholderTextColor="#8C7A70"
-          value={contents}
+          value={isViewOnly ? contents || "—" : contents}
           editable={!isViewOnly}
           onChangeText={setContents}
         />
@@ -562,40 +656,187 @@ export default function ReportHistoryEditScreen() {
 }
 
 const styles = StyleSheet.create({
-  screenContainer: { flex: 1, backgroundColor: '#FFF1E0' },
-  container: { flexGrow: 1, backgroundColor: '#FFF1E0', paddingBottom: 40 },
-  titleRow: { backgroundColor: AppColors.background, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 16 },
+  screenContainer: { flex: 1, backgroundColor: "#FFF1E0" },
+  container: { flexGrow: 1, backgroundColor: "#FFF1E0", paddingBottom: 40 },
+  titleRow: {
+    backgroundColor: AppColors.background,
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+  },
   backButton: { marginRight: 10, padding: 2 },
-  titleInRow: { flex: 1, fontSize: 22, fontWeight: '700', color: AppColors.surface },
-  title: { backgroundColor: AppColors.background, fontSize: 22, fontWeight: '700', color: AppColors.surface, padding: 20 },
-  subTitle: { borderBottomWidth: 1, borderColor: '#000000', fontSize: 17, fontWeight: '900', color: AppColors.textOnLight, padding: 20, paddingLeft: 10, paddingBottom: 15, marginHorizontal: 10, marginBottom: 20 },
-  uploadCardWrapper: { alignItems: 'center', justifyContent: 'center', paddingHorizontal: 20, paddingBottom: 10 },
-  card: { backgroundColor: AppColors.surface, borderRadius: 28, paddingVertical: 20, paddingHorizontal: 20, alignItems: 'center', width: '100%', maxWidth: 450, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 10, elevation: 2 },
-  uploadTarget: { marginBottom: 20, justifyContent: 'center', alignItems: 'center' },
-  dashedRing: { width: 80, height: 80, borderRadius: 40, borderWidth: 1.5, borderColor: '#900000', borderStyle: 'dashed', justifyContent: 'center', alignItems: 'center' },
-  dashedRingViewOnly: { borderColor: '#CCCCCC' },
-  solidCircle: { width: 60, height: 60, borderRadius: 30, backgroundColor: '#900000', justifyContent: 'center', alignItems: 'center' },
-  titleText: { fontSize: 17, fontWeight: '600', color: '#6B5A52', textAlign: 'center', marginBottom: 14 },
-  subText: { fontSize: 13, color: '#8C7A70', textAlign: 'center', lineHeight: 22, paddingHorizontal: 12 },
-  sectionTitle: { fontSize: 17, fontWeight: '800', color: AppColors.textOnLight, paddingLeft: 20, marginTop: 20, marginBottom: 8 },
-  categoryDropdown: { marginHorizontal: 20, backgroundColor: AppColors.surface, borderRadius: 8, paddingHorizontal: 12, height: 50 },
-  categoryPlaceholder: { fontSize: 16, color: '#8C7A70' },
+  titleInRow: {
+    flex: 1,
+    fontSize: 22,
+    fontWeight: "700",
+    color: AppColors.surface,
+  },
+  title: {
+    backgroundColor: AppColors.background,
+    fontSize: 22,
+    fontWeight: "700",
+    color: AppColors.surface,
+    padding: 20,
+  },
+  subTitle: {
+    borderBottomWidth: 1,
+    borderColor: "#000000",
+    fontSize: 17,
+    fontWeight: "900",
+    color: AppColors.textOnLight,
+    padding: 20,
+    paddingLeft: 10,
+    paddingBottom: 15,
+    marginHorizontal: 10,
+    marginBottom: 20,
+  },
+  uploadCardWrapper: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 20,
+    paddingBottom: 10,
+  },
+  card: {
+    backgroundColor: AppColors.surface,
+    borderRadius: 28,
+    paddingVertical: 20,
+    paddingHorizontal: 20,
+    alignItems: "center",
+    width: "100%",
+    maxWidth: 450,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 10,
+    elevation: 2,
+  },
+  uploadTarget: {
+    marginBottom: 20,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  dashedRing: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    borderWidth: 1.5,
+    borderColor: "#900000",
+    borderStyle: "dashed",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  dashedRingViewOnly: { borderColor: "#CCCCCC" },
+  solidCircle: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: "#900000",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  titleText: {
+    fontSize: 17,
+    fontWeight: "600",
+    color: "#6B5A52",
+    textAlign: "center",
+    marginBottom: 14,
+  },
+  subText: {
+    fontSize: 13,
+    color: "#8C7A70",
+    textAlign: "center",
+    lineHeight: 22,
+    paddingHorizontal: 12,
+  },
+  sectionTitle: {
+    fontSize: 17,
+    fontWeight: "800",
+    color: AppColors.textOnLight,
+    paddingLeft: 20,
+    marginTop: 20,
+    marginBottom: 8,
+  },
+  categoryDropdown: {
+    marginHorizontal: 20,
+    backgroundColor: AppColors.surface,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    height: 50,
+  },
+  categoryPlaceholder: { fontSize: 16, color: "#8C7A70" },
   categorySelectedText: { fontSize: 16, color: AppColors.textOnLight },
-  categoryDropdownContainer: { marginHorizontal: 20, borderRadius: 8, borderWidth: 1, borderColor: 'rgba(0,0,0,0.08)' },
+  categoryDropdownContainer: {
+    marginHorizontal: 20,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "rgba(0,0,0,0.08)",
+  },
   categoryItemText: { fontSize: 16, color: AppColors.textOnLight },
-  picker: { marginHorizontal: 20, backgroundColor: AppColors.surface, borderRadius: 8, paddingHorizontal: 12, height: 50, fontSize: 16 },
+  picker: {
+    marginHorizontal: 20,
+    backgroundColor: AppColors.surface,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    height: 50,
+    fontSize: 16,
+  },
   multilineInput: { height: 140, paddingTop: 12 },
-  inputErrorBorder: { borderWidth: 1, borderColor: '#C62828' },
-  fieldError: { color: '#C62828', fontSize: 13, marginHorizontal: 20, marginTop: 4 },
-  imagePreviewContainer: { width: 110, height: 110, position: 'relative' },
-  previewImage: { width: '100%', height: '100%', borderRadius: 20 },
-  changeBadge: { position: 'absolute', bottom: -4, right: -4, backgroundColor: '#900000', width: 28, height: 28, borderRadius: 14, justifyContent: 'center', alignItems: 'center', borderWidth: 2, borderColor: '#FFFFFF' },
-  expandIcon: { position: 'absolute', bottom: 8, right: 8, backgroundColor: 'rgba(0,0,0,0.45)', borderRadius: 6, padding: 4 },
-  nextSection: { flexDirection: 'row', justifyContent: 'space-between', marginHorizontal: 20, marginTop: 20, paddingVertical: 30, borderTopWidth: 1, borderColor: 'rgba(0,0,0,0.24)', alignItems: 'center' },
-  pageIndicator: { fontWeight: 'bold' },
-  buttonSection: { flexDirection: 'row', gap: 8 },
-  outlinedButton: { padding: 10, paddingHorizontal: 30, borderRadius: 10, borderWidth: 1.5, borderColor: AppColors.background },
+  inputErrorBorder: { borderWidth: 1, borderColor: "#C62828" },
+  fieldError: {
+    color: "#C62828",
+    fontSize: 13,
+    marginHorizontal: 20,
+    marginTop: 4,
+  },
+  imagePreviewContainer: { width: 110, height: 110, position: "relative" },
+  previewImage: { width: "100%", height: "100%", borderRadius: 20 },
+  changeBadge: {
+    position: "absolute",
+    bottom: -4,
+    right: -4,
+    backgroundColor: "#900000",
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 2,
+    borderColor: "#FFFFFF",
+  },
+  expandIcon: {
+    position: "absolute",
+    bottom: 8,
+    right: 8,
+    backgroundColor: "rgba(0,0,0,0.45)",
+    borderRadius: 6,
+    padding: 4,
+  },
+  nextSection: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginHorizontal: 20,
+    marginTop: 20,
+    paddingVertical: 30,
+    borderTopWidth: 1,
+    borderColor: "rgba(0,0,0,0.24)",
+    alignItems: "center",
+  },
+  pageIndicator: { fontWeight: "bold" },
+  buttonSection: { flexDirection: "row", gap: 8 },
+  outlinedButton: {
+    padding: 10,
+    paddingHorizontal: 30,
+    borderRadius: 10,
+    borderWidth: 1.5,
+    borderColor: AppColors.background,
+  },
   outlinedButtonText: { color: AppColors.background },
-  nextButton: { padding: 10, paddingHorizontal: 30, backgroundColor: AppColors.background, borderRadius: 10 },
+  nextButton: {
+    padding: 10,
+    paddingHorizontal: 30,
+    backgroundColor: AppColors.background,
+    borderRadius: 10,
+  },
   buttonText: { color: AppColors.surface },
 });
