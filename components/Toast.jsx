@@ -2,13 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useEffect, useRef } from "react";
 import { Animated, StyleSheet, Text, View } from "react-native";
 
-const ICONS_BY_TYPE = {
-  success: "checkmark-circle",
-  error: "alert-circle",
-  info: "information-circle",
-};
-
-export default function Toast({ visible, type = "success", message, onHide }) {
+export default function Toast({ visible, type = "success", message, inverted = false, onHide }) {
   const opacity = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -33,14 +27,19 @@ export default function Toast({ visible, type = "success", message, onHide }) {
 
   if (!visible) return null;
 
-  const iconName = ICONS_BY_TYPE[type] ?? ICONS_BY_TYPE.info;
+  const isSuccess = type === "success";
+  const accentColor = inverted ? "#990000" : "#FFFFFF";
 
   return (
-    <Animated.View style={[styles.toast, { opacity }]}>
+    <Animated.View style={[styles.toast, inverted && styles.toastInverted, { opacity }]}>
       <View style={styles.iconWrapper}>
-        <Ionicons name={iconName} size={20} color="#FFFFFF" />
+        <Ionicons
+          name={isSuccess ? "checkmark-circle" : "information-circle"}
+          size={20}
+          color={accentColor}
+        />
       </View>
-      <Text style={styles.message}>{message}</Text>
+      <Text style={[styles.message, { color: accentColor }]}>{message}</Text>
     </Animated.View>
   );
 }
@@ -65,6 +64,16 @@ const styles = StyleSheet.create({
     zIndex: 999,
     maxWidth: "85%",
   },
+  toastInverted: {
+    backgroundColor: "#FFFFFF",
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: "rgba(0, 0, 0, 0.08)",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.15,
+    shadowRadius: 6,
+    elevation: 6,
+  },
   iconWrapper: {
     justifyContent: "center",
     alignItems: "center",
@@ -72,7 +81,6 @@ const styles = StyleSheet.create({
   message: {
     fontSize: 14,
     fontWeight: "600",
-    color: "#FFFFFF",
     flexShrink: 1,
   },
 });

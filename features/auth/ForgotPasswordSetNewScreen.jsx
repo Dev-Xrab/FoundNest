@@ -51,6 +51,20 @@ export default function ForgotPasswordSetNewScreen() {
     bypassNextLeave,
   } = useUnsavedChangesGuard(hasChanges, () => router.back());
 
+  const handleNewPasswordChange = (text) => {
+    setNewPassword(text);
+    setServerError("");
+    if (confirmPassword.length > 0) {
+      setConfirmError(confirmPassword !== text ? "Passwords do not match." : "");
+    }
+  };
+
+  const handleConfirmPasswordChange = (text) => {
+    setConfirmPassword(text);
+    setServerError("");
+    setConfirmError(text.length > 0 && text !== newPassword ? "Passwords do not match." : "");
+  };
+
   const handleDone = async () => {
     if (!isValid) return;
     if (!passwordsMatch) {
@@ -114,119 +128,112 @@ export default function ForgotPasswordSetNewScreen() {
         enableOnAndroid={true}
         extraScrollHeight={20}
       >
-      <StatusBar style="dark" backgroundColor="transparent" translucent />
+        <StatusBar style="dark" backgroundColor="transparent" translucent />
 
-      <View style={[styles.topSection, { paddingTop: insets.top + 12 }]}>
-        <TouchableOpacity
-          onPress={handleLeavePress}
-          style={styles.backButton}
-          activeOpacity={0.7}
-        >
-          <Ionicons name="arrow-back" size={24} color={AppColors.textOnLight} />
-        </TouchableOpacity>
-        <Image
-          source={require("@/assets/images/forgot-password.png")}
-          style={styles.illustration}
-          resizeMode="contain"
-        />
-      </View>
-
-      <View
-        style={[styles.card, { paddingBottom: Math.max(insets.bottom + 8, 16) }]}
-      >
-        <Text style={styles.heading}>Set New Password</Text>
-        <Text style={styles.subheading}>
-          Password must contain an uppercase letter, a special character, and a
-          number.
-        </Text>
-
-        <View style={styles.fieldGroup}>
-          <View style={styles.fieldBox}>
-            <TextInput
-              style={styles.fieldInput}
-              value={newPassword}
-              onChangeText={(text) => {
-                setNewPassword(text);
-                setServerError("");
-              }}
-              secureTextEntry={!showNew}
-              autoCapitalize="none"
-              autoCorrect={false}
-              placeholder="New Password"
-              placeholderTextColor="rgba(0,0,0,0.35)"
-              editable={!isLoading}
-            />
-            <TouchableOpacity onPress={() => setShowNew((v) => !v)} activeOpacity={0.7}>
-              <Ionicons
-                name={showNew ? "eye-outline" : "eye-off-outline"}
-                size={20}
-                color="rgba(0,0,0,0.35)"
-              />
-            </TouchableOpacity>
-          </View>
-          {newPassword.length > 0 && <PasswordChecklist password={newPassword} variant="dark" />}
-        </View>
-
-        <View style={styles.fieldGroup}>
-          <View style={styles.fieldBox}>
-            <TextInput
-              style={styles.fieldInput}
-              value={confirmPassword}
-              onChangeText={(text) => {
-                setConfirmPassword(text);
-                setConfirmError("");
-                setServerError("");
-              }}
-              secureTextEntry={!showConfirm}
-              autoCapitalize="none"
-              autoCorrect={false}
-              placeholder="Confirm New Password"
-              placeholderTextColor="rgba(0,0,0,0.35)"
-              editable={!isLoading}
-            />
-            <TouchableOpacity
-              onPress={() => setShowConfirm((v) => !v)}
-              activeOpacity={0.7}
-            >
-              <Ionicons
-                name={showConfirm ? "eye-outline" : "eye-off-outline"}
-                size={20}
-                color="rgba(0,0,0,0.35)"
-              />
-            </TouchableOpacity>
-          </View>
-          {confirmError ? <Text style={styles.errorText}>{confirmError}</Text> : null}
-        </View>
-
-        {serverError ? <Text style={styles.errorText}>{serverError}</Text> : null}
-
-        <View style={styles.buttonRow}>
+        <View style={[styles.topSection, { paddingTop: insets.top + 12 }]}>
           <TouchableOpacity
-            style={styles.backTextButton}
             onPress={handleLeavePress}
-            activeOpacity={0.8}
+            style={styles.backButton}
+            activeOpacity={0.7}
           >
-            <Text style={styles.backTextButtonText}>Back</Text>
+            <Ionicons name="arrow-back" size={24} color={AppColors.textOnLight} />
           </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[
-              styles.doneButton,
-              (isLoading || !canSubmit) && styles.doneButtonDisabled,
-            ]}
-            onPress={handleDone}
-            disabled={isLoading || !canSubmit}
-            activeOpacity={0.8}
-          >
-            {isLoading ? (
-              <ActivityIndicator size="small" color={AppColors.background} />
-            ) : (
-              <Text style={styles.doneButtonText}>Done</Text>
-            )}
-          </TouchableOpacity>
+          <Image
+            source={require("@/assets/images/forgot-password.png")}
+            style={styles.illustration}
+            resizeMode="contain"
+          />
         </View>
-      </View>
-    </KeyboardAwareScrollView>
+
+        <View
+          style={[styles.card, { paddingBottom: Math.max(insets.bottom + 8, 16) }]}
+        >
+          <Text style={styles.heading}>Set New Password</Text>
+          <Text style={styles.subheading}>
+            Password must contain an uppercase letter, a special character, and a
+            number.
+          </Text>
+
+          <View style={styles.fieldGroup}>
+            <View style={styles.fieldBox}>
+              <TextInput
+                style={styles.fieldInput}
+                value={newPassword}
+                onChangeText={handleNewPasswordChange}
+                secureTextEntry={!showNew}
+                autoCapitalize="none"
+                autoCorrect={false}
+                placeholder="New Password"
+                placeholderTextColor="rgba(0,0,0,0.35)"
+                editable={!isLoading}
+              />
+              <TouchableOpacity onPress={() => setShowNew((v) => !v)} activeOpacity={0.7}>
+                <Ionicons
+                  name={showNew ? "eye-outline" : "eye-off-outline"}
+                  size={20}
+                  color="rgba(0,0,0,0.35)"
+                />
+              </TouchableOpacity>
+            </View>
+            {newPassword.length > 0 && <PasswordChecklist password={newPassword} variant="dark" />}
+          </View>
+
+          <View style={styles.fieldGroup}>
+            <View style={styles.fieldBox}>
+              <TextInput
+                style={styles.fieldInput}
+                value={confirmPassword}
+                onChangeText={handleConfirmPasswordChange}
+                secureTextEntry={!showConfirm}
+                autoCapitalize="none"
+                autoCorrect={false}
+                placeholder="Confirm New Password"
+                placeholderTextColor="rgba(0,0,0,0.35)"
+                editable={!isLoading}
+              />
+              <TouchableOpacity
+                onPress={() => setShowConfirm((v) => !v)}
+                activeOpacity={0.7}
+              >
+                <Ionicons
+                  name={showConfirm ? "eye-outline" : "eye-off-outline"}
+                  size={20}
+                  color="rgba(0,0,0,0.35)"
+                />
+              </TouchableOpacity>
+            </View>
+            {confirmError ? <Text style={styles.errorText}>{confirmError}</Text> : null}
+          </View>
+
+          {serverError ? <Text style={styles.errorText}>{serverError}</Text> : null}
+
+          <View style={styles.buttonRow}>
+            <TouchableOpacity
+              style={styles.backTextButton}
+              onPress={handleLeavePress}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.backTextButtonText}>Back</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[
+                styles.doneButton,
+                (isLoading || !canSubmit) && styles.doneButtonDisabled,
+              ]}
+              onPress={handleDone}
+              disabled={isLoading || !canSubmit}
+              activeOpacity={0.8}
+            >
+              {isLoading ? (
+                <ActivityIndicator size="small" color={AppColors.background} />
+              ) : (
+                <Text style={styles.doneButtonText}>Done</Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        </View>
+      </KeyboardAwareScrollView>
     </>
   );
 }

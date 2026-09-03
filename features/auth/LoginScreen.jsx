@@ -71,7 +71,9 @@ export default function LoginScreen() {
       showToast(
         passwordChangedSuccess === "1"
           ? "Password changed successfully!"
-          : "Password reset successfully!"
+          : "Password reset successfully!",
+        "success",
+        { inverted: true }
       );
 
       router.setParams({ passwordResetSuccess: undefined, passwordChangedSuccess: undefined });
@@ -141,7 +143,7 @@ export default function LoginScreen() {
         extraScrollHeight={20}
       >
         <StatusBar style="dark" backgroundColor="transparent" translucent />
-        {/* TOP — white section with illustration */}
+        {/* TOP ΓÇö white section with illustration */}
         <View style={styles.topSection}>
           <Image
             source={require("@/assets/images/login-image.png")}
@@ -150,7 +152,7 @@ export default function LoginScreen() {
           />
         </View>
 
-        {/* BOTTOM — deep red card */}
+        {/* BOTTOM ΓÇö deep red card */}
         <View
           style={[
             styles.card,

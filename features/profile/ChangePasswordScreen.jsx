@@ -70,7 +70,7 @@ export default function ChangePasswordScreen() {
   });
 
   // Any field with content is enough to protect against an accidental
-  // discard — unlike isFormFilled below, which gates actual submission and
+  // discard ΓÇö unlike isFormFilled below, which gates actual submission and
   // requires all three fields.
   const hasChanges =
     currentPassword.length > 0 ||
@@ -101,6 +101,7 @@ export default function ChangePasswordScreen() {
     requestLeave: handleLeavePress,
     confirmDiscard: handleDiscard,
     dismissDiscard,
+    bypassNextLeave,
   } = useUnsavedChangesGuard(hasChanges, (isLeaving) => {
     setCurrentPassword('');
     setNewPassword('');
@@ -130,7 +131,7 @@ export default function ChangePasswordScreen() {
   };
 
   // Validates the form and, if it passes, opens a confirmation step before
-  // actually submitting — this action logs the user out on success, so it's
+  // actually submitting ΓÇö this action logs the user out on success, so it's
   // worth an explicit "are you sure" rather than firing immediately.
   const handleChangePasswordPress = () => {
     const newErrors = { current: '', confirm: '' };
@@ -183,6 +184,7 @@ export default function ChangePasswordScreen() {
 
       await deletePushToken();
       await clearSession();
+      bypassNextLeave();
       router.replace({
         pathname: '/login',
         params: { passwordChangedSuccess: '1' },

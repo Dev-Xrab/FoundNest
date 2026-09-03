@@ -46,7 +46,6 @@ export default function ForgotPasswordVerifyScreen() {
     bypassNextLeave,
   } = useUnsavedChangesGuard(hasChanges, () => router.back());
 
-  // Tick down the resend cooldown every second
   useEffect(() => {
     if (resendCooldown <= 0) return;
     const timer = setInterval(() => {
@@ -149,107 +148,107 @@ export default function ForgotPasswordVerifyScreen() {
         enableOnAndroid={true}
         extraScrollHeight={20}
       >
-      <StatusBar style="dark" backgroundColor="transparent" translucent />
+        <StatusBar style="dark" backgroundColor="transparent" translucent />
 
-      <View style={[styles.topSection, { paddingTop: insets.top + 12 }]}>
-        <TouchableOpacity
-          onPress={handleLeavePress}
-          style={styles.backButton}
-          activeOpacity={0.7}
-        >
-          <Ionicons name="arrow-back" size={24} color={AppColors.textOnLight} />
-        </TouchableOpacity>
-        <Image
-          source={require("@/assets/images/forgot-password.png")}
-          style={styles.illustration}
-          resizeMode="contain"
-        />
-      </View>
-
-      <View
-        style={[styles.card, { paddingBottom: Math.max(insets.bottom + 8, 16) }]}
-      >
-        <Text style={styles.heading}>Enter Verification Code</Text>
-        <Text style={styles.subheading}>
-          We've sent a verification code to:{"\n"}
-          <Text style={styles.emailText}>{String(email)}</Text>
-        </Text>
-
-        <View style={styles.otpRow}>
-          {digits.map((digit, index) => (
-            <TextInput
-              key={index}
-              ref={(ref) => (inputRefs.current[index] = ref)}
-              style={[styles.otpBox, isLockedOut && styles.otpBoxDisabled]}
-              value={digit}
-              onChangeText={(text) => handleDigitChange(text, index)}
-              onKeyPress={(e) => handleKeyPress(e, index)}
-              keyboardType="number-pad"
-              maxLength={1}
-              textAlign="center"
-              editable={!isLockedOut}
-            />
-          ))}
+        <View style={[styles.topSection, { paddingTop: insets.top + 12 }]}>
+          <TouchableOpacity
+            onPress={handleLeavePress}
+            style={styles.backButton}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="arrow-back" size={24} color={AppColors.textOnLight} />
+          </TouchableOpacity>
+          <Image
+            source={require("@/assets/images/forgot-password.png")}
+            style={styles.illustration}
+            resizeMode="contain"
+          />
         </View>
 
-        <TouchableOpacity onPress={handleResend} disabled={isResending || resendCooldown > 0}>
-          <Text style={styles.resendText}>
-            Didn't receive the code?{" "}
-            <Text style={[styles.resendLink, resendCooldown > 0 && styles.resendLinkDisabled]}>
-              {resendCooldown > 0
-                ? `Resend (${resendCooldown}s)`
-                : isResending
-                ? "Sending..."
-                : "Resend"}
-            </Text>
+        <View
+          style={[styles.card, { paddingBottom: Math.max(insets.bottom + 8, 16) }]}
+        >
+          <Text style={styles.heading}>Enter Verification Code</Text>
+          <Text style={styles.subheading}>
+            We've sent a verification code to:{"\n"}
+            <Text style={styles.emailText}>{String(email)}</Text>
           </Text>
-        </TouchableOpacity>
 
-        {error ? <Text style={styles.errorText}>{error}</Text> : null}
+          <View style={styles.otpRow}>
+            {digits.map((digit, index) => (
+              <TextInput
+                key={index}
+                ref={(ref) => (inputRefs.current[index] = ref)}
+                style={[styles.otpBox, isLockedOut && styles.otpBoxDisabled]}
+                value={digit}
+                onChangeText={(text) => handleDigitChange(text, index)}
+                onKeyPress={(e) => handleKeyPress(e, index)}
+                keyboardType="number-pad"
+                maxLength={1}
+                textAlign="center"
+                editable={!isLockedOut}
+              />
+            ))}
+          </View>
 
-        <View style={styles.buttonRow}>
-          <TouchableOpacity
-            style={styles.backTextButton}
-            onPress={handleLeavePress}
-            activeOpacity={0.8}
-          >
-            <Text style={styles.backTextButtonText}>Back</Text>
+          <TouchableOpacity onPress={handleResend} disabled={isResending || resendCooldown > 0}>
+            <Text style={styles.resendText}>
+              Didn't receive the code?{" "}
+              <Text style={[styles.resendLink, resendCooldown > 0 && styles.resendLinkDisabled]}>
+                {resendCooldown > 0
+                  ? `Resend (${resendCooldown}s)`
+                  : isResending
+                  ? "Sending..."
+                  : "Resend"}
+              </Text>
+            </Text>
           </TouchableOpacity>
 
-          {isLockedOut ? (
+          {error ? <Text style={styles.errorText}>{error}</Text> : null}
+
+          <View style={styles.buttonRow}>
             <TouchableOpacity
-              style={styles.nextButton}
-              onPress={() => {
-                bypassNextLeave();
-                router.replace({
-                  pathname: "/forgotPassword",
-                  params: { prefillEmail: String(email) },
-                });
-              }}
+              style={styles.backTextButton}
+              onPress={handleLeavePress}
               activeOpacity={0.8}
             >
-              <Text style={styles.nextButtonText}>Request New Code</Text>
+              <Text style={styles.backTextButtonText}>Back</Text>
             </TouchableOpacity>
-          ) : (
-            <TouchableOpacity
-              style={[
-                styles.nextButton,
-                (isLoading || !isComplete) && styles.nextButtonDisabled,
-              ]}
-              onPress={handleNext}
-              disabled={isLoading || !isComplete}
-              activeOpacity={0.8}
-            >
-              {isLoading ? (
-                <ActivityIndicator size="small" color={AppColors.background} />
-              ) : (
-                <Text style={styles.nextButtonText}>Next</Text>
-              )}
-            </TouchableOpacity>
-          )}
+
+            {isLockedOut ? (
+              <TouchableOpacity
+                style={styles.nextButton}
+                onPress={() => {
+                  bypassNextLeave();
+                  router.replace({
+                    pathname: "/forgotPassword",
+                    params: { prefillEmail: String(email) },
+                  });
+                }}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.nextButtonText}>Request New Code</Text>
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity
+                style={[
+                  styles.nextButton,
+                  (isLoading || !isComplete) && styles.nextButtonDisabled,
+                ]}
+                onPress={handleNext}
+                disabled={isLoading || !isComplete}
+                activeOpacity={0.8}
+              >
+                {isLoading ? (
+                  <ActivityIndicator size="small" color={AppColors.background} />
+                ) : (
+                  <Text style={styles.nextButtonText}>Next</Text>
+                )}
+              </TouchableOpacity>
+            )}
+          </View>
         </View>
-      </View>
-    </KeyboardAwareScrollView>
+      </KeyboardAwareScrollView>
     </>
   );
 }

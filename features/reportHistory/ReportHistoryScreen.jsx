@@ -25,7 +25,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-// ── Nest illustration (empty state) ──────────────────────────────────────────
+// ΓöÇΓöÇ Nest illustration (empty state) ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 const emptyNestBg = require("@/assets/images/Empty Nest/empty-nest-bg.png");
 const emptyNest = require("@/assets/images/Empty Nest/empty-nest.png");
 const upperLeft = require("@/assets/images/Empty Nest/upper-left.png");
@@ -44,7 +44,7 @@ function EmptyNestIllustration() {
   );
 }
 
-// ── Filter chip ───────────────────────────────────────────────────────────────
+// ΓöÇΓöÇ Filter chip ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 function FilterChip({ label, isActive, onPress }) {
   return (
     <TouchableOpacity
@@ -65,7 +65,7 @@ function FilterChip({ label, isActive, onPress }) {
 }
 
 function formatDate(dateStr) {
-  if (!dateStr) return "—";
+  if (!dateStr) return "ΓÇö";
   const d = new Date(dateStr);
   return d.toLocaleDateString("en-US", {
     year: "numeric",
@@ -74,7 +74,7 @@ function formatDate(dateStr) {
   });
 }
 
-// ── Match card ───────────────────────────────────────────────────────────────
+// ΓöÇΓöÇ Match card ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 function MatchCard({ match, label, onPress }) {
   return (
     <View style={styles.matchCardWrapper}>
@@ -115,7 +115,7 @@ function MatchCard({ match, label, onPress }) {
             {formatFoundId(match.found_report_id)}
           </Text>
           <Text style={styles.matchName} numberOfLines={2}>
-            {match.found_item_name ?? "—"}
+            {match.found_item_name ?? "ΓÇö"}
           </Text>
           <View style={styles.matchDivider} />
           <View style={styles.matchMeta}>
@@ -135,7 +135,7 @@ function MatchCard({ match, label, onPress }) {
               color={AppColors.textMuted}
             />
             <Text style={styles.matchMetaText} numberOfLines={1}>
-              {match.location_found ?? "—"}
+              {match.location_found ?? "ΓÇö"}
             </Text>
           </View>
         </View>
@@ -144,7 +144,7 @@ function MatchCard({ match, label, onPress }) {
   );
 }
 
-// ── Report card ───────────────────────────────────────────────────────────────
+// ΓöÇΓöÇ Report card ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 function ReportCard({ report, onCancel, router, online }) {
   const [expanded, setExpanded] = useState(false);
   const hasMatches = report.matches?.length > 0;
@@ -189,7 +189,7 @@ function ReportCard({ report, onCancel, router, online }) {
 
   return (
     <View style={styles.reportCard}>
-      {/* ── Top section: pressable → view details ── */}
+      {/* ΓöÇΓöÇ Top section: pressable ΓåÆ view details ΓöÇΓöÇ */}
       <TouchableOpacity
         activeOpacity={0.8}
         onPress={handleViewReport}
@@ -232,14 +232,14 @@ function ReportCard({ report, onCancel, router, online }) {
           </Text>
           <Text style={styles.reportLabel}>Lost Item Name:</Text>
           <Text style={styles.reportItemName}>
-            {report.lost_item_name ?? "—"}
+            {report.lost_item_name ?? "ΓÇö"}
           </Text>
           <Text style={styles.reportLabel}>Date Reported:</Text>
           <Text style={styles.reportDate}>{formatDate(report.lost_date)}</Text>
         </View>
       </TouchableOpacity>
 
-      {/* ── Divider + View Matches toggle ── */}
+      {/* ΓöÇΓöÇ Divider + View Matches toggle ΓöÇΓöÇ */}
       {hasMatches && !isCancelled && (
         <>
           <View style={styles.matchDividerLine} />
@@ -260,9 +260,14 @@ function ReportCard({ report, onCancel, router, online }) {
         </>
       )}
 
-      {/* ── Match cards (expanded) ── */}
+      {/* ΓöÇΓöÇ Match cards (expanded) ΓöÇΓöÇ */}
       {expanded && !isCancelled && (
-        <View style={styles.matchGrid}>
+        <View
+          style={[
+            styles.matchGrid,
+            report.status === "resolved" && styles.matchGridResolved,
+          ]}
+        >
           {report.matches.map((match, index) => (
             <MatchCard
               key={match.notification_id}
@@ -274,7 +279,7 @@ function ReportCard({ report, onCancel, router, online }) {
         </View>
       )}
 
-      {/* ── Action buttons ── */}
+      {/* ΓöÇΓöÇ Action buttons ΓöÇΓöÇ */}
       {!isCancelled && report.status !== "resolved" && (
         <View style={styles.cardActions}>
           <TouchableOpacity
@@ -327,7 +332,7 @@ function ReportCard({ report, onCancel, router, online }) {
   );
 }
 
-// ── Main screen ───────────────────────────────────────────────────────────────
+// ΓöÇΓöÇ Main screen ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 export default function ReportHistoryScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -338,7 +343,7 @@ export default function ReportHistoryScreen() {
   const [reportToCancel, setReportToCancel] = useState(null);
   const [online, setOnline] = useState(true);
 
-  // ── Live network monitoring ──
+  // ΓöÇΓöÇ Live network monitoring ΓöÇΓöÇ
   useEffect(() => {
     isOnline().then(setOnline);
 
@@ -484,7 +489,7 @@ export default function ReportHistoryScreen() {
         onConfirmCancel={confirmCancel}
       />
 
-      {/* ── Red header ─────────────────────────────────────────────────── */}
+      {/* ΓöÇΓöÇ Red header ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ */}
       <View style={[styles.redHeader, { paddingTop: insets.top }]}>
         <View style={styles.headerRow}>
           <TouchableOpacity
@@ -498,7 +503,7 @@ export default function ReportHistoryScreen() {
         </View>
       </View>
 
-      {/* ── Search bar + filters ── */}
+      {/* ΓöÇΓöÇ Search bar + filters ΓöÇΓöÇ */}
       {!isLoading && reports.length > 0 && (
         <>
           <View style={styles.searchContainer}>
@@ -654,7 +659,7 @@ export default function ReportHistoryScreen() {
         </>
       )}
 
-      {/* ── Body ───────────────────────────────────────────────────────── */}
+      {/* ΓöÇΓöÇ Body ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ */}
       {isLoading ? (
         <View style={styles.centered}>
           <ActivityIndicator size="large" color={AppColors.background} />
@@ -694,7 +699,7 @@ export default function ReportHistoryScreen() {
   );
 }
 
-// ── Styles ────────────────────────────────────────────────────────────────────
+// ΓöÇΓöÇ Styles ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
@@ -990,6 +995,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingBottom: 4,
     gap: 10,
+  },
+  // Resolved reports have no action-button row beneath the matches, so the
+  // matchGrid's own paddingBottom is all the breathing room the card gets.
+  // Bump it up to roughly match the visual space that the cardActions row
+  // (marginTop 12 + button paddingVertical 13) creates for other statuses.
+  matchGridResolved: {
+    paddingBottom: 18,
   },
   matchCardWrapper: {
     width: "47%",

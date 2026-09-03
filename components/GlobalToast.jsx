@@ -3,27 +3,17 @@ import { useCallback, useState } from "react";
 
 let listener = null;
 
-/**
- * Mounted once at the root of the navigation tree (app/_layout.jsx) so the
- * toast overlays whichever screen is active — including screens outside the
- * tabs navigator (login, forgot password). Any file can trigger it by
- * importing `showToast` directly; no context/hook plumbing required.
- *
- * `listener` is assigned during render rather than inside an effect: effects
- * only start firing after the whole tree has committed, so assigning it here
- * guarantees it's ready before another screen's own mount-time effect gets a
- * chance to call showToast(), even on the very first app render.
- */
 export default function GlobalToast() {
   const [toast, setToast] = useState({
     visible: false,
     type: "success",
     message: "",
+    inverted: false,
   });
   const [toastKey, setToastKey] = useState(0);
 
-  const trigger = useCallback((message, type) => {
-    setToast({ visible: true, type, message });
+  const trigger = useCallback((message, type, inverted) => {
+    setToast({ visible: true, type, message, inverted });
     setToastKey((key) => key + 1);
   }, []);
 
@@ -37,15 +27,19 @@ export default function GlobalToast() {
       visible={toast.visible}
       type={toast.type}
       message={toast.message}
+      inverted={toast.inverted}
       onHide={hideToast}
     />
   );
 }
 
 /**
- * Pings the global toast — shows `message` for ~5s before auto-hiding.
+ * Pings the global toast ΓÇö shows `message` for ~5s before auto-hiding.
  * Callable from any page, tab or not.
+ * Pass `inverted: true` for a white-background/red-text toast, used on
+ * screens (like login) where the default red toast would blend into a red
+ * background.
  */
-export function showToast(message, type = "success") {
-  listener?.(message, type);
+export function showToast(message, type = "success", { inverted = false } = {}) {
+  listener?.(message, type, inverted);
 }
