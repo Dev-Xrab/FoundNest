@@ -208,6 +208,7 @@ export default function ReportScreen() {
       allowsEditing: false,
       aspect: [4, 3],
       quality: 0.8,
+      legacy: true,
     });
 
     if (!result.canceled) {

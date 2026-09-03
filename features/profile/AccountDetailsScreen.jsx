@@ -260,6 +260,7 @@ export default function AccountDetailsScreen() {
       allowsEditing: true,
       aspect: [1, 1],
       quality: 0.7,
+      legacy: true,
     });
 
     if (!result.canceled) {

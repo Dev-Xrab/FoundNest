@@ -214,6 +214,7 @@ export default function ReportHistoryEditScreen() {
     const result = await ImagePicker.launchImageLibraryAsync({
       allowsEditing: false,
       quality: 0.8,
+      legacy: true,
     });
     if (!result.canceled) {
       const uri = result.assets[0].uri;

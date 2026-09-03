@@ -170,7 +170,7 @@ export default function QrItemEditScreen() {
       showCustomAlert(buildPermissionAlertConfig('Allow library access to select files.'));
       return;
     }
-    const result = await ImagePicker.launchImageLibraryAsync({ quality: 0.8 });
+    const result = await ImagePicker.launchImageLibraryAsync({ quality: 0.8, legacy: true });
     if (!result.canceled) {
       setSelectedImage(result.assets[0].uri);
       setImageRemoved(false);

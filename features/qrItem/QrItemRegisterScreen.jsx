@@ -202,6 +202,7 @@ export default function QrItemRegisterScreen() {
     const result = await ImagePicker.launchImageLibraryAsync({
       allowsEditing: false,
       quality: 0.8,
+      legacy: true,
     });
 
     if (!result.canceled) {
