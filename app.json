@@ -32,6 +32,8 @@
       "package": "com.dev_xrab.FoundNest",
       "permissions": [
         "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION",
         "ACCESS_FINE_LOCATION"
       ],
       "googleServicesFile": "./google-services.json"
@@ -62,6 +64,12 @@
       "eas": {
         "projectId": "5b513b9e-ddf8-47a2-b919-16c9c7e8e540"
       }
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/5b513b9e-ddf8-47a2-b919-16c9c7e8e540"
     }
   }
 }

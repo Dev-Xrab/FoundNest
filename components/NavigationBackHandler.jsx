@@ -1,12 +1,13 @@
 import { addPage, goBack } from "@/constants/previousPage";
 import { useReportLeaveGuard } from "@/hooks/useReportLeaveGuard";
-import { usePathname, useRouter } from "expo-router";
+import { useGlobalSearchParams, usePathname, useRouter } from "expo-router";
 import { useEffect, useRef } from "react";
 import { BackHandler } from "react-native";
 
 export default function NavigationBackHandler() {
   const pathname = usePathname();
   const router = useRouter();
+  const params = useGlobalSearchParams();
   const { guardedNavigate, LeaveGuardModal } = useReportLeaveGuard();
 
   // The back-press effect below subscribes once per router identity, so it
@@ -17,10 +18,15 @@ export default function NavigationBackHandler() {
     guardedNavigateRef.current = guardedNavigate;
   }, [guardedNavigate]);
 
-  // Every time the page changes, add it to the list
+  // Every time the page (or its params, e.g. a fresh editSession/report on
+  // the same path) changes, add it to the list — with its params, so a
+  // later goBack() can restore a params-dependent screen correctly instead
+  // of replaying it blank.
+  const paramsKey = JSON.stringify(params);
   useEffect(() => {
-    addPage(pathname);
-  }, [pathname]);
+    addPage(pathname, params);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pathname, paramsKey]);
 
   // Phone back button
   useEffect(() => {
