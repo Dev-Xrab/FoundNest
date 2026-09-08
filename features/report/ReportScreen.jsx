@@ -1,5 +1,6 @@
 import PhotoPickerModal from "@/shared/components/PhotoPickerModal";
 import ConfirmDiscardModal from "@/components/ConfirmDiscardModal";
+import { showToast } from "@/components/GlobalToast";
 import AppColors from "@/constants/AppColors";
 import { getCategories, matchCategoryFromAi } from "@/constants/category";
 import { DescribeItem } from "@/constants/geminiAI";
@@ -21,6 +22,7 @@ import {
   Platform,
   ScrollView,
   StyleSheet,
+  Switch,
   Text,
   TextInput,
   TouchableOpacity,
@@ -45,6 +47,7 @@ export default function ReportScreen() {
   const [errors, setErrors] = useState({});
   const [modalVisible, setModalVisible] = useState(false);
   const [online, setOnline] = useState(true);
+  const [useAiDescribe, setUseAiDescribe] = useState(false);
   const router = useRouter();
 
   const { alertModal, showAlert } = useAlertModal();
@@ -191,7 +194,7 @@ export default function ReportScreen() {
     if (!result.canceled) {
       const uri = result.assets[0].uri;
       setSelectedImage(uri);
-      analyzeImage(uri);
+      if (useAiDescribe) analyzeImage(uri);
     }
   };
 
@@ -213,13 +216,21 @@ export default function ReportScreen() {
     if (!result.canceled) {
       const uri = result.assets[0].uri;
       setSelectedImage(uri);
-      analyzeImage(uri);
+      if (useAiDescribe) analyzeImage(uri);
     }
   };
 
   const handleRemovePhoto = () => {
     setModalVisible(false);
     setSelectedImage(null);
+  };
+
+  const handleAiToggle = (value) => {
+    setUseAiDescribe(value);
+    if (value && selectedImage) {
+      setSelectedImage(null);
+      showToast("Photo removed. Please insert an image again to use AI.", "info");
+    }
   };
 
   const handleNext = async () => {
@@ -343,6 +354,17 @@ export default function ReportScreen() {
               <Text style={styles.subText}>
                 *FoundNest AI will help auto-fill details based on your photo.
               </Text>
+
+              <View style={styles.aiToggleRow}>
+                <Text style={styles.aiToggleLabel}>Use AI to describe image</Text>
+                <Switch
+                  value={useAiDescribe}
+                  onValueChange={handleAiToggle}
+                  disabled={!online || isLoading}
+                  trackColor={{ false: "#CCCCCC", true: "#900000" }}
+                  thumbColor="#FFFFFF"
+                />
+              </View>
             </View>
           </View>
 
@@ -577,6 +599,18 @@ const styles = StyleSheet.create({
     textAlign: "center",
     lineHeight: 22,
     paddingHorizontal: 12,
+  },
+  aiToggleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 10,
+    marginTop: 14,
+  },
+  aiToggleLabel: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: AppColors.textOnLight,
   },
   sectionTitle: {
     fontSize: 17,

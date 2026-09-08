@@ -207,7 +207,7 @@ export default function HomeScreen() {
             />
           ) : foundReports.length === 0 ? (
             <Text style={styles.emptyFindsText}>
-              No items available — they may have already been surrendered.
+              No items available — they may have already been claimed.
             </Text>
           ) : (
             <RecentFindsCarousel

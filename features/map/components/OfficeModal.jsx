@@ -292,11 +292,13 @@ export default function OfficeModal({ visible, onClose, office }) {
     return null;
   }
 
-  const totalReviews = reviews.length;
+  const visibleReviews = reviews.filter((r) => !r.is_archived);
+  const totalReviews = visibleReviews.length;
   const averageRating =
     totalReviews > 0
       ? (
-          reviews.reduce((sum, r) => sum + (r.rating || 0), 0) / totalReviews
+          visibleReviews.reduce((sum, r) => sum + (r.rating || 0), 0) /
+          totalReviews
         ).toFixed(1)
       : "0.0";
 
@@ -477,8 +479,8 @@ export default function OfficeModal({ visible, onClose, office }) {
                     color={AppColors.background || "#900000"}
                     style={{ marginTop: 20 }}
                   />
-                ) : reviews.length > 0 ? (
-                  reviews.map((review) => {
+                ) : visibleReviews.length > 0 ? (
+                  visibleReviews.map((review) => {
                     const reviewerName = review.first_name
                       ? `${review.first_name} ${review.last_name}`
                       : review.email || "Anonymous";
@@ -502,6 +504,17 @@ export default function OfficeModal({ visible, onClose, office }) {
                         <Text style={styles.reviewBody}>
                           {review.review_text || "No comment provided."}
                         </Text>
+
+                        {review.response_text ? (
+                          <View style={styles.adminResponse}>
+                            <Text style={styles.adminResponseHeader}>
+                              Response from {office.office_name}
+                            </Text>
+                            <Text style={styles.adminResponseBody}>
+                              {review.response_text}
+                            </Text>
+                          </View>
+                        ) : null}
                       </View>
                     );
                   })
@@ -752,6 +765,24 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#333",
     lineHeight: 20,
+  },
+  adminResponse: {
+    marginTop: 8,
+    marginLeft: 16,
+    padding: 10,
+    borderRadius: 8,
+    backgroundColor: "#F2F2F2",
+  },
+  adminResponseHeader: {
+    fontSize: 12,
+    fontWeight: "bold",
+    color: AppColors.background,
+    marginBottom: 4,
+  },
+  adminResponseBody: {
+    fontSize: 13,
+    color: "#333",
+    lineHeight: 18,
   },
   noReviewsText: {
     textAlign: "center",

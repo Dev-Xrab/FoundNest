@@ -25,6 +25,7 @@ import {
   Platform,
   ScrollView,
   StyleSheet,
+  Switch,
   Text,
   TextInput,
   TouchableOpacity,
@@ -68,6 +69,7 @@ export default function ReportHistoryEditScreen() {
   const [errors, setErrors] = useState({});
   const [photoModalVisible, setPhotoModalVisible] = useState(false);
   const [imageViewerVisible, setImageViewerVisible] = useState(false);
+  const [useAiDescribe, setUseAiDescribe] = useState(false);
 
   // Bumped every time text fields are set in bulk from outside typing
   // to prevent Android native TextInput sync drops.
@@ -231,7 +233,7 @@ export default function ReportHistoryEditScreen() {
       const uri = result.assets[0].uri;
       setSelectedImage(uri);
       setIsImageRemoved(false);
-      analyzeImage(uri);
+      if (useAiDescribe) analyzeImage(uri);
     }
   };
 
@@ -255,7 +257,7 @@ export default function ReportHistoryEditScreen() {
       const uri = result.assets[0].uri;
       setSelectedImage(uri);
       setIsImageRemoved(false);
-      analyzeImage(uri);
+      if (useAiDescribe) analyzeImage(uri);
     }
   };
 
@@ -263,6 +265,10 @@ export default function ReportHistoryEditScreen() {
     setPhotoModalVisible(false);
     setSelectedImage(null);
     setIsImageRemoved(true);
+  };
+
+  const handleAiToggle = (value) => {
+    setUseAiDescribe(value);
   };
 
   const handleNext = () => {
@@ -520,9 +526,24 @@ export default function ReportHistoryEditScreen() {
                   : "Upload Item Photo (Optional)"}
             </Text>
             {!isViewOnly && (
-              <Text style={styles.subText}>
-                *FoundNest AI will help auto-fill details based on your photo.
-              </Text>
+              <>
+                <Text style={styles.subText}>
+                  *FoundNest AI will help auto-fill details based on your photo.
+                </Text>
+
+                <View style={styles.aiToggleRow}>
+                  <Text style={styles.aiToggleLabel}>
+                    Use AI to describe image
+                  </Text>
+                  <Switch
+                    value={useAiDescribe}
+                    onValueChange={handleAiToggle}
+                    disabled={isLoading}
+                    trackColor={{ false: "#CCCCCC", true: "#900000" }}
+                    thumbColor="#FFFFFF"
+                  />
+                </View>
+              </>
             )}
           </View>
         </View>
@@ -739,6 +760,18 @@ const styles = StyleSheet.create({
     textAlign: "center",
     lineHeight: 22,
     paddingHorizontal: 12,
+  },
+  aiToggleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 10,
+    marginTop: 14,
+  },
+  aiToggleLabel: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: AppColors.textOnLight,
   },
   sectionTitle: {
     fontSize: 17,

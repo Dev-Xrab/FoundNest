@@ -625,6 +625,7 @@ export default function ReportLocationScreen() {
                   (isSubmitting || !online) && styles.cancelButtonDisabled,
                 ]}
                 onPress={() => router.navigate("/report")}
+                disabled={isSubmitting || !online}
               >
                 <Text
                   style={[
