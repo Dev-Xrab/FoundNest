@@ -1,7 +1,7 @@
 import AppColors from '@/constants/AppColors';
 import { isOnline } from '@/constants/offlineDb';
 import { Ionicons, MaterialCommunityIcons, MaterialIcons } from '@expo/vector-icons';
-import NetInfo from '@react-native-community/netinfo';
+import { addConnectivityListener } from '@/constants/netInfo';
 import { useFocusEffect, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
@@ -48,7 +48,7 @@ export default function QrItemMenuScreen() {
   useEffect(() => {
     isOnline().then(setOnline);
 
-    const unsubscribe = NetInfo.addEventListener((state) => {
+    const unsubscribe = addConnectivityListener((state) => {
       const isConnected = Boolean(
         state.isConnected && state.isInternetReachable !== false
       );

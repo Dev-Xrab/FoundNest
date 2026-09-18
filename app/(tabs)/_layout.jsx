@@ -1,7 +1,7 @@
 import { isLoggedIn } from "@/constants/StudentData";
 import { Redirect, Tabs, usePathname, useRouter } from "expo-router";
 import { useEffect, useState, useRef } from "react";
-import { ActivityIndicator, View } from "react-native";
+import { ActivityIndicator, Platform, View } from "react-native";
 import { API_BASE_URL } from "@/constants/api";
 
 import CustomHeader from "@/components/CustomHeader";
@@ -14,14 +14,18 @@ import { fetchWithAuth } from "@/constants/authApi";
 import { showToast } from "@/components/GlobalToast";
 import { useReportLeaveGuard } from "@/hooks/useReportLeaveGuard";
 
-// Set the handler OUTSIDE of your component
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: true,
-  }),
-});
+// expo-notifications has no web implementation at all — calling this on
+// web throws before any screen can render, so it's skipped entirely there.
+if (Platform.OS !== "web") {
+  // Set the handler OUTSIDE of your component
+  Notifications.setNotificationHandler({
+    handleNotification: async () => ({
+      shouldShowAlert: true,
+      shouldPlaySound: true,
+      shouldSetBadge: true,
+    }),
+  });
+}
 
 
 export default function TabLayout() {
@@ -45,6 +49,10 @@ export default function TabLayout() {
   const isAnalyzingResetting = useRef(false);
 
 useEffect(() => {
+  // No push channel exists on web (expo-notifications is native-only), so
+  // there's nothing to subscribe to there.
+  if (Platform.OS === "web") return;
+
   // Shared logic: look up match details and navigate
   const handleMatchNavigation = async (data) => {
     const { matchId, type } = data;

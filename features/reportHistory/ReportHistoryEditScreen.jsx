@@ -9,6 +9,7 @@ import {
   setReportDraft
 } from "@/constants/reportDraft";
 import PhotoPickerModal from "@/shared/components/PhotoPickerModal";
+import WebCameraModal from "@/shared/components/WebCameraModal";
 import { useAlertModal } from "@/shared/hooks/useAlertModal";
 import { useUnsavedChangesGuard } from "@/shared/hooks/useUnsavedChangesGuard";
 import { buildPermissionAlertConfig } from "@/shared/utils/permissions";
@@ -68,6 +69,7 @@ export default function ReportHistoryEditScreen() {
   const [categories, setCategories] = useState([]);
   const [errors, setErrors] = useState({});
   const [photoModalVisible, setPhotoModalVisible] = useState(false);
+  const [webCameraVisible, setWebCameraVisible] = useState(false);
   const [imageViewerVisible, setImageViewerVisible] = useState(false);
   const [useAiDescribe, setUseAiDescribe] = useState(false);
 
@@ -216,6 +218,15 @@ export default function ReportHistoryEditScreen() {
 
   const handleTakePhoto = async () => {
     setPhotoModalVisible(false);
+
+    // expo-image-picker's web "camera" is just a hidden file input with a
+    // `capture` hint — desktop browsers ignore that and show a plain file
+    // picker, no live preview. WebCameraModal gives web a real camera view.
+    if (Platform.OS === "web") {
+      setWebCameraVisible(true);
+      return;
+    }
+
     const permissionResult = await ImagePicker.requestCameraPermissionsAsync();
     if (!permissionResult.granted) {
       showAlert(
@@ -235,6 +246,13 @@ export default function ReportHistoryEditScreen() {
       setIsImageRemoved(false);
       if (useAiDescribe) analyzeImage(uri);
     }
+  };
+
+  const handleWebCameraCapture = (dataUri) => {
+    setWebCameraVisible(false);
+    setSelectedImage(dataUri);
+    setIsImageRemoved(false);
+    if (useAiDescribe) analyzeImage(dataUri);
   };
 
   const handleChooseFromLibrary = async () => {
@@ -421,6 +439,12 @@ export default function ReportHistoryEditScreen() {
         onChooseFromLibrary={handleChooseFromLibrary}
         onRemovePhoto={handleRemovePhoto}
         onClose={() => setPhotoModalVisible(false)}
+      />
+
+      <WebCameraModal
+        visible={webCameraVisible}
+        onClose={() => setWebCameraVisible(false)}
+        onCapture={handleWebCameraCapture}
       />
 
       <ImageModal

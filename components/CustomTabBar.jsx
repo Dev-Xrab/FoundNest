@@ -86,7 +86,13 @@ function ReportFloatingButton({ isSelected, onPress }) {
   const iconColor = isSelected ? AppColors.activeIcon : AppColors.inactiveIcon;
 
   return (
-    <View style={styles.floatWrap}>
+    // box-none: this wrapper is full-bar-width to center the button, but it
+    // must not swallow clicks meant for Map/Find/Profile underneath it. RN's
+    // native touch responder ignores plain non-interactive Views, but
+    // react-native-web renders this as a real <div> that otherwise blocks
+    // pointer events by default — box-none keeps only the button itself
+    // clickable and lets everything else pass through.
+    <View style={styles.floatWrap} pointerEvents="box-none">
       <Pressable
         onPress={onPress}
         style={({ pressed }) => [styles.floatButton, pressed && styles.floatPressed]}>

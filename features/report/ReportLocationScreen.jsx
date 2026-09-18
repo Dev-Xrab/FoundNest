@@ -16,7 +16,7 @@ import {
   validateReportPage2,
 } from "@/utils/lostReport";
 import { Feather, MaterialIcons } from "@expo/vector-icons";
-import NetInfo from "@react-native-community/netinfo";
+import { addConnectivityListener } from "@/constants/netInfo";
 import { useFocusEffect, useRouter } from "expo-router";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
@@ -122,7 +122,7 @@ export default function ReportLocationScreen() {
   useEffect(() => {
     isOnline().then(setOnline);
 
-    const unsubscribe = NetInfo.addEventListener((state) => {
+    const unsubscribe = addConnectivityListener((state) => {
       const isConnected = Boolean(
         state.isConnected && state.isInternetReachable !== false,
       );

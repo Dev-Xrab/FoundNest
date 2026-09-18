@@ -26,29 +26,9 @@ import { useColleges } from "./hooks/useColleges";
 import { useMapLocation } from "./hooks/useMapLocation";
 import { useOfficeParamSync } from "./hooks/useOfficeParamSync";
 import { useOfficeSearch } from "./hooks/useOfficeSearch";
+import { highDetailHybridStyle } from "./mapStyle";
 
 const BULSU_CENTER = [120.8142, 14.8582];
-
-const highDetailHybridStyle = {
-  version: 8,
-  sources: {
-    "google-hybrid": {
-      type: "raster",
-      tiles: ["https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}"],
-      tileSize: 256,
-      maxzoom: 20,
-    },
-  },
-  layers: [
-    {
-      id: "google-hybrid-layer",
-      type: "raster",
-      source: "google-hybrid",
-      minzoom: 0,
-      maxzoom: 20,
-    },
-  ],
-};
 
 export default function MapScreen() {
   const navigation = useNavigation();

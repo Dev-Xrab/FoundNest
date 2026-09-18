@@ -3,7 +3,7 @@ import AppColors from "@/constants/AppColors";
 import { API_BASE_URL } from "@/constants/api";
 import { isOnline } from "@/constants/offlineDb";
 import { getUser } from "@/constants/StudentData";
-import NetInfo from "@react-native-community/netinfo";
+import { addConnectivityListener } from "@/constants/netInfo";
 import { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -157,7 +157,7 @@ export default function OfficeModal({ visible, onClose, office }) {
   useEffect(() => {
     isOnline().then(setOnline);
 
-    const unsubscribe = NetInfo.addEventListener((state) => {
+    const unsubscribe = addConnectivityListener((state) => {
       const isConnected = Boolean(
         state.isConnected && state.isInternetReachable !== false
       );

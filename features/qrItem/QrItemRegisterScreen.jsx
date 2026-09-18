@@ -1,5 +1,6 @@
 import ConfirmDiscardModal from "@/components/ConfirmDiscardModal";
 import PhotoPickerModal from "@/shared/components/PhotoPickerModal";
+import WebCameraModal from "@/shared/components/WebCameraModal";
 import { API_BASE_URL } from "@/constants/api";
 import AppColors from "@/constants/AppColors";
 import { uploadWithAuth } from "@/constants/authApi";
@@ -10,12 +11,13 @@ import { isOnline } from "@/constants/offlineDb";
 import { getUserProfile } from "@/constants/profile";
 import { upsertQrItemInCache, validateQrItemForm } from "@/constants/qrItems";
 import { guessImageMimeType } from "@/shared/utils/imageMime";
+import { appendImageField } from "@/shared/utils/formDataImage";
 import { useUnsavedChangesGuard } from "@/shared/hooks/useUnsavedChangesGuard";
 import { useAlertModal } from "@/shared/hooks/useAlertModal";
 import { buildPermissionAlertConfig } from "@/shared/utils/permissions";
 import { FieldError, ReadOnlyField, RequiredLabel } from "./components/QrItemFormFields";
 import { Ionicons, MaterialIcons } from "@expo/vector-icons";
-import NetInfo from "@react-native-community/netinfo";
+import { addConnectivityListener } from "@/constants/netInfo";
 import * as ImagePicker from "expo-image-picker";
 import { useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
@@ -59,6 +61,7 @@ export default function QrItemRegisterScreen() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errors, setErrors] = useState({});
   const [modalVisible, setModalVisible] = useState(false);
+  const [webCameraVisible, setWebCameraVisible] = useState(false);
   const [online, setOnline] = useState(true);
   const [useAiDescribe, setUseAiDescribe] = useState(false);
 
@@ -68,7 +71,7 @@ export default function QrItemRegisterScreen() {
   useEffect(() => {
     isOnline().then(setOnline);
 
-    const unsubscribe = NetInfo.addEventListener((state) => {
+    const unsubscribe = addConnectivityListener((state) => {
       const isConnected = Boolean(
         state.isConnected && state.isInternetReachable !== false
       );
@@ -165,6 +168,15 @@ export default function QrItemRegisterScreen() {
 
   const handleTakePhoto = async () => {
     setModalVisible(false);
+
+    // expo-image-picker's web "camera" is just a hidden file input with a
+    // `capture` hint — desktop browsers ignore that and show a plain file
+    // picker, no live preview. WebCameraModal gives web a real camera view.
+    if (Platform.OS === "web") {
+      setWebCameraVisible(true);
+      return;
+    }
+
     const permissionResult =
       await ImagePicker.requestCameraPermissionsAsync();
     if (!permissionResult.granted) {
@@ -186,6 +198,12 @@ export default function QrItemRegisterScreen() {
       setSelectedImage(uri);
       if (useAiDescribe) analyzeImage(uri);
     }
+  };
+
+  const handleWebCameraCapture = (dataUri) => {
+    setWebCameraVisible(false);
+    setSelectedImage(dataUri);
+    if (useAiDescribe) analyzeImage(dataUri);
   };
 
   const handleChooseFromLibrary = async () => {
@@ -245,11 +263,13 @@ export default function QrItemRegisterScreen() {
       if (selectedImage) {
         const { fileName, mimeType } = guessImageMimeType(selectedImage);
 
-        formData.append("image", {
-          uri: selectedImage,
-          name: fileName.includes(".") ? fileName : `${fileName}.jpg`,
-          type: mimeType,
-        });
+        await appendImageField(
+          formData,
+          "image",
+          selectedImage,
+          fileName.includes(".") ? fileName : `${fileName}.jpg`,
+          mimeType,
+        );
       }
 
       const res = await uploadWithAuth(
@@ -326,6 +346,12 @@ export default function QrItemRegisterScreen() {
         onChooseFromLibrary={handleChooseFromLibrary}
         onRemovePhoto={handleRemovePhoto}
         onClose={() => setModalVisible(false)}
+      />
+
+      <WebCameraModal
+        visible={webCameraVisible}
+        onClose={() => setWebCameraVisible(false)}
+        onCapture={handleWebCameraCapture}
       />
 
       <ConfirmDiscardModal

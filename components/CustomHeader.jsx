@@ -1,5 +1,5 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
-import NetInfo from "@react-native-community/netinfo";
+import { addConnectivityListener } from "@/constants/netInfo";
 import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import React, { useEffect, useState } from "react";
@@ -25,7 +25,7 @@ export default function CustomHeader({ title }) {
 
   // Listen to network state changes reactively instead of polling every 5 seconds
   useEffect(() => {
-    const unsubscribe = NetInfo.addEventListener((state) => {
+    const unsubscribe = addConnectivityListener((state) => {
       const isConnected = Boolean(state.isConnected && state.isInternetReachable !== false);
       setOnline(isConnected);
     });

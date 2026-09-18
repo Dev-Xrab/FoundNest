@@ -31,6 +31,11 @@ const PUSH_API = `${API_BASE_URL}/api/push-notification`;
 // user why push notifications aren't working, since a null token alone
 // doesn't distinguish "denied" from "no simulator support."
 async function getExpoPushToken() {
+  // expo-notifications has no web implementation — don't call it there.
+  if (Platform.OS === "web") {
+    return { token: null, reason: "unsupported" };
+  }
+
   if (Platform.OS === "android") {
     await Notifications.setNotificationChannelAsync("default", {
       name: "default",

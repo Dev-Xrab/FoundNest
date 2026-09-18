@@ -1,7 +1,8 @@
 import AppColors from "@/constants/AppColors";
 import { Ionicons } from "@expo/vector-icons";
 import { useNavigation } from "expo-router";
-import { createElement, useState } from "react";
+import "leaflet/dist/leaflet.css";
+import { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
@@ -16,29 +17,114 @@ import OfficeModal from "./components/OfficeModal";
 import { useColleges } from "./hooks/useColleges";
 import { useOfficeParamSync } from "./hooks/useOfficeParamSync";
 import { useOfficeSearch } from "./hooks/useOfficeSearch";
+import { GOOGLE_HYBRID_TILE_URL } from "./mapStyle";
 
 const BULSU_CENTER = { lng: 120.8142, lat: 14.8582 };
+const MARKER_COLOR = "#D32F2F";
 
-function buildMapUrl(lat, lng) {
-  const delta = 0.01;
-  const bbox = [
-    lng - delta,
-    lat - delta,
-    lng + delta,
-    lat + delta,
-  ].join("%2C");
-
-  return `https://www.openstreetmap.org/export/embed.html?bbox=${bbox}&layer=mapnik&marker=${lat}%2C${lng}`;
+// Leaflet touches `window` as soon as its module body runs, which crashes
+// Expo Router's dev-server/SSR pass (evaluated in Node, no `window` there).
+// require()-ing it lazily, only from inside an effect (client-only, never
+// during SSR), avoids that entirely — a static top-level import would
+// execute too early regardless of whether anything in the file calls it.
+function getLeaflet() {
+  return require("leaflet");
 }
 
-/** Web version of the map tab. Same search + office modal, browser map instead of MapLibre. */
+// Same look as native's OfficeMarkerPin, as an L.divIcon (Leaflet markers
+// take an HTML string / element, not a React component).
+function buildPinIcon(L, label) {
+  return L.divIcon({
+    className: "",
+    html: `
+      <div style="display:flex;flex-direction:column;align-items:center;cursor:pointer;">
+        <div style="padding:5px 8px;border-radius:8px;border:1.5px solid #FFFFFF;
+                    background-color:${MARKER_COLOR};color:#FFFFFF;font-size:11px;
+                    font-weight:900;white-space:nowrap;box-shadow:0 2px 2px rgba(0,0,0,0.3);">
+          ${label}
+        </div>
+        <div style="width:0;height:0;border-left:6px solid transparent;
+                    border-right:6px solid transparent;border-top:8px solid ${MARKER_COLOR};
+                    margin-top:-1.5px;"></div>
+      </div>
+    `,
+    iconAnchor: [0, 0],
+  });
+}
+
+/** Web version of the map tab. Real Leaflet map with one marker per office,
+ * instead of the old OpenStreetMap iframe embed — that only supported a
+ * single marker total, so every office except whichever was last searched
+ * for was invisible. (MapLibre GL JS, the engine native uses, was tried
+ * first but its Web Worker + import.meta usage doesn't bundle under Metro;
+ * Leaflet is plain DOM/Canvas with no such requirement.) */
 export default function MapScreenWeb() {
   const navigation = useNavigation();
   const { colleges, isLoading: isDataLoading } = useColleges();
 
   const [selectedOffice, setSelectedOffice] = useState(null);
   const [modalVisible, setModalVisible] = useState(false);
-  const [mapCenter, setMapCenter] = useState(BULSU_CENTER);
+
+  const mapContainerRef = useRef(null);
+  const mapRef = useRef(null);
+  const markersRef = useRef([]);
+
+  // Create the map once.
+  useEffect(() => {
+    if (!mapContainerRef.current || mapRef.current) return;
+
+    const L = getLeaflet();
+    const map = L.map(mapContainerRef.current, {
+      center: [BULSU_CENTER.lat, BULSU_CENTER.lng],
+      zoom: 17,
+      minZoom: 15,
+      maxZoom: 20,
+      attributionControl: false,
+      zoomControl: false,
+    });
+
+    L.tileLayer(GOOGLE_HYBRID_TILE_URL, { maxZoom: 20 }).addTo(map);
+
+    mapRef.current = map;
+
+    return () => {
+      map.remove();
+      mapRef.current = null;
+    };
+  }, []);
+
+  function flyTo(lng, lat, zoom = 19) {
+    mapRef.current?.flyTo([lat, lng], zoom, { duration: 1.5 });
+  }
+
+  function handleMarkerPress(college) {
+    setSelectedOffice(college);
+    setModalVisible(true);
+  }
+
+  // Re-render markers whenever the office list changes.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+
+    const L = getLeaflet();
+
+    markersRef.current.forEach((marker) => marker.remove());
+    markersRef.current = colleges
+      .filter((college) => college.longitude !== null && college.latitude !== null)
+      .reduce((markers, college) => {
+        const lng = parseFloat(college.longitude);
+        const lat = parseFloat(college.latitude);
+        if (Number.isNaN(lng) || Number.isNaN(lat)) return markers;
+
+        const marker = L.marker([lat, lng], { icon: buildPinIcon(L, college.office_name) })
+          .addTo(map)
+          .on("click", () => handleMarkerPress(college));
+
+        markers.push(marker);
+        return markers;
+      }, []);
+  }, [colleges]);
 
   const {
     searchQuery,
@@ -49,7 +135,7 @@ export default function MapScreenWeb() {
     toggleDropdown,
     handleSelectLocation,
   } = useOfficeSearch(colleges, (lng, lat, college) => {
-    setMapCenter({ lng, lat });
+    flyTo(lng, lat);
     setSelectedOffice(college);
     setModalVisible(true);
   });
@@ -61,7 +147,7 @@ export default function MapScreenWeb() {
       const lat = parseFloat(target.latitude);
 
       if (!Number.isNaN(lng) && !Number.isNaN(lat)) {
-        setMapCenter({ lng, lat });
+        flyTo(lng, lat);
       }
 
       setSelectedOffice(target);
@@ -128,20 +214,9 @@ export default function MapScreenWeb() {
         )}
       </View>
 
-      <View style={styles.map}>
-        {createElement("iframe", {
-          title: "FoundNest campus map",
-          src: buildMapUrl(mapCenter.lat, mapCenter.lng),
-          // Pass standard HTML styles as plain string or native styles attribute wrapper
-          style: "width: 100%; height: 100%; border: 0;",
-        })}
-      </View>
+      <View ref={mapContainerRef} style={styles.map} />
 
-      <OfficeModal
-        visible={modalVisible}
-        onClose={handleCloseModal}
-        office={selectedOffice}
-      />
+      <OfficeModal visible={modalVisible} onClose={handleCloseModal} office={selectedOffice} />
     </View>
   );
 }

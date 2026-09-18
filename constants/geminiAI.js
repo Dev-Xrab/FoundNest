@@ -1,6 +1,7 @@
 import { API_BASE_URL, DESCRIBE_ITEM_PATH } from "@/constants/api";
 import { uploadWithAuth } from "@/constants/authApi";
 import { guessImageMimeType } from "@/shared/utils/imageMime";
+import { appendImageField } from "@/shared/utils/formDataImage";
 import { parseApiError } from "@/utils/lostReport";
 
 export async function DescribeItem({ imageUri }) {
@@ -11,11 +12,13 @@ export async function DescribeItem({ imageUri }) {
   const { fileName, mimeType } = guessImageMimeType(imageUri);
 
   const formData = new FormData();
-  formData.append("image", {
-    uri: imageUri,
-    name: fileName.includes(".") ? fileName : `${fileName}.jpg`,
-    type: mimeType,
-  });
+  await appendImageField(
+    formData,
+    "image",
+    imageUri,
+    fileName.includes(".") ? fileName : `${fileName}.jpg`,
+    mimeType,
+  );
 
   console.log("Sending image to AI service...");
 

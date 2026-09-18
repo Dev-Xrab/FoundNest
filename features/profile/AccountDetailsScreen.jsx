@@ -5,9 +5,12 @@ import AppColors from "@/constants/AppColors";
 import { fetchWithAuth, uploadWithAuth } from "@/constants/authApi";
 import { getUserProfile, saveProfileCache } from "@/constants/profile";
 import PhotoPickerModal from "@/shared/components/PhotoPickerModal";
+import WebCameraModal from "@/shared/components/WebCameraModal";
 import { useAlertModal } from "@/shared/hooks/useAlertModal";
 import { useUnsavedChangesGuard } from "@/shared/hooks/useUnsavedChangesGuard";
 import { buildPermissionAlertConfig } from "@/shared/utils/permissions";
+import { appendImageField } from "@/shared/utils/formDataImage";
+import { guessImageMimeType } from "@/shared/utils/imageMime";
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect } from "@react-navigation/native";
 import * as ImagePicker from "expo-image-picker";
@@ -40,6 +43,7 @@ export default function AccountDetailsScreen() {
   const { alertModal, showAlert } = useAlertModal();
 
   const [photoModalVisible, setPhotoModalVisible] = useState(false);
+  const [webCameraVisible, setWebCameraVisible] = useState(false);
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
 
   useEffect(() => {
@@ -161,16 +165,10 @@ export default function AccountDetailsScreen() {
   const uploadProfileImage = async (asset) => {
     setIsUploadingPhoto(true);
     try {
-      const filename = asset.uri.split("/").pop();
-      const match = /\.(\w+)$/.exec(filename ?? "");
-      const ext = match ? match[1] : "jpg";
+      const { fileName, mimeType } = guessImageMimeType(asset.uri);
 
       const formData = new FormData();
-      formData.append("profile_image", {
-        uri: asset.uri,
-        name: filename || `profile.${ext}`,
-        type: `image/${ext}`,
-      });
+      await appendImageField(formData, "profile_image", asset.uri, fileName, mimeType);
 
       // uploadWithAuth handles token expiry + silent refresh automatically
       // Do NOT use fetchWithAuth here — it forces Content-Type: application/json
@@ -229,6 +227,15 @@ export default function AccountDetailsScreen() {
 
   const handleTakePhoto = async () => {
     setPhotoModalVisible(false);
+
+    // expo-image-picker's web "camera" is just a hidden file input with a
+    // `capture` hint — desktop browsers ignore that and show a plain file
+    // picker, no live preview. WebCameraModal gives web a real camera view.
+    if (Platform.OS === "web") {
+      setWebCameraVisible(true);
+      return;
+    }
+
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
     if (status !== "granted") {
       showAlert(
@@ -249,6 +256,11 @@ export default function AccountDetailsScreen() {
     if (!result.canceled) {
       await uploadProfileImage(result.assets[0]);
     }
+  };
+
+  const handleWebCameraCapture = async (dataUri) => {
+    setWebCameraVisible(false);
+    await uploadProfileImage({ uri: dataUri });
   };
 
   const handleChooseFromLibrary = async () => {
@@ -323,6 +335,12 @@ export default function AccountDetailsScreen() {
         onChooseFromLibrary={handleChooseFromLibrary}
         onRemovePhoto={handleRemovePhoto}
         onClose={() => setPhotoModalVisible(false)}
+      />
+
+      <WebCameraModal
+        visible={webCameraVisible}
+        onClose={() => setWebCameraVisible(false)}
+        onCapture={handleWebCameraCapture}
       />
 
       <View style={[styles.redHeader, { paddingTop: insets.top }]}>

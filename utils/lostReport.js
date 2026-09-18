@@ -1,6 +1,8 @@
 import { API_BASE_URL } from '@/constants/api';
 import { uploadWithAuth } from '@/constants/authApi';
 import { getUser } from '@/constants/StudentData';
+import { appendImageField } from '@/shared/utils/formDataImage';
+import { guessImageMimeType } from '@/shared/utils/imageMime';
 
 export function formatLostDateTime(datePart, timePart) {
   const combined = new Date(datePart);
@@ -129,20 +131,8 @@ export async function submitLostReport({
   const formData = new FormData();
 
   if (imageUri) {
-    const fileName = imageUri.split('/').pop() || 'item-photo.jpg';
-    const extension = fileName.split('.').pop()?.toLowerCase();
-    const mimeType =
-      extension === 'png'
-        ? 'image/png'
-        : extension === 'webp'
-          ? 'image/webp'
-          : 'image/jpeg';
-
-    formData.append('image', {
-      uri: imageUri,
-      name: fileName.includes('.') ? fileName : `${fileName}.jpg`,
-      type: mimeType,
-    });
+    const { fileName, mimeType } = guessImageMimeType(imageUri);
+    await appendImageField(formData, 'image', imageUri, fileName, mimeType);
   }
 
   formData.append('item_name', itemName.trim());

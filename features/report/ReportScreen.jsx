@@ -1,4 +1,5 @@
 import PhotoPickerModal from "@/shared/components/PhotoPickerModal";
+import WebCameraModal from "@/shared/components/WebCameraModal";
 import ConfirmDiscardModal from "@/components/ConfirmDiscardModal";
 import { showToast } from "@/components/GlobalToast";
 import AppColors from "@/constants/AppColors";
@@ -11,7 +12,7 @@ import { useAlertModal } from "@/shared/hooks/useAlertModal";
 import { buildPermissionAlertConfig } from "@/shared/utils/permissions";
 import { validateReportPage1 } from "@/utils/lostReport";
 import { MaterialIcons } from "@expo/vector-icons";
-import NetInfo from "@react-native-community/netinfo";
+import { addConnectivityListener } from "@/constants/netInfo";
 import * as ImagePicker from "expo-image-picker";
 import { useFocusEffect, useRouter } from "expo-router";
 import React, { useCallback, useEffect, useState } from "react";
@@ -46,6 +47,7 @@ export default function ReportScreen() {
   const [categories, setCategories] = useState([]);
   const [errors, setErrors] = useState({});
   const [modalVisible, setModalVisible] = useState(false);
+  const [webCameraVisible, setWebCameraVisible] = useState(false);
   const [online, setOnline] = useState(true);
   const [useAiDescribe, setUseAiDescribe] = useState(false);
   const router = useRouter();
@@ -58,7 +60,7 @@ export default function ReportScreen() {
     isOnline().then(setOnline);
 
     // Dynamic live subscription
-    const unsubscribe = NetInfo.addEventListener((state) => {
+    const unsubscribe = addConnectivityListener((state) => {
       const isConnected = Boolean(
         state.isConnected && state.isInternetReachable !== false
       );
@@ -178,6 +180,15 @@ export default function ReportScreen() {
 
   const handleTakePhoto = async () => {
     setModalVisible(false);
+
+    // expo-image-picker's web "camera" is just a hidden file input with a
+    // `capture` hint — desktop browsers ignore that and show a plain file
+    // picker, no live preview. WebCameraModal gives web a real camera view.
+    if (Platform.OS === "web") {
+      setWebCameraVisible(true);
+      return;
+    }
+
     const permissionResult =
       await ImagePicker.requestCameraPermissionsAsync();
     if (!permissionResult.granted) {
@@ -196,6 +207,12 @@ export default function ReportScreen() {
       setSelectedImage(uri);
       if (useAiDescribe) analyzeImage(uri);
     }
+  };
+
+  const handleWebCameraCapture = (dataUri) => {
+    setWebCameraVisible(false);
+    setSelectedImage(dataUri);
+    if (useAiDescribe) analyzeImage(dataUri);
   };
 
   const handleChooseFromLibrary = async () => {
@@ -292,6 +309,12 @@ export default function ReportScreen() {
         onChooseFromLibrary={handleChooseFromLibrary}
         onRemovePhoto={handleRemovePhoto}
         onClose={() => setModalVisible(false)}
+      />
+
+      <WebCameraModal
+        visible={webCameraVisible}
+        onClose={() => setWebCameraVisible(false)}
+        onCapture={handleWebCameraCapture}
       />
 
       <ScrollView contentContainerStyle={styles.container}>

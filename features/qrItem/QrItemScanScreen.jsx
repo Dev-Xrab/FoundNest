@@ -7,6 +7,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Linking,
+  Platform,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -130,15 +131,23 @@ export default function QrItemScanScreen() {
           <Text style={styles.permissionSub}>
             FoundNest needs your camera to scan QR codes.
           </Text>
-          <TouchableOpacity
-            style={styles.primaryButton}
-            onPress={permission.canAskAgain ? requestPermission : Linking.openSettings}
-            activeOpacity={0.8}
-          >
-            <Text style={styles.primaryButtonText}>
-              {permission.canAskAgain ? 'Grant Permission' : 'Open Settings'}
+          {Platform.OS === 'web' && !permission.canAskAgain ? (
+            <Text style={styles.permissionSub}>
+              Camera access is blocked for this site. Enable it from your browser's
+              site settings (usually the padlock icon in the address bar), then
+              reload the page.
             </Text>
-          </TouchableOpacity>
+          ) : (
+            <TouchableOpacity
+              style={styles.primaryButton}
+              onPress={permission.canAskAgain ? requestPermission : Linking.openSettings}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.primaryButtonText}>
+                {permission.canAskAgain ? 'Grant Permission' : 'Open Settings'}
+              </Text>
+            </TouchableOpacity>
+          )}
         </View>
       </View>
     );

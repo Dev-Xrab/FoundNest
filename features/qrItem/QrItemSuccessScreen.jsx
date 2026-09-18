@@ -9,6 +9,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useRef } from 'react';
 import {
   Image,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -36,6 +37,25 @@ export default function QrItemSuccessScreen() {
 
   const handleDownload = async () => {
     try {
+      // No OS photo gallery in a browser — expo-media-library has no web
+      // implementation, so trigger a normal browser file download instead.
+      if (Platform.OS === 'web') {
+        const captured = await viewShotRef.current.capture();
+        const dataUrl = captured.startsWith('data:')
+          ? captured
+          : `data:image/png;base64,${captured}`;
+
+        const link = document.createElement('a');
+        link.href = dataUrl;
+        link.download = `${itemName || 'foundnest-qr'}.png`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+
+        showAlert({ message: 'QR code image downloaded.' });
+        return;
+      }
+
       const { status } = await MediaLibrary.requestPermissionsAsync(false, ['photo']);
       if (status !== 'granted') {
         showAlert(buildPermissionAlertConfig('Allow media library access to save the QR code.'));

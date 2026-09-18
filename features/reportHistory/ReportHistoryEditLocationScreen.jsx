@@ -12,6 +12,8 @@ import {
   setReportDraft,
 } from "@/constants/reportDraft";
 import fetchSharedStudentSpaces from "@/constants/SharedStudentSpaces";
+import { appendImageField } from "@/shared/utils/formDataImage";
+import { guessImageMimeType } from "@/shared/utils/imageMime";
 import { useAlertModal } from "@/shared/hooks/useAlertModal";
 import { useUnsavedChangesGuard } from "@/shared/hooks/useUnsavedChangesGuard";
 import { buildLocationLost, validateReportPage2 } from "@/utils/lostReport";
@@ -617,14 +619,8 @@ function EditNextScreen() {
       if (draft.isImageRemoved === true) {
         formData.append("image_url", "REMOVE");
       } else if (draft.imageUri) {
-        const fileName = draft.imageUri.split("/").pop() || "image.jpg";
-        const ext = fileName?.split(".").pop()?.toLowerCase();
-        const mimeType = ext === "png" ? "image/png" : "image/jpeg";
-        formData.append("image", {
-          uri: draft.imageUri,
-          name: fileName,
-          type: mimeType,
-        });
+        const { fileName, mimeType } = guessImageMimeType(draft.imageUri);
+        await appendImageField(formData, "image", draft.imageUri, fileName, mimeType);
       }
 
       const res = await uploadWithAuth(

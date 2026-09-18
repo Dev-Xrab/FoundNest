@@ -1,12 +1,14 @@
 import ConfirmDiscardModal from '@/components/ConfirmDiscardModal';
 import { showToast } from '@/components/GlobalToast';
 import PhotoPickerModal from '@/shared/components/PhotoPickerModal';
+import WebCameraModal from '@/shared/components/WebCameraModal';
 import { API_BASE_URL } from '@/constants/api';
 import AppColors from '@/constants/AppColors';
 import { fetchWithAuth, uploadWithAuth } from '@/constants/authApi';
 import { getCategories } from '@/constants/category';
 import { getQrItemDetail, validateQrItemForm } from '@/constants/qrItems';
 import { guessImageMimeType } from '@/shared/utils/imageMime';
+import { appendImageField } from '@/shared/utils/formDataImage';
 import { useUnsavedChangesGuard } from '@/shared/hooks/useUnsavedChangesGuard';
 import { useAlertModal } from '@/shared/hooks/useAlertModal';
 import { buildPermissionAlertConfig } from '@/shared/utils/permissions';
@@ -53,6 +55,7 @@ export default function QrItemEditScreen() {
   const [errors, setErrors]                         = useState({});
   const [isSaving, setIsSaving]                     = useState(false);
   const [modalVisible, setModalVisible]             = useState(false);
+  const [webCameraVisible, setWebCameraVisible] = useState(false);
 
   const { alertModal, showAlert: showCustomAlert } = useAlertModal();
 
@@ -151,6 +154,15 @@ export default function QrItemEditScreen() {
 
   const handleTakePhoto = async () => {
     setModalVisible(false);
+
+    // expo-image-picker's web "camera" is just a hidden file input with a
+    // `capture` hint — desktop browsers ignore that and show a plain file
+    // picker, no live preview. WebCameraModal gives web a real camera view.
+    if (Platform.OS === 'web') {
+      setWebCameraVisible(true);
+      return;
+    }
+
     const { granted } = await ImagePicker.requestCameraPermissionsAsync();
     if (!granted) {
       showCustomAlert(buildPermissionAlertConfig('Allow camera access to take photos.'));
@@ -161,6 +173,12 @@ export default function QrItemEditScreen() {
       setSelectedImage(result.assets[0].uri);
       setImageRemoved(false);
     }
+  };
+
+  const handleWebCameraCapture = (dataUri) => {
+    setWebCameraVisible(false);
+    setSelectedImage(dataUri);
+    setImageRemoved(false);
   };
 
   const handleChooseFromLibrary = async () => {
@@ -213,11 +231,13 @@ export default function QrItemEditScreen() {
 
         const { fileName, mimeType } = guessImageMimeType(selectedImage);
 
-        formData.append('image', {
-          uri: selectedImage,
-          name: fileName.includes('.') ? fileName : `${fileName}.jpg`,
-          type: mimeType,
-        });
+        await appendImageField(
+          formData,
+          'image',
+          selectedImage,
+          fileName.includes('.') ? fileName : `${fileName}.jpg`,
+          mimeType,
+        );
 
         // uploadWithAuth handles token expiry + silent refresh automatically
         // Do NOT use fetchWithAuth here — it forces Content-Type: application/json
@@ -310,6 +330,12 @@ export default function QrItemEditScreen() {
         onChooseFromLibrary={handleChooseFromLibrary}
         onRemovePhoto={handleRemovePhoto}
         onClose={() => setModalVisible(false)}
+      />
+
+      <WebCameraModal
+        visible={webCameraVisible}
+        onClose={() => setWebCameraVisible(false)}
+        onCapture={handleWebCameraCapture}
       />
 
       <ConfirmDiscardModal
