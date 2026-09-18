@@ -29,7 +29,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import DatePicker from "react-native-date-picker";
+import DatePicker from "@/shared/components/CrossPlatformDatePicker";
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
