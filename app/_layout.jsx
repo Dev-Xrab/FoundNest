@@ -4,6 +4,7 @@ import { useFonts } from "expo-font";
 import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { useEffect, useState } from "react"; // Added useState
+import { Platform } from "react-native";
 import "react-native-reanimated";
 
 import AnimatedSplashScreen from "@/components/AnimatedSplashScreen"; // 1. Import your custom splash screen
@@ -45,6 +46,16 @@ export default function RootLayout() {
 
   // 2. Add a state to track when your custom animation is done
   const [animationFinished, setAnimationFinished] = useState(false);
+
+  // Web only: drop the browser's default black focus outline on text fields.
+  useEffect(() => {
+    if (Platform.OS !== "web") return;
+    const style = document.createElement("style");
+    style.textContent =
+      "input:focus, textarea:focus, select:focus { outline: none !important; }";
+    document.head.appendChild(style);
+    return () => style.remove();
+  }, []);
 
   // Expo Router uses Error Boundaries to catch errors in the navigation tree.
   useEffect(() => {
