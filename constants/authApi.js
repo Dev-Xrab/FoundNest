@@ -1,10 +1,20 @@
+import { logoutUser } from "@/utils/pushNotifications";
 import { API_BASE_URL } from "./api";
 import {
   getRefreshToken,
   getToken,
   updateAccessToken,
 } from "./StudentData";
-import { logoutUser } from "@/utils/pushNotifications";
+
+async function isAccountLocked(response) {
+  if (response.status !== 403) return false;
+  try {
+    const body = await response.clone().json();
+    return body?.code === "ACCOUNT_LOCKED";
+  } catch {
+    return false;
+  }
+}
 
 export async function fetchWithAuth(url, options = {}) {
   let token = await getToken();
@@ -18,6 +28,12 @@ export async function fetchWithAuth(url, options = {}) {
       Authorization: `Bearer ${token}`,
     },
   });
+
+  // Locked account → force logout immediately, don't attempt refresh
+  if (await isAccountLocked(response)) {
+    await logoutUser();
+    return response;
+  }
 
   // If 401, try silent refresh
   if (response.status === 401) {
@@ -36,7 +52,7 @@ export async function fetchWithAuth(url, options = {}) {
     });
 
     if (!refreshResponse.ok) {
-      // Refresh token expired or invalid → force logout
+      // Refresh token expired/invalid, or account locked (403) → force logout
       await logoutUser();
       return response;
     }
@@ -53,6 +69,11 @@ export async function fetchWithAuth(url, options = {}) {
         Authorization: `Bearer ${refreshData.accessToken}`,
       },
     });
+
+    // Retried request could also come back locked
+    if (await isAccountLocked(response)) {
+      await logoutUser();
+    }
   }
 
   return response;
@@ -72,6 +93,12 @@ export async function uploadWithAuth(url, formData, method = "POST") {
 
   let response = await doUpload(token);
 
+  // Locked account → force logout immediately, don't attempt refresh
+  if (await isAccountLocked(response)) {
+    await logoutUser();
+    return response;
+  }
+
   if (response.status === 401) {
     const refreshToken = await getRefreshToken();
 
@@ -88,7 +115,7 @@ export async function uploadWithAuth(url, formData, method = "POST") {
     });
 
     if (!refreshResponse.ok) {
-      // Refresh token expired or invalid → force logout
+      // Refresh token expired/invalid, or account locked (403) → force logout
       await logoutUser();
       return response;
     }
@@ -97,6 +124,11 @@ export async function uploadWithAuth(url, formData, method = "POST") {
     await updateAccessToken(refreshData.accessToken);
 
     response = await doUpload(refreshData.accessToken);
+
+    // Retried upload could also come back locked
+    if (await isAccountLocked(response)) {
+      await logoutUser();
+    }
   }
 
   return response;
