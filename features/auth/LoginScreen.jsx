@@ -64,7 +64,7 @@ export default function LoginScreen() {
   const [isLoading, setIsLoading] = useState(false);
   const [loginError, setLoginError] = useState("");
 
-  const { passwordResetSuccess, passwordChangedSuccess } = useLocalSearchParams();
+  const { passwordResetSuccess, passwordChangedSuccess, reason } = useLocalSearchParams();
 
   useEffect(() => {
     if (passwordResetSuccess === "1" || passwordChangedSuccess === "1") {
@@ -75,10 +75,18 @@ export default function LoginScreen() {
         "success",
         { inverted: true }
       );
-
       router.setParams({ passwordResetSuccess: undefined, passwordChangedSuccess: undefined });
     }
-  }, [passwordResetSuccess, passwordChangedSuccess]);
+
+    if (reason === "locked") {
+      showToast(
+        "Your account has been locked by an admin.",
+        "error",
+        { inverted: true }
+      );
+      router.setParams({ reason: undefined });
+    }
+  }, [passwordResetSuccess, passwordChangedSuccess, reason]);
 
   useEffect(() => {
     const loadSavedEmail = async () => {
