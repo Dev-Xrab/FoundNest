@@ -31,7 +31,7 @@ export async function fetchWithAuth(url, options = {}) {
 
   // Locked account → force logout immediately, don't attempt refresh
   if (await isAccountLocked(response)) {
-    await logoutUser();
+    await logoutUser("locked");
     return response;
   }
 
@@ -72,7 +72,7 @@ export async function fetchWithAuth(url, options = {}) {
 
     // Retried request could also come back locked
     if (await isAccountLocked(response)) {
-      await logoutUser();
+      await logoutUser("locked");
     }
   }
 
@@ -95,7 +95,7 @@ export async function uploadWithAuth(url, formData, method = "POST") {
 
   // Locked account → force logout immediately, don't attempt refresh
   if (await isAccountLocked(response)) {
-    await logoutUser();
+    await logoutUser("locked");
     return response;
   }
 
@@ -127,7 +127,7 @@ export async function uploadWithAuth(url, formData, method = "POST") {
 
     // Retried upload could also come back locked
     if (await isAccountLocked(response)) {
-      await logoutUser();
+      await logoutUser("locked");
     }
   }
 
