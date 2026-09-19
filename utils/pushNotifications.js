@@ -128,9 +128,9 @@ export async function deletePushToken() {
 }
 
 // ── Helper: full logout (delete token → clear session → go to login) ──
-export async function logoutUser() {
+export async function logoutUser(reason) {
   await deletePushToken();
   await clearSession();
   clearPageHistory();
-  router.replace("/login");
+  router.replace(reason ? `/login?reason=${reason}` : "/login");
 }
