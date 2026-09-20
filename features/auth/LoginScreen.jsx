@@ -173,11 +173,13 @@ export default function LoginScreen() {
         return;
       }
 
-      // Intentionally not persisted with a refresh token: this is a
-      // short-lived "acting as end user" session (~15 min), since the
-      // account's real refresh token would resolve back to its actual
-      // Admin/Super Admin role on silent refresh.
-      await saveSession(data.accessToken, data.user, false, null);
+      // Uses the acting-as-end-user refresh token the backend issued
+      // (a signed JWT, not the account's real DB-backed refresh token),
+      // so silent refresh keeps this session alive as "user" while the
+      // app stays open, without ever resolving back to the account's
+      // actual Admin/Super Admin role. rememberMe is still forced false —
+      // closing the app clears it from memory and requires a real login.
+      await saveSession(data.accessToken, data.user, false, data.refreshToken ?? null);
       setRoleGateRole(null);
       setPendingAuth(null);
       startAtHome();
