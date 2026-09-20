@@ -1,5 +1,6 @@
 import { showToast } from "@/components/GlobalToast";
-import { API_BASE_URL } from "@/constants/api";
+import RoleGateModal from "@/components/RoleGateModal";
+import { ADMIN_WEB_URL, API_BASE_URL } from "@/constants/api";
 import AppColors from "@/constants/AppColors";
 import { startAtHome } from "@/constants/previousPage";
 import { clearSavedEmail, getSavedEmail, saveEmail, saveSession } from "@/constants/StudentData";
@@ -10,6 +11,7 @@ import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Image,
+  Linking,
   StyleSheet,
   Text,
   TextInput,
@@ -63,6 +65,7 @@ export default function LoginScreen() {
   const [rememberMe, setRememberMe] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [loginError, setLoginError] = useState("");
+  const [roleGateRole, setRoleGateRole] = useState(null);
 
   const { passwordResetSuccess, passwordChangedSuccess, reason } = useLocalSearchParams();
 
@@ -117,10 +120,7 @@ export default function LoginScreen() {
       }
 
       if (data.user?.user_role !== 'user') {
-        router.push({
-        pathname: '/roleGate',
-        params: { role: data.user.user_role },
-        });
+        setRoleGateRole(data.user.user_role);
         return;
       }
 
@@ -154,7 +154,7 @@ export default function LoginScreen() {
         extraScrollHeight={20}
       >
         <StatusBar style="dark" backgroundColor="transparent" translucent />
-        {/* TOP ΓÇö white section with illustration */}
+        {/* TOP - white section with illustration */}
         <View style={styles.topSection}>
           <Image
             source={require("@/assets/images/login-image.png")}
@@ -163,7 +163,7 @@ export default function LoginScreen() {
           />
         </View>
 
-        {/* BOTTOM ΓÇö deep red card */}
+        {/* BOTTOM - deep red card */}
         <View
           style={[
             styles.card,
@@ -272,6 +272,19 @@ export default function LoginScreen() {
           </TouchableOpacity>
         </View>
       </KeyboardAwareScrollView>
+
+      <RoleGateModal
+        visible={!!roleGateRole}
+        role={roleGateRole}
+        onContinueAsAdmin={() => {
+          Linking.openURL(ADMIN_WEB_URL);
+          setRoleGateRole(null);
+        }}
+        onLoginAsEndUser={() => {
+          setPassword("");
+          setRoleGateRole(null);
+        }}
+      />
     </View>
   );
 }
