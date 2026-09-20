@@ -1,6 +1,7 @@
 import ConfirmDiscardModal from "@/components/ConfirmDiscardModal";
 import PhotoPickerModal from "@/shared/components/PhotoPickerModal";
 import WebCameraModal from "@/shared/components/WebCameraModal";
+import ScanImageButton from "@/shared/components/ScanImageButton";
 import { API_BASE_URL } from "@/constants/api";
 import AppColors from "@/constants/AppColors";
 import { uploadWithAuth } from "@/constants/authApi";
@@ -28,7 +29,6 @@ import {
   Platform,
   ScrollView,
   StyleSheet,
-  Switch,
   Text,
   TextInput,
   TouchableOpacity,
@@ -63,7 +63,6 @@ export default function QrItemRegisterScreen() {
   const [modalVisible, setModalVisible] = useState(false);
   const [webCameraVisible, setWebCameraVisible] = useState(false);
   const [online, setOnline] = useState(true);
-  const [useAiDescribe, setUseAiDescribe] = useState(false);
 
   const { alertModal, showAlert: showCustomAlert } = useAlertModal();
 
@@ -196,14 +195,12 @@ export default function QrItemRegisterScreen() {
     if (!result.canceled) {
       const uri = result.assets[0].uri;
       setSelectedImage(uri);
-      if (useAiDescribe) analyzeImage(uri);
     }
   };
 
   const handleWebCameraCapture = (dataUri) => {
     setWebCameraVisible(false);
     setSelectedImage(dataUri);
-    if (useAiDescribe) analyzeImage(dataUri);
   };
 
   const handleChooseFromLibrary = async () => {
@@ -227,17 +224,12 @@ export default function QrItemRegisterScreen() {
     if (!result.canceled) {
       const uri = result.assets[0].uri;
       setSelectedImage(uri);
-      if (useAiDescribe) analyzeImage(uri);
     }
   };
 
   const handleRemovePhoto = () => {
     setModalVisible(false);
     setSelectedImage(null);
-  };
-
-  const handleAiToggle = (value) => {
-    setUseAiDescribe(value);
   };
 
   // ── Validation ─────────────────────────────────────────────────────────────
@@ -471,16 +463,10 @@ export default function QrItemRegisterScreen() {
                 *FoundNest AI will help auto-fill details based on your photo.
               </Text>
 
-              <View style={styles.aiToggleRow}>
-                <Text style={styles.aiToggleLabel}>Use AI to describe image</Text>
-                <Switch
-                  value={useAiDescribe}
-                  onValueChange={handleAiToggle}
-                  disabled={!online || isAnalyzing || isSubmitting}
-                  trackColor={{ false: "#CCCCCC", true: "#900000" }}
-                  thumbColor="#FFFFFF"
-                />
-              </View>
+              <ScanImageButton
+                onPress={() => analyzeImage(selectedImage)}
+                disabled={!selectedImage || !online || isAnalyzing || isSubmitting}
+              />
             </View>
           </View>
 
@@ -787,18 +773,6 @@ const styles = StyleSheet.create({
     color: "#8C7A70",
     textAlign: "center",
     lineHeight: 20,
-  },
-  aiToggleRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 10,
-    marginTop: 14,
-  },
-  aiToggleLabel: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: AppColors.textOnLight,
   },
 
   // ── Dropdown ──────────────────────────────────────────────────────────────
