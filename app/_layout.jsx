@@ -93,6 +93,7 @@ function RootLayoutNav() {
       <NavigationBackHandler />
       <Stack>
         <Stack.Screen name="login" options={{ headerShown: false }} />
+        <Stack.Screen name="roleGate" options={{ headerShown: false }} />
         <Stack.Screen name="forgotPassword" options={{ headerShown: false }} />
         <Stack.Screen
           name="forgotPasswordVerify"
