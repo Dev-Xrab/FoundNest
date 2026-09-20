@@ -1,6 +1,6 @@
 import AppColors from '@/constants/AppColors';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 const ROLE_LABELS = {
   admin: 'Admin',
@@ -10,6 +10,7 @@ const ROLE_LABELS = {
 export default function RoleGateModal({
   visible,
   role,
+  loading,
   onContinueAsAdmin,
   onLoginAsEndUser,
 }) {
@@ -20,7 +21,9 @@ export default function RoleGateModal({
       transparent
       visible={visible}
       animationType="fade"
-      onRequestClose={onLoginAsEndUser}
+      onRequestClose={() => {
+        if (!loading) onLoginAsEndUser();
+      }}
     >
       <View style={styles.overlay}>
         <View style={styles.box}>
@@ -33,9 +36,10 @@ export default function RoleGateModal({
           <View style={styles.divider} />
 
           <TouchableOpacity
-            style={styles.optionRow}
+            style={[styles.optionRow, loading && styles.optionRowDisabled]}
             onPress={onContinueAsAdmin}
             activeOpacity={0.7}
+            disabled={loading}
           >
             <View style={styles.iconWrapper}>
               <Ionicons
@@ -56,9 +60,10 @@ export default function RoleGateModal({
           <View style={styles.rowDivider} />
 
           <TouchableOpacity
-            style={styles.optionRow}
+            style={[styles.optionRow, loading && styles.optionRowDisabled]}
             onPress={onLoginAsEndUser}
             activeOpacity={0.7}
+            disabled={loading}
           >
             <View style={styles.iconWrapper}>
               <Ionicons name="person-outline" size={20} color={AppColors.background} />
@@ -66,10 +71,14 @@ export default function RoleGateModal({
             <View style={styles.optionText}>
               <Text style={styles.optionTitle}>Login as End User</Text>
               <Text style={styles.optionSubtitle}>
-                Sign in with a different account
+                Browse and report items with this account
               </Text>
             </View>
-            <Ionicons name="chevron-forward" size={16} color={AppColors.inactiveIcon} />
+            {loading ? (
+              <ActivityIndicator size="small" color={AppColors.background} />
+            ) : (
+              <Ionicons name="chevron-forward" size={16} color={AppColors.inactiveIcon} />
+            )}
           </TouchableOpacity>
         </View>
       </View>
@@ -115,6 +124,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 14,
     gap: 12,
+  },
+  optionRowDisabled: {
+    opacity: 0.5,
   },
   rowDivider: {
     height: 1,
