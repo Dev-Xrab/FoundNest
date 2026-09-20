@@ -117,7 +117,10 @@ export default function LoginScreen() {
       }
 
       if (data.user?.user_role !== 'user') {
-        setLoginError('This account is not authorized for mobile access.');
+        router.push({
+        pathname: '/roleGate',
+        params: { role: data.user.user_role },
+        });
         return;
       }
 
