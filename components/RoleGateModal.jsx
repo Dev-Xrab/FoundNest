@@ -13,6 +13,7 @@ export default function RoleGateModal({
   loading,
   onContinueAsAdmin,
   onLoginAsEndUser,
+  onCancel,
 }) {
   const roleLabel = ROLE_LABELS[role] || 'Admin';
 
@@ -22,7 +23,9 @@ export default function RoleGateModal({
       visible={visible}
       animationType="fade"
       onRequestClose={() => {
-        if (!loading) onLoginAsEndUser();
+        // Back button / swipe-to-dismiss should just close the modal —
+        // never trigger a login action.
+        if (!loading) onCancel();
       }}
     >
       <View style={styles.overlay}>

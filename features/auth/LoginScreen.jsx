@@ -331,6 +331,10 @@ export default function LoginScreen() {
           setPendingAuth(null);
         }}
         onLoginAsEndUser={handleLoginAsEndUser}
+        onCancel={() => {
+          setRoleGateRole(null);
+          setPendingAuth(null);
+        }}
       />
     </View>
   );
