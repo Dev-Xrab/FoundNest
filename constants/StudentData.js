@@ -66,6 +66,20 @@ export async function updateAccessToken(newAccessToken) {
   }
 }
 
+// Rotates the refresh token itself — used when a refresh response returns a
+// new one (e.g. the acting-as-end-user JWT refresh token, which re-issues
+// itself with a fresh expiry on every use instead of staying fixed).
+export async function updateRefreshToken(newRefreshToken) {
+  const stored = await SecureStore.getItem(REFRESH_TOKEN_KEY);
+  if (stored) {
+    // was saved to SecureStore (rememberMe was true)
+    await SecureStore.setItem(REFRESH_TOKEN_KEY, newRefreshToken);
+  } else {
+    // was saved to memory (rememberMe was false)
+    _refreshToken = newRefreshToken;
+  }
+}
+
 // Remember the push token id so we can update/delete it later
 export async function savePushTokenId(id) {
   _pushTokenId = String(id);
