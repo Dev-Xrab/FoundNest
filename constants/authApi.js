@@ -4,6 +4,7 @@ import {
   getRefreshToken,
   getToken,
   updateAccessToken,
+  updateRefreshToken,
 } from "./StudentData";
 
 async function isAccountLocked(response) {
@@ -59,6 +60,11 @@ export async function fetchWithAuth(url, options = {}) {
 
     const refreshData = await refreshResponse.json();
     await updateAccessToken(refreshData.accessToken);
+    // Only present for acting-as-end-user sessions, which rotate their
+    // refresh token on every use — normal sessions don't send this back.
+    if (refreshData.refreshToken) {
+      await updateRefreshToken(refreshData.refreshToken);
+    }
 
     // Retry original request with new token
     response = await fetch(url, {
@@ -122,6 +128,9 @@ export async function uploadWithAuth(url, formData, method = "POST") {
 
     const refreshData = await refreshResponse.json();
     await updateAccessToken(refreshData.accessToken);
+    if (refreshData.refreshToken) {
+      await updateRefreshToken(refreshData.refreshToken);
+    }
 
     response = await doUpload(refreshData.accessToken);
 
