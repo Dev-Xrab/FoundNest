@@ -65,7 +65,13 @@ export default function LoginScreen() {
   const [rememberMe, setRememberMe] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [loginError, setLoginError] = useState("");
+
+  // Held only in memory, never persisted: the short-lived access token
+  // issued for an Admin/Super Admin login, kept just long enough to call
+  // /api/auth/select-role if they choose "Login as End User".
+  const [pendingAuth, setPendingAuth] = useState(null);
   const [roleGateRole, setRoleGateRole] = useState(null);
+  const [roleGateLoading, setRoleGateLoading] = useState(false);
 
   const { passwordResetSuccess, passwordChangedSuccess, reason } = useLocalSearchParams();
 
@@ -120,6 +126,7 @@ export default function LoginScreen() {
       }
 
       if (data.user?.user_role !== 'user') {
+        setPendingAuth({ accessToken: data.accessToken, user: data.user });
         setRoleGateRole(data.user.user_role);
         return;
       }
@@ -139,6 +146,47 @@ export default function LoginScreen() {
       console.error("Login error:", error);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleLoginAsEndUser = async () => {
+    if (!pendingAuth?.accessToken) {
+      setRoleGateRole(null);
+      return;
+    }
+
+    setRoleGateLoading(true);
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/auth/select-role`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${pendingAuth.accessToken}`,
+        },
+        body: JSON.stringify({ mode: "user" }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        showToast(data.message || "Could not switch to End User.", "error", { inverted: true });
+        return;
+      }
+
+      // Intentionally not persisted with a refresh token: this is a
+      // short-lived "acting as end user" session (~15 min), since the
+      // account's real refresh token would resolve back to its actual
+      // Admin/Super Admin role on silent refresh.
+      await saveSession(data.accessToken, data.user, false, null);
+      setRoleGateRole(null);
+      setPendingAuth(null);
+      startAtHome();
+      router.replace('/(tabs)');
+    } catch (error) {
+      showToast("Could not connect to server. Check your connection.", "error", { inverted: true });
+      console.error("Select role error:", error);
+    } finally {
+      setRoleGateLoading(false);
     }
   };
 
@@ -276,14 +324,13 @@ export default function LoginScreen() {
       <RoleGateModal
         visible={!!roleGateRole}
         role={roleGateRole}
+        loading={roleGateLoading}
         onContinueAsAdmin={() => {
           Linking.openURL(ADMIN_WEB_URL);
           setRoleGateRole(null);
+          setPendingAuth(null);
         }}
-        onLoginAsEndUser={() => {
-          setPassword("");
-          setRoleGateRole(null);
-        }}
+        onLoginAsEndUser={handleLoginAsEndUser}
       />
     </View>
   );
