@@ -16,8 +16,8 @@ function getActivityTimestamp(report) {
 }
 
 /**
- * Determines which lost report to feature on Home: whichever report has the
- * most recent activity — a new match notification, or (if nothing has ever
+ * Determines which lost report to feature on Home: whichever non-cancelled
+ * report has the most recent activity — a new match notification, or (if nothing has ever
  * matched) simply being the most recently lost report. Stays loading until
  * `userId` is known — Home has nothing to show until it knows who's asking.
  */
@@ -40,12 +40,17 @@ export function useLostReportSpotlight(userId) {
 
           if (cancelled) return;
 
-          if (mergedReports.length === 0) {
+          // Cancelled reports are never featured on Home.
+          const activeReports = mergedReports.filter(
+            (r) => r.status !== "cancelled",
+          );
+
+          if (activeReports.length === 0) {
             setDisplayReport(null);
             return;
           }
 
-          const mostRecentReport = [...mergedReports].sort(
+          const mostRecentReport = [...activeReports].sort(
             (a, b) => getActivityTimestamp(b) - getActivityTimestamp(a),
           )[0];
 

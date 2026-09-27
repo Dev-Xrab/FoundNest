@@ -13,8 +13,12 @@ export function useColleges() {
     async function loadColleges() {
       try {
         const data = await fetchBulsuColleges();
-        if (data && data.length > 0) {
-          setColleges(data);
+        // `status` is false for deactivated centers — keep them off the map,
+        // the search dropdown and office deep links. Applied here (not in
+        // fetchBulsuColleges) so Find/report location pickers are unaffected.
+        const active = (data ?? []).filter((office) => office.status !== false);
+        if (active.length > 0) {
+          setColleges(active);
         }
       } catch (error) {
         console.error("Error fetching colleges:", error);

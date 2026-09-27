@@ -4,6 +4,7 @@ import { API_BASE_URL } from "@/constants/api";
 import { isOnline } from "@/constants/offlineDb";
 import { getUser } from "@/constants/StudentData";
 import { addConnectivityListener } from "@/constants/netInfo";
+import Ionicons from "@expo/vector-icons/Ionicons";
 import { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -108,6 +109,8 @@ export default function OfficeModal({ visible, onClose, office }) {
   const [reviews, setReviews] = useState([]);
   const [isLoadingReviews, setIsLoadingReviews] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [confirmDeleteVisible, setConfirmDeleteVisible] = useState(false);
   const [existingReviewId, setExistingReviewId] = useState(null);
   const [online, setOnline] = useState(true);
 
@@ -288,6 +291,53 @@ export default function OfficeModal({ visible, onClose, office }) {
     }
   };
 
+  const handleDeleteReview = async () => {
+    setConfirmDeleteVisible(false);
+
+    const currentlyOnline = await isOnline();
+    if (!currentlyOnline) {
+      setOnline(false);
+      setAlertModalMessage("You are currently offline. Cannot delete review.");
+      setAlertModalVisible(true);
+      return;
+    }
+
+    if (!existingReviewId) return;
+
+    setIsDeleting(true);
+    try {
+      const userId = await getUser();
+      const response = await fetch(
+        `${API_BASE_URL}/api/reviews/${existingReviewId}`,
+        {
+          method: "DELETE",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            user_id: userId?.user_id,
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || "Failed to delete review");
+      }
+
+      setAlertModalMessage("Your review has been deleted.");
+      setAlertModalVisible(true);
+
+      fetchReviewsAndCheckExisting();
+    } catch (error) {
+      console.error("Delete review error:", error);
+      setAlertModalMessage(error.message || "Failed to delete review.");
+      setAlertModalVisible(true);
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   if (!office) {
     return null;
   }
@@ -388,14 +438,41 @@ export default function OfficeModal({ visible, onClose, office }) {
 
                 {/* ── Rate and review interactive area ── */}
                 <View pointerEvents={!online ? "none" : "auto"}>
-                  <Text
-                    style={[
-                      styles.sectionTitle,
-                      !online && styles.disabledText,
-                    ]}
-                  >
-                    {isEditing ? "Edit Your Review" : "Rate and Review"}
-                  </Text>
+                  <View style={styles.reviewFormHeader}>
+                    <Text
+                      style={[
+                        styles.sectionTitle,
+                        styles.reviewFormTitle,
+                        !online && styles.disabledText,
+                      ]}
+                    >
+                      {isEditing ? "Edit Your Review" : "Rate and Review"}
+                    </Text>
+
+                    {isEditing &&
+                      (isDeleting ? (
+                        <ActivityIndicator
+                          size="small"
+                          color={AppColors.background}
+                          style={styles.deleteButton}
+                        />
+                      ) : (
+                        <TouchableOpacity
+                          onPress={() => setConfirmDeleteVisible(true)}
+                          disabled={isSubmitting || isLoadingReviews || !online}
+                          style={styles.deleteButton}
+                          hitSlop={8}
+                          accessibilityRole="button"
+                          accessibilityLabel="Delete your review"
+                        >
+                          <Ionicons
+                            name="trash-outline"
+                            size={22}
+                            color={!online ? "#A0A0A0" : AppColors.background}
+                          />
+                        </TouchableOpacity>
+                      ))}
+                  </View>
 
                   <View
                     style={[
@@ -449,7 +526,13 @@ export default function OfficeModal({ visible, onClose, office }) {
                       (!online || !canSubmit) && styles.disabledPostButton,
                     ]}
                     onPress={handlePostReview}
-                    disabled={isSubmitting || isLoadingReviews || !online || !canSubmit}
+                    disabled={
+                      isSubmitting ||
+                      isDeleting ||
+                      isLoadingReviews ||
+                      !online ||
+                      !canSubmit
+                    }
                   >
                     {isSubmitting ? (
                       <ActivityIndicator
@@ -528,6 +611,15 @@ export default function OfficeModal({ visible, onClose, office }) {
           </Animated.View>
         </KeyboardAvoidingView>
       </Modal>
+
+      <ConfirmDiscardModal
+        visible={confirmDeleteVisible}
+        onKeepEditing={() => setConfirmDeleteVisible(false)}
+        onDiscard={handleDeleteReview}
+        message="Delete your review? This cannot be undone."
+        cancelLabel="Cancel"
+        confirmLabel="Delete"
+      />
 
       <ConfirmDiscardModal
         visible={alertModalVisible}
@@ -693,6 +785,18 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "bold",
     marginBottom: 10,
+  },
+  reviewFormHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 10,
+  },
+  reviewFormTitle: {
+    marginBottom: 0,
+  },
+  deleteButton: {
+    padding: 4,
   },
   starSelector: {
     flexDirection: "row",
