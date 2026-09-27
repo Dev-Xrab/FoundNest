@@ -150,6 +150,9 @@ export default function QrItemEditScreen() {
   const validate = () =>
     validateQrItemForm({ categoryId: selectedCategoryId, itemName, description });
 
+  const isFormComplete = Object.keys(validate()).length === 0;
+  const isSaveDisabled = isSaving || !isFormComplete;
+
   // ── Image picker ───────────────────────────────────────────────────────────
 
   const handleTakePhoto = async () => {
@@ -494,10 +497,10 @@ export default function QrItemEditScreen() {
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.saveButton, isSaving && { opacity: 0.7 }]}
+            style={[styles.saveButton, isSaveDisabled && styles.saveButtonDisabled]}
             onPress={handleSave}
             activeOpacity={0.8}
-            disabled={isSaving}
+            disabled={isSaveDisabled}
           >
             {isSaving ? (
               <ActivityIndicator size="small" color="#FFFFFF" />
@@ -676,6 +679,10 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     minWidth: 100,
     alignItems: 'center',
+  },
+  saveButtonDisabled: {
+    backgroundColor: '#A0A0A0',
+    opacity: 0.7,
   },
   saveText: {
     fontSize: 15,

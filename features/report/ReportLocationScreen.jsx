@@ -1,4 +1,5 @@
 import AppColors from "@/constants/AppColors";
+import RequiredMark from "@/shared/components/RequiredMark";
 import { fetchBulsuColleges } from "@/constants/CollegeBuildings";
 import fetchGates from "@/constants/Gates";
 import { isOnline } from "@/constants/offlineDb";
@@ -12,6 +13,7 @@ import fetchSharedStudentSpaces from "@/constants/SharedStudentSpaces";
 import { useAlertModal } from "@/shared/hooks/useAlertModal";
 import {
   buildLocationLost,
+  hasReportLocation,
   submitLostReport,
   validateReportPage2,
 } from "@/utils/lostReport";
@@ -26,6 +28,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
@@ -93,6 +96,7 @@ export default function ReportLocationScreen() {
   const [selectedColleges, setSelectedColleges] = useState([]);
   const [selectedSpaces, setSelectedSpaces] = useState([]);
   const [selectedGates, setSelectedGates] = useState([]);
+  const [specificLocation, setSpecificLocation] = useState("");
   const [showLocation, setShowLocation] = useState(false);
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -112,6 +116,14 @@ export default function ReportLocationScreen() {
     ...selectedSpaces,
     ...selectedGates,
   ];
+
+  const isFormComplete = hasReportLocation({
+    cantRemember,
+    colleges: selectedColleges,
+    spaces: selectedSpaces,
+    gates: selectedGates,
+  });
+  const isSubmitDisabled = isSubmitting || !online || !isFormComplete;
 
   const mainRotation = useSharedValue(0);
   const mainAnimatedStyle = useAnimatedStyle(() => ({
@@ -245,6 +257,7 @@ export default function ReportLocationScreen() {
         contents: draft.contents,
         categoryId: draft.categoryId,
         locationLost,
+        specificLocation,
         dateLost: date,
         timeLost: time,
       });
@@ -256,6 +269,7 @@ export default function ReportLocationScreen() {
         contents: draft.contents,
         category_id: draft.categoryId,
         location_lost: locationLost,
+        specific_location: specificLocation.trim() || null,
         lost_date: date.toISOString(),
         lost_item_image: draft.imageUri || null,
         matches: [],
@@ -276,6 +290,7 @@ export default function ReportLocationScreen() {
       setSelectedColleges([]);
       setSelectedSpaces([]);
       setSelectedGates([]);
+      setSpecificLocation("");
       setShowLocation(false);
       setOpenSubSection(null);
       setErrors({});
@@ -398,7 +413,10 @@ export default function ReportLocationScreen() {
         <View pointerEvents={!online ? "none" : "auto"}>
           <Text style={styles.subTitle}>When & Where</Text>
 
-          <Text style={styles.sectionTitle}>Date Lost</Text>
+          <Text style={styles.sectionTitle}>
+            Date Lost
+            <RequiredMark />
+          </Text>
           <TouchableOpacity
             onPress={() => setOpenCalendar(true)}
             activeOpacity={0.8}
@@ -420,7 +438,10 @@ export default function ReportLocationScreen() {
             </View>
           </TouchableOpacity>
 
-          <Text style={styles.sectionTitle}>Time Lost</Text>
+          <Text style={styles.sectionTitle}>
+            Time Lost
+            <RequiredMark />
+          </Text>
           <TouchableOpacity
             onPress={() => setOpenClock(true)}
             activeOpacity={0.8}
@@ -446,7 +467,10 @@ export default function ReportLocationScreen() {
           </TouchableOpacity>
           <FieldError message={errors.dateTime} />
 
-          <Text style={styles.sectionTitle}>Select Location</Text>
+          <Text style={styles.sectionTitle}>
+            Select Location
+            <RequiredMark />
+          </Text>
           <View style={styles.dropdownMainContainer}>
             <TouchableOpacity
               onPress={handleMainLocationPress}
@@ -600,6 +624,21 @@ export default function ReportLocationScreen() {
                 : "No location selected yet."}
           </Text>
 
+          <Text style={styles.sectionTitle}>Specific Location (Optional)</Text>
+          <TextInput
+            editable={online && !isSubmitting}
+            style={[styles.textInput, !online && styles.disabledInput]}
+            placeholder="e.g., 2nd floor hallway, near the vending machine"
+            placeholderTextColor="#8C7A70"
+            value={specificLocation}
+            onChangeText={setSpecificLocation}
+            onFocus={() => {
+              setTimeout(() => {
+                scrollRef.current?.scrollToEnd({ animated: true });
+              }, 150);
+            }}
+          />
+
           <View style={styles.infoCard}>
             <View style={styles.infoTitleRow}>
               <Feather
@@ -640,10 +679,10 @@ export default function ReportLocationScreen() {
               <TouchableOpacity
                 style={[
                   styles.submitButton,
-                  (isSubmitting || !online) && styles.submitButtonDisabled,
+                  isSubmitDisabled && styles.submitButtonDisabled,
                 ]}
                 onPress={handleSubmit}
-                disabled={isSubmitting || !online}
+                disabled={isSubmitDisabled}
               >
                 {isSubmitting ? (
                   <ActivityIndicator color={AppColors.surface} />
@@ -751,6 +790,18 @@ const styles = StyleSheet.create({
     borderRadius: 6,
   },
   pickerValueText: { fontSize: 15, color: "#333" },
+  textInput: {
+    marginHorizontal: 20,
+    marginBottom: 10,
+    paddingHorizontal: 14,
+    height: 50,
+    fontSize: 15,
+    color: "#333",
+    backgroundColor: "#fff",
+    borderWidth: 1,
+    borderColor: "#E0E0E0",
+    borderRadius: 6,
+  },
   locationMainSelector: { marginHorizontal: 0, marginBottom: 0 },
   dataPickerButtonActive: {
     backgroundColor: "#FFFFFF",

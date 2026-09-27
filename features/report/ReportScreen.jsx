@@ -2,6 +2,7 @@ import PhotoPickerModal from "@/shared/components/PhotoPickerModal";
 import WebCameraModal from "@/shared/components/WebCameraModal";
 import ScanImageButton from "@/shared/components/ScanImageButton";
 import ConfirmDiscardModal from "@/components/ConfirmDiscardModal";
+import RequiredMark from "@/shared/components/RequiredMark";
 import AppColors from "@/constants/AppColors";
 import { getCategories, matchCategoryFromAi } from "@/constants/category";
 import { DescribeItem } from "@/constants/geminiAI";
@@ -10,7 +11,7 @@ import { setIsAnalyzing } from "@/constants/lostReports";
 import { setReportDraft, getReportDraft, setReportPage1Dirty, getReportPage1Dirty } from "@/constants/reportDraft";
 import { useAlertModal } from "@/shared/hooks/useAlertModal";
 import { buildPermissionAlertConfig } from "@/shared/utils/permissions";
-import { validateReportPage1 } from "@/utils/lostReport";
+import { isReportPage1Complete, validateReportPage1 } from "@/utils/lostReport";
 import { MaterialIcons } from "@expo/vector-icons";
 import { addConnectivityListener } from "@/constants/netInfo";
 import * as ImagePicker from "expo-image-picker";
@@ -276,6 +277,13 @@ export default function ReportScreen() {
     router.push("/(tabs)/reportNextPage");
   };
 
+  const isFormComplete = isReportPage1Complete({
+    categoryId: selectedCategoryId,
+    itemName,
+    description: detailedDescription,
+  });
+  const isNextDisabled = !online || !isFormComplete || isLoading;
+
   const renderDropdownItem = (item) => {
     return (
       <View style={styles.categoryItemRow}>
@@ -372,7 +380,10 @@ export default function ReportScreen() {
             </View>
           </View>
 
-          <Text style={styles.sectionTitle}>Category</Text>
+          <Text style={styles.sectionTitle}>
+            Category
+            <RequiredMark />
+          </Text>
 
           <Dropdown
             style={[
@@ -414,7 +425,10 @@ export default function ReportScreen() {
           />
           <FieldError message={errors.category} />
 
-          <Text style={styles.sectionTitle}>Item Name</Text>
+          <Text style={styles.sectionTitle}>
+            Item Name
+            <RequiredMark />
+          </Text>
           <TextInput
             editable={online}
             style={[
@@ -433,7 +447,10 @@ export default function ReportScreen() {
           />
           <FieldError message={errors.itemName} />
 
-          <Text style={styles.sectionTitle}>Detailed Description</Text>
+          <Text style={styles.sectionTitle}>
+            Detailed Description
+            <RequiredMark />
+          </Text>
           <TextInput
             editable={online}
             style={[
@@ -487,9 +504,9 @@ export default function ReportScreen() {
               </TouchableOpacity>
 
               <TouchableOpacity
-                style={[styles.nextButton, !online && styles.disabledNextBtn]}
+                style={[styles.nextButton, isNextDisabled && styles.disabledNextBtn]}
                 onPress={handleNext}
-                disabled={!online}
+                disabled={isNextDisabled}
               >
                 <Text style={styles.buttonText}>Next</Text>
               </TouchableOpacity>

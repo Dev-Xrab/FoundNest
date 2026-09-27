@@ -3,25 +3,25 @@ import { showToast } from "@/components/GlobalToast";
 import AppColors from "@/constants/AppColors";
 import { getCategories } from "@/constants/category";
 import { cancelLostReport, getReportHistory } from "@/constants/lostReports";
+import { addConnectivityListener } from "@/constants/netInfo";
 import { isOnline } from "@/constants/offlineDb";
 import {
-  getReportHistoryFilters,
-  setReportHistoryFilters,
+    getReportHistoryFilters,
+    setReportHistoryFilters,
 } from "@/constants/reportHistoryFilters";
 import { formatFoundId, formatReportId } from "@/shared/utils/reportFormatters";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
-import { addConnectivityListener } from "@/constants/netInfo";
 import { useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
 import {
-  ActivityIndicator,
-  Image,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
+    ActivityIndicator,
+    Image,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -213,7 +213,14 @@ function ReportCard({ report, onCancel, router, online }) {
         <View style={styles.reportMeta}>
           {isCancelled ? (
             <View style={styles.cancelledBadge}>
-              <Text style={styles.cancelledBadgeText}>Cancelled</Text>
+              <Text style={styles.cancelledBadgeText} numberOfLines={2}>
+                Cancelled
+                {report.cancel_reason ? (
+                  <Text style={styles.cancelReasonText}>
+                    {`: ${report.cancel_reason}`}
+                  </Text>
+                ) : null}
+              </Text>
             </View>
           ) : report.status === "resolved" ? (
             <View style={styles.resolvedBadge}>
@@ -931,6 +938,9 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: "700",
     color: "#5C5048",
+  },
+  cancelReasonText: {
+    fontWeight: "400",
   },
   resolvedBadge: {
     alignSelf: "flex-start",

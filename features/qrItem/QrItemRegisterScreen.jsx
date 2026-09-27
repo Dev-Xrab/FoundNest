@@ -236,6 +236,10 @@ export default function QrItemRegisterScreen() {
   const validate = () =>
     validateQrItemForm({ categoryId: selectedCategoryId, itemName, description });
 
+  const isFormComplete = Object.keys(validate()).length === 0;
+  const isRegisterDisabled =
+    isSubmitting || isAnalyzing || !online || !isFormComplete;
+
   // ── Submit ─────────────────────────────────────────────────────────────────
   const executeSubmission = async () => {
     setErrors({});
@@ -589,11 +593,11 @@ export default function QrItemRegisterScreen() {
             <TouchableOpacity
               style={[
                 styles.registerButton,
-                (isSubmitting || !online) && styles.registerButtonDisabled,
+                isRegisterDisabled && styles.registerButtonDisabled,
               ]}
               onPress={handleRegister}
               activeOpacity={0.8}
-              disabled={isSubmitting || !online}
+              disabled={isRegisterDisabled}
             >
               {isSubmitting ? (
                 <ActivityIndicator size="small" color="#FFFFFF" />

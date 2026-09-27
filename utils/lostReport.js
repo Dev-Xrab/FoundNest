@@ -28,6 +28,22 @@ export function buildLocationLost({
   return [...colleges, ...spaces, ...gates].filter(Boolean).join(', ');
 }
 
+// True once every required page-1 field has a value. Used to enable the
+// Next button; length rules are still checked by validateReportPage1 on press.
+export function isReportPage1Complete({ categoryId, itemName, description }) {
+  return Boolean(categoryId) && Boolean(itemName?.trim()) && Boolean(description?.trim());
+}
+
+// True once a location is picked or "Can't Remember" is checked.
+export function hasReportLocation({ cantRemember, colleges, spaces, gates }) {
+  return (
+    cantRemember ||
+    colleges.length > 0 ||
+    spaces.length > 0 ||
+    gates.length > 0
+  );
+}
+
 export function validateReportPage1({
   categoryId,
   itemName,
@@ -73,13 +89,7 @@ export function validateReportPage2({
     errors.dateTime = 'Date and time cannot be in the future.';
   }
 
-  const hasLocation =
-    cantRemember ||
-    colleges.length > 0 ||
-    spaces.length > 0 ||
-    gates.length > 0;
-
-  if (!hasLocation) {
+  if (!hasReportLocation({ cantRemember, colleges, spaces, gates })) {
     errors.location =
       'Open Select Location and pick at least one place, or check Can\'t Remember Location.';
   }
@@ -119,6 +129,7 @@ export async function submitLostReport({
   contents,
   categoryId,
   locationLost,
+  specificLocation,
   dateLost,
   timeLost,
 }) {
@@ -141,6 +152,7 @@ export async function submitLostReport({
   formData.append('category_id', String(categoryId));
   formData.append('user_id', String(user.user_id));
   formData.append('location_lost', locationLost);
+  formData.append('specific_location', specificLocation?.trim() ?? '');
   formData.append('lost_date', formatLostDateTime(dateLost, timeLost));
 
   // uploadWithAuth handles token expiry + silent refresh automatically

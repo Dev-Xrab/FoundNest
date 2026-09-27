@@ -74,6 +74,7 @@ export function mergeReportsAndNotifs(reportsData, notifsData) {
     lost_date: r.date_reported,
     actual_lost_date: r.lost_date,
     location_lost: r.location_lost,
+    specific_location: r.specific_location ?? null,
     status: r.status,
     cancel_reason: r.cancel_reason ?? null,
     category_name: r.category_name,

@@ -1,4 +1,5 @@
 import AppColors from "@/constants/AppColors";
+import RequiredMark from "@/shared/components/RequiredMark";
 import { StyleSheet, Text, View } from "react-native";
 
 /** Shared field primitives for the Register and Edit forms — label, read-only value box, and error text. */
@@ -8,9 +9,14 @@ export function FieldError({ message }) {
   return <Text style={styles.fieldError}>{message}</Text>;
 }
 
-// Label for editable fields (no asterisk)
+// Label for required editable fields, with a red asterisk
 export function RequiredLabel({ label }) {
-  return <Text style={styles.sectionTitle}>{label}</Text>;
+  return (
+    <Text style={styles.sectionTitle}>
+      {label}
+      <RequiredMark />
+    </Text>
+  );
 }
 
 export function ReadOnlyField({ label, value }) {

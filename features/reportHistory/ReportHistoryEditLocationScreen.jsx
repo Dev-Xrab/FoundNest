@@ -1,6 +1,7 @@
 import ConfirmDiscardModal from "@/components/ConfirmDiscardModal";
 import { API_BASE_URL } from "@/constants/api";
 import AppColors from "@/constants/AppColors";
+import RequiredMark from "@/shared/components/RequiredMark";
 import { uploadWithAuth } from "@/constants/authApi";
 import { fetchBulsuColleges } from "@/constants/CollegeBuildings";
 import fetchGates from "@/constants/Gates";
@@ -16,7 +17,11 @@ import { appendImageField } from "@/shared/utils/formDataImage";
 import { guessImageMimeType } from "@/shared/utils/imageMime";
 import { useAlertModal } from "@/shared/hooks/useAlertModal";
 import { useUnsavedChangesGuard } from "@/shared/hooks/useUnsavedChangesGuard";
-import { buildLocationLost, validateReportPage2 } from "@/utils/lostReport";
+import {
+  buildLocationLost,
+  hasReportLocation,
+  validateReportPage2,
+} from "@/utils/lostReport";
 import { Feather, MaterialIcons } from "@expo/vector-icons";
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import React, { useCallback, useEffect, useRef, useState } from "react";
@@ -27,6 +32,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
@@ -206,6 +212,7 @@ function EditNextScreen() {
   const [selectedColleges, setSelectedColleges] = useState([]);
   const [selectedSpaces, setSelectedSpaces] = useState([]);
   const [selectedGates, setSelectedGates] = useState([]);
+  const [specificLocation, setSpecificLocation] = useState("");
   const [showLocation, setShowLocation] = useState(false);
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -254,9 +261,11 @@ function EditNextScreen() {
             contents: data.contents ?? "",
             categoryId: data.category_id ?? "",
             locationLost: data.location_lost ?? "",
+            specificLocation: data.specific_location ?? "",
             lostDate: data.actual_lost_date ?? data.lost_date ?? null,
             imageUri: null,
           });
+          setSpecificLocation(data.specific_location ?? "");
 
           const d = parseLostDateToDate(
             data.actual_lost_date ?? data.lost_date,
@@ -310,6 +319,7 @@ function EditNextScreen() {
       }
 
       setDraft(saved);
+      setSpecificLocation(saved.specificLocation ?? "");
 
       if (saved.lostDate) {
         const d = parseLostDateToDate(saved.lostDate);
@@ -464,6 +474,12 @@ function EditNextScreen() {
     if (!sameItems(selectedSpaces, originalLocation.spaces)) return true;
     if (!sameItems(selectedGates, originalLocation.gates)) return true;
 
+    if (
+      specificLocation.trim() !==
+      (originalReport.specific_location ?? "").trim()
+    )
+      return true;
+
     // Compare actual timestamps at minute precision (matches the precision
     // the app itself saves at) rather than strings, to avoid timezone drift.
     const toMinuteMs = (ms) =>
@@ -482,6 +498,15 @@ function EditNextScreen() {
   };
 
   const hasChanges = !isViewOnly && isSessionDirty();
+
+  const isSubmitDisabled =
+    isSubmitting ||
+    !hasReportLocation({
+      cantRemember,
+      colleges: selectedColleges,
+      spaces: selectedSpaces,
+      gates: selectedGates,
+    });
 
   const {
     discardVisible: discardModalVisible,
@@ -524,6 +549,7 @@ function EditNextScreen() {
         spaces: selectedSpaces,
         gates: selectedGates,
       }),
+      specificLocation,
       lostDate: localISO,
     });
 
@@ -613,6 +639,7 @@ function EditNextScreen() {
       }
 
       formData.append("location_lost", locationLost);
+      formData.append("specific_location", specificLocation.trim());
       formData.append("lost_date", localISO);
 
       // profileReportHistoryEditNext.jsx - in handleSubmit
@@ -643,6 +670,8 @@ function EditNextScreen() {
         contents: savedReport.contents,
         category_id: savedReport.category_id,
         location_lost: savedReport.location_lost,
+        specific_location:
+          savedReport.specific_location ?? (specificLocation.trim() || null),
         lost_date: savedReport.date_reported,
         actual_lost_date: savedReport.lost_date,
         lost_item_image: savedReport.image_url,
@@ -770,7 +799,10 @@ function EditNextScreen() {
         </View>
         <Text style={styles.subTitle}>When & Where</Text>
 
-        <Text style={styles.sectionTitle}>Date Lost</Text>
+        <Text style={styles.sectionTitle}>
+          Date Lost
+          {!isViewOnly && <RequiredMark />}
+        </Text>
         <TouchableOpacity
           onPress={() => setOpenCalendar(true)}
           activeOpacity={isViewOnly ? 1 : 0.8}
@@ -790,7 +822,10 @@ function EditNextScreen() {
           </View>
         </TouchableOpacity>
 
-        <Text style={styles.sectionTitle}>Time Lost</Text>
+        <Text style={styles.sectionTitle}>
+          Time Lost
+          {!isViewOnly && <RequiredMark />}
+        </Text>
         <TouchableOpacity
           onPress={() => setOpenClock(true)}
           activeOpacity={isViewOnly ? 1 : 0.8}
@@ -816,6 +851,7 @@ function EditNextScreen() {
 
         <Text style={styles.sectionTitle}>
           {isViewOnly ? "Location" : "Select Location"}
+          {!isViewOnly && <RequiredMark />}
         </Text>
 
         {isViewOnly ? (
@@ -970,6 +1006,31 @@ function EditNextScreen() {
           </Text>
         )}
 
+        <Text style={styles.sectionTitle}>
+          {isViewOnly ? "Specific Location" : "Specific Location (Optional)"}
+        </Text>
+        {isViewOnly ? (
+          <View style={styles.locationViewBox}>
+            <Text style={styles.locationViewText}>
+              {specificLocation.trim() || "Not specified"}
+            </Text>
+          </View>
+        ) : (
+          <TextInput
+            editable={!isSubmitting}
+            style={styles.textInput}
+            placeholder="e.g., 2nd floor hallway, near the vending machine"
+            placeholderTextColor="#8C7A70"
+            value={specificLocation}
+            onChangeText={setSpecificLocation}
+            onFocus={() => {
+              setTimeout(() => {
+                scrollRef.current?.scrollToEnd({ animated: true });
+              }, 150);
+            }}
+          />
+        )}
+
         {!isViewOnly && (
           <View style={styles.infoCard}>
             <View style={styles.infoTitleRow}>
@@ -1019,10 +1080,10 @@ function EditNextScreen() {
                 <TouchableOpacity
                   style={[
                     styles.submitButton,
-                    isSubmitting && styles.submitButtonDisabled,
+                    isSubmitDisabled && styles.submitButtonDisabled,
                   ]}
                   onPress={handleSubmit}
-                  disabled={isSubmitting}
+                  disabled={isSubmitDisabled}
                 >
                   {isSubmitting ? (
                     <ActivityIndicator color={AppColors.surface} />
@@ -1102,7 +1163,7 @@ const styles = StyleSheet.create({
     minWidth: 100,
     alignItems: "center",
   },
-  submitButtonDisabled: { opacity: 0.7 },
+  submitButtonDisabled: { backgroundColor: "#A0A0A0", opacity: 0.7 },
   cancelButton: {
     paddingVertical: 12,
     paddingHorizontal: 28,
@@ -1144,6 +1205,18 @@ const styles = StyleSheet.create({
     borderRadius: 6,
   },
   locationViewText: { fontSize: 15, color: "#333", lineHeight: 22 },
+  textInput: {
+    marginHorizontal: 20,
+    marginBottom: 10,
+    paddingHorizontal: 14,
+    height: 50,
+    fontSize: 15,
+    color: "#333",
+    backgroundColor: "#fff",
+    borderWidth: 1,
+    borderColor: "#E0E0E0",
+    borderRadius: 6,
+  },
   pickerValueText: { fontSize: 15, color: "#333" },
   locationMainSelector: { marginHorizontal: 0, marginBottom: 0 },
   dataPickerButtonActive: {

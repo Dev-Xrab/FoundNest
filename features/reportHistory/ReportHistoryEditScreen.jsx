@@ -11,11 +11,12 @@ import {
 import PhotoPickerModal from "@/shared/components/PhotoPickerModal";
 import WebCameraModal from "@/shared/components/WebCameraModal";
 import ScanImageButton from "@/shared/components/ScanImageButton";
+import RequiredMark from "@/shared/components/RequiredMark";
 import { useAlertModal } from "@/shared/hooks/useAlertModal";
 import { useUnsavedChangesGuard } from "@/shared/hooks/useUnsavedChangesGuard";
 import { buildPermissionAlertConfig } from "@/shared/utils/permissions";
 import { formatReportId } from "@/shared/utils/reportFormatters";
-import { validateReportPage1 } from "@/utils/lostReport";
+import { isReportPage1Complete, validateReportPage1 } from "@/utils/lostReport";
 import { Ionicons, MaterialIcons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
@@ -326,6 +327,8 @@ export default function ReportHistoryEditScreen() {
       description: detailedDescription.trim(),
       contents: contents.trim(),
       locationLost: existingDraft?.locationLost ?? report.location_lost ?? "",
+      specificLocation:
+        existingDraft?.specificLocation ?? report.specific_location ?? "",
       lostDate:
         existingDraft?.lostDate ??
         report.actual_lost_date ??
@@ -385,6 +388,12 @@ export default function ReportHistoryEditScreen() {
       existingDraft?.locationLost ?? originalLocationLost;
     if (currentLocationLost !== originalLocationLost) return true;
 
+    const originalSpecificLocation = (report.specific_location ?? "").trim();
+    const currentSpecificLocation = (
+      existingDraft?.specificLocation ?? originalSpecificLocation
+    ).trim();
+    if (currentSpecificLocation !== originalSpecificLocation) return true;
+
     const originalLostDateMs = parseDateToMinuteMs(
       report.actual_lost_date ?? report.lost_date,
     );
@@ -397,6 +406,16 @@ export default function ReportHistoryEditScreen() {
   };
 
   const hasChanges = !isViewOnly && isSessionDirty();
+
+  // View-only mode just pages through the report, so Next stays enabled there.
+  const isNextDisabled =
+    !isViewOnly &&
+    (isLoading ||
+      !isReportPage1Complete({
+        categoryId: selectedCategoryId,
+        itemName,
+        description: detailedDescription,
+      }));
 
   const {
     discardVisible: discardModalVisible,
@@ -565,7 +584,10 @@ export default function ReportHistoryEditScreen() {
           </>
         )}
 
-        <Text style={styles.sectionTitle}>Category</Text>
+        <Text style={styles.sectionTitle}>
+          Category
+          {!isViewOnly && <RequiredMark />}
+        </Text>
         <Dropdown
           style={[
             styles.categoryDropdown,
@@ -604,7 +626,10 @@ export default function ReportHistoryEditScreen() {
         />
         <FieldError message={errors.category} />
 
-        <Text style={styles.sectionTitle}>Item Name</Text>
+        <Text style={styles.sectionTitle}>
+          Item Name
+          {!isViewOnly && <RequiredMark />}
+        </Text>
         <TextInput
           key={`itemName-${dataVersion}`}
           style={[styles.picker, errors.itemName && styles.inputErrorBorder]}
@@ -620,7 +645,10 @@ export default function ReportHistoryEditScreen() {
         />
         <FieldError message={errors.itemName} />
 
-        <Text style={styles.sectionTitle}>Detailed Description</Text>
+        <Text style={styles.sectionTitle}>
+          Detailed Description
+          {!isViewOnly && <RequiredMark />}
+        </Text>
         <TextInput
           key={`description-${dataVersion}`}
           style={[
@@ -665,7 +693,14 @@ export default function ReportHistoryEditScreen() {
                 <Text style={styles.outlinedButtonText}>Cancel</Text>
               </TouchableOpacity>
             )}
-            <TouchableOpacity style={styles.nextButton} onPress={handleNext}>
+            <TouchableOpacity
+              style={[
+                styles.nextButton,
+                isNextDisabled && styles.nextButtonDisabled,
+              ]}
+              onPress={handleNext}
+              disabled={isNextDisabled}
+            >
               <Text style={styles.buttonText}>Next</Text>
             </TouchableOpacity>
           </View>
@@ -858,5 +893,6 @@ const styles = StyleSheet.create({
     backgroundColor: AppColors.background,
     borderRadius: 10,
   },
+  nextButtonDisabled: { backgroundColor: "#A0A0A0" },
   buttonText: { color: AppColors.surface },
 });
