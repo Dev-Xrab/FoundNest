@@ -2,12 +2,14 @@ import ConfirmDiscardModal from "@/components/ConfirmDiscardModal";
 import { API_BASE_URL } from "@/constants/api";
 import AppColors from "@/constants/AppColors";
 import { useUnsavedChangesGuard } from "@/shared/hooks/useUnsavedChangesGuard";
+import { getCooldownRemaining, RESEND_COOLDOWN_SECONDS, startCooldown } from "@/shared/utils/otpCooldown";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  AppState,
   Image,
   StyleSheet,
   Text,
@@ -19,7 +21,6 @@ import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const OTP_LENGTH = 6;
-const RESEND_COOLDOWN_SECONDS = 60; // mirrors OTP_RESEND_COOLDOWN_SECONDS in authServices.js
 const LOCKOUT_MESSAGE = "Too many incorrect attempts. Please request a new code.";
 
 export default function ForgotPasswordVerifyScreen() {
@@ -31,7 +32,7 @@ export default function ForgotPasswordVerifyScreen() {
   const [isLoading, setIsLoading] = useState(false);
   const [isResending, setIsResending] = useState(false);
   const [error, setError] = useState("");
-  const [resendCooldown, setResendCooldown] = useState(0);
+  const [resendCooldown, setResendCooldown] = useState(() => getCooldownRemaining(email));
   const inputRefs = useRef([]);
 
   const otp = digits.join("");
@@ -46,12 +47,17 @@ export default function ForgotPasswordVerifyScreen() {
   } = useUnsavedChangesGuard(hasChanges, () => router.back());
 
   useEffect(() => {
-    if (resendCooldown <= 0) return;
-    const timer = setInterval(() => {
-      setResendCooldown((s) => Math.max(0, s - 1));
-    }, 1000);
-    return () => clearInterval(timer);
-  }, [resendCooldown]);
+    const sync = () => setResendCooldown(getCooldownRemaining(email));
+    sync();
+    const timer = setInterval(sync, 1000);
+    const sub = AppState.addEventListener("change", (state) => {
+      if (state === "active") sync();
+    });
+    return () => {
+      clearInterval(timer);
+      sub.remove();
+    };
+  }, [email]);
 
   const handleDigitChange = (text, index) => {
     if (isLockedOut) return;
@@ -83,7 +89,7 @@ export default function ForgotPasswordVerifyScreen() {
     setError("");
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/auth/verify-otp`, {
+        const response = await fetch(`${API_BASE_URL}/api/auth/verify-otp`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: String(email), otp }),
@@ -127,8 +133,9 @@ export default function ForgotPasswordVerifyScreen() {
         return;
       }
 
-      setIsLockedOut(false);
+      startCooldown(email);
       setResendCooldown(RESEND_COOLDOWN_SECONDS);
+      setIsLockedOut(false);
       setDigits(Array(OTP_LENGTH).fill(""));
       inputRefs.current[0]?.focus();
     } catch (err) {
