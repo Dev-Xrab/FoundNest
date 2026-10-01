@@ -3,6 +3,7 @@ import { showToast } from "@/components/GlobalToast";
 import { API_BASE_URL } from "@/constants/api";
 import AppColors from "@/constants/AppColors";
 import { useUnsavedChangesGuard } from "@/shared/hooks/useUnsavedChangesGuard";
+import { startCooldownIfIdle } from "@/shared/utils/otpCooldown";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
@@ -68,7 +69,8 @@ export default function ForgotPasswordScreen() {
         setError(data.message || "Something went wrong. Please try again.");
         return;
       }
-
+      
+      startCooldownIfIdle(email.trim());
       router.push({
         pathname: "/forgotPasswordVerify",
         params: { email: email.trim() },
