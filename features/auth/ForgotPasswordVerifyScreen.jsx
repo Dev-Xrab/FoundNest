@@ -36,14 +36,13 @@ export default function ForgotPasswordVerifyScreen() {
 
   const otp = digits.join("");
   const isComplete = otp.length === OTP_LENGTH;
-  const isLockedOut = error === LOCKOUT_MESSAGE;
+  const [isLockedOut, setIsLockedOut] = useState(false);
   const hasChanges = otp.length > 0;
   const {
     discardVisible,
     requestLeave: handleLeavePress,
     confirmDiscard: handleDiscard,
     dismissDiscard,
-    bypassNextLeave,
   } = useUnsavedChangesGuard(hasChanges, () => router.back());
 
   useEffect(() => {
@@ -93,6 +92,7 @@ export default function ForgotPasswordVerifyScreen() {
       const data = await response.json();
 
       if (!response.ok) {
+        if (data.message === LOCKOUT_MESSAGE) setIsLockedOut(true);
         setError(data.message || "Invalid verification code.");
         return;
       }
@@ -115,17 +115,24 @@ export default function ForgotPasswordVerifyScreen() {
     setError("");
 
     try {
-      await fetch(`${API_BASE_URL}/api/auth/forgot-password`, {
+        const response = await fetch(`${API_BASE_URL}/api/auth/forgot-password`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: String(email) }),
       });
 
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        setError(data.message || "Could not resend the code. Please try again.");
+        return;
+      }
+
+      setIsLockedOut(false);
       setResendCooldown(RESEND_COOLDOWN_SECONDS);
       setDigits(Array(OTP_LENGTH).fill(""));
       inputRefs.current[0]?.focus();
     } catch (err) {
-      console.error("Resend OTP error:", err);
+      setError("Could not connect to server. Check your connection.");
     } finally {
       setIsResending(false);
     }
@@ -215,37 +222,21 @@ export default function ForgotPasswordVerifyScreen() {
               <Text style={styles.backTextButtonText}>Back</Text>
             </TouchableOpacity>
 
-            {isLockedOut ? (
-              <TouchableOpacity
-                style={styles.nextButton}
-                onPress={() => {
-                  bypassNextLeave();
-                  router.replace({
-                    pathname: "/forgotPassword",
-                    params: { prefillEmail: String(email) },
-                  });
-                }}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.nextButtonText}>Request New Code</Text>
-              </TouchableOpacity>
-            ) : (
-              <TouchableOpacity
-                style={[
-                  styles.nextButton,
-                  (isLoading || !isComplete) && styles.nextButtonDisabled,
-                ]}
-                onPress={handleNext}
-                disabled={isLoading || !isComplete}
-                activeOpacity={0.8}
-              >
-                {isLoading ? (
-                  <ActivityIndicator size="small" color={AppColors.background} />
-                ) : (
-                  <Text style={styles.nextButtonText}>Next</Text>
-                )}
-              </TouchableOpacity>
-            )}
+            <TouchableOpacity
+              style={[
+                styles.nextButton,
+                (isLoading || !isComplete || isLockedOut) && styles.nextButtonDisabled,
+              ]}
+              onPress={handleNext}
+              disabled={isLoading || !isComplete || isLockedOut}
+              activeOpacity={0.8}
+            >
+              {isLoading ? (
+                <ActivityIndicator size="small" color={AppColors.background} />
+              ) : (
+                <Text style={styles.nextButtonText}>Next</Text>
+              )}
+            </TouchableOpacity>
           </View>
         </View>
       </KeyboardAwareScrollView>
