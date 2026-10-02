@@ -2,7 +2,13 @@ import ConfirmDiscardModal from "@/components/ConfirmDiscardModal";
 import { API_BASE_URL } from "@/constants/api";
 import AppColors from "@/constants/AppColors";
 import { useUnsavedChangesGuard } from "@/shared/hooks/useUnsavedChangesGuard";
-import { getCooldownRemaining, RESEND_COOLDOWN_SECONDS, startCooldown } from "@/shared/utils/otpCooldown";
+import {
+  formatSeconds,
+  getCooldownRemaining,
+  getRetryAfterSeconds,
+  RESEND_COOLDOWN_SECONDS,
+  startCooldown,
+} from "@/shared/utils/otpCooldown";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
@@ -33,11 +39,17 @@ export default function ForgotPasswordVerifyScreen() {
   const [isResending, setIsResending] = useState(false);
   const [error, setError] = useState("");
   const [resendCooldown, setResendCooldown] = useState(() => getCooldownRemaining(email));
+  const [verifyBlockedSeconds, setVerifyBlockedSeconds] = useState(0);
+  const verifyBlockedUntil = useRef(0);
   const inputRefs = useRef([]);
 
   const otp = digits.join("");
   const isComplete = otp.length === OTP_LENGTH;
   const [isLockedOut, setIsLockedOut] = useState(false);
+  const isVerifyBlocked = verifyBlockedSeconds > 0;
+  const errorMessage = isVerifyBlocked
+    ? `Too many verification attempts. Try again in ${formatSeconds(verifyBlockedSeconds)}.`
+    : error;
   const hasChanges = otp.length > 0;
   const {
     discardVisible,
@@ -47,7 +59,12 @@ export default function ForgotPasswordVerifyScreen() {
   } = useUnsavedChangesGuard(hasChanges, () => router.back());
 
   useEffect(() => {
-    const sync = () => setResendCooldown(getCooldownRemaining(email));
+    const sync = () => {
+      setResendCooldown(getCooldownRemaining(email));
+      setVerifyBlockedSeconds(
+        Math.max(0, Math.ceil((verifyBlockedUntil.current - Date.now()) / 1000))
+      );
+    };
     sync();
     const timer = setInterval(sync, 1000);
     const sub = AppState.addEventListener("change", (state) => {
@@ -84,12 +101,12 @@ export default function ForgotPasswordVerifyScreen() {
   };
 
   const handleNext = async () => {
-    if (!isComplete || isLockedOut) return;
+    if (!isComplete || isLockedOut || isVerifyBlocked) return;
     setIsLoading(true);
     setError("");
 
     try {
-        const response = await fetch(`${API_BASE_URL}/api/auth/verify-otp`, {
+      const response = await fetch(`${API_BASE_URL}/api/auth/verify-otp`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: String(email), otp }),
@@ -98,6 +115,13 @@ export default function ForgotPasswordVerifyScreen() {
       const data = await response.json();
 
       if (!response.ok) {
+        // IP rate limit: block Next until the server says we can try again
+        if (response.status === 429) {
+          const seconds = getRetryAfterSeconds(response, 60);
+          verifyBlockedUntil.current = Date.now() + seconds * 1000;
+          setVerifyBlockedSeconds(seconds);
+          return;
+        }
         if (data.message === LOCKOUT_MESSAGE) setIsLockedOut(true);
         setError(data.message || "Invalid verification code.");
         return;
@@ -121,7 +145,7 @@ export default function ForgotPasswordVerifyScreen() {
     setError("");
 
     try {
-        const response = await fetch(`${API_BASE_URL}/api/auth/forgot-password`, {
+      const response = await fetch(`${API_BASE_URL}/api/auth/forgot-password`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: String(email) }),
@@ -129,6 +153,13 @@ export default function ForgotPasswordVerifyScreen() {
 
       if (!response.ok) {
         const data = await response.json().catch(() => ({}));
+        // Too early (per-email cooldown) or too many requests (IP limit):
+        // sync Resend to the server's remaining wait time.
+        if (response.status === 429) {
+          const seconds = getRetryAfterSeconds(response);
+          startCooldown(email, seconds);
+          setResendCooldown(seconds);
+        }
         setError(data.message || "Could not resend the code. Please try again.");
         return;
       }
@@ -210,7 +241,7 @@ export default function ForgotPasswordVerifyScreen() {
               Didn't receive the code?{" "}
               <Text style={[styles.resendLink, resendCooldown > 0 && styles.resendLinkDisabled]}>
                 {resendCooldown > 0
-                  ? `Resend (${resendCooldown}s)`
+                  ? `Resend (${formatSeconds(resendCooldown)})`
                   : isResending
                   ? "Sending..."
                   : "Resend"}
@@ -218,7 +249,7 @@ export default function ForgotPasswordVerifyScreen() {
             </Text>
           </TouchableOpacity>
 
-          {error ? <Text style={styles.errorText}>{error}</Text> : null}
+          {errorMessage ? <Text style={styles.errorText}>{errorMessage}</Text> : null}
 
           <View style={styles.buttonRow}>
             <TouchableOpacity
@@ -232,10 +263,10 @@ export default function ForgotPasswordVerifyScreen() {
             <TouchableOpacity
               style={[
                 styles.nextButton,
-                (isLoading || !isComplete || isLockedOut) && styles.nextButtonDisabled,
+                (isLoading || !isComplete || isLockedOut || isVerifyBlocked) && styles.nextButtonDisabled,
               ]}
               onPress={handleNext}
-              disabled={isLoading || !isComplete || isLockedOut}
+              disabled={isLoading || !isComplete || isLockedOut || isVerifyBlocked}
               activeOpacity={0.8}
             >
               {isLoading ? (
