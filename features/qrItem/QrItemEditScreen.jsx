@@ -1,18 +1,17 @@
 import ConfirmDiscardModal from '@/components/ConfirmDiscardModal';
 import { showToast } from '@/components/GlobalToast';
-import PhotoPickerModal from '@/shared/components/PhotoPickerModal';
-import WebCameraModal from '@/shared/components/WebCameraModal';
 import { API_BASE_URL } from '@/constants/api';
 import AppColors from '@/constants/AppColors';
 import { fetchWithAuth, uploadWithAuth } from '@/constants/authApi';
 import { getCategories } from '@/constants/category';
 import { getQrItemDetail, validateQrItemForm } from '@/constants/qrItems';
-import { guessImageMimeType } from '@/shared/utils/imageMime';
-import { appendImageField } from '@/shared/utils/formDataImage';
-import { useUnsavedChangesGuard } from '@/shared/hooks/useUnsavedChangesGuard';
+import PhotoPickerModal from '@/shared/components/PhotoPickerModal';
+import WebCameraModal from '@/shared/components/WebCameraModal';
 import { useAlertModal } from '@/shared/hooks/useAlertModal';
+import { useUnsavedChangesGuard } from '@/shared/hooks/useUnsavedChangesGuard';
+import { appendImageField } from '@/shared/utils/formDataImage';
+import { guessImageMimeType } from '@/shared/utils/imageMime';
 import { buildPermissionAlertConfig } from '@/shared/utils/permissions';
-import { FieldError, ReadOnlyField, RequiredLabel } from './components/QrItemFormFields';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
@@ -31,6 +30,7 @@ import {
 } from 'react-native';
 import { Dropdown } from 'react-native-element-dropdown';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { FieldError, ReadOnlyField, RequiredLabel } from './components/QrItemFormFields';
 
 export default function QrItemEditScreen() {
   const router = useRouter();
@@ -145,13 +145,21 @@ export default function QrItemEditScreen() {
     selectedImage !== null ||
     imageRemoved;
 
+  const hasSaveableChanges =
+    itemName.trim() !== baseItemName.trim() ||
+    description.trim() !== baseDescription.trim() ||
+    selectedCategoryId !== baseCategoryId ||
+    contents.trim() !== baseContents.trim() ||
+    selectedImage !== null ||
+    imageRemoved;
+
   // ── Validation ─────────────────────────────────────────────────────────────
 
   const validate = () =>
     validateQrItemForm({ categoryId: selectedCategoryId, itemName, description });
 
   const isFormComplete = Object.keys(validate()).length === 0;
-  const isSaveDisabled = isSaving || !isFormComplete;
+  const isSaveDisabled = isSaving || !isFormComplete || !hasSaveableChanges;
 
   // ── Image picker ───────────────────────────────────────────────────────────
 
@@ -302,6 +310,7 @@ export default function QrItemEditScreen() {
   };
 
   const handleSave = () => {
+    if (!hasSaveableChanges) return;
     const newErrors = validate();
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
