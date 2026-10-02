@@ -1,7 +1,6 @@
 import ConfirmDiscardModal from "@/components/ConfirmDiscardModal";
 import { API_BASE_URL } from "@/constants/api";
 import AppColors from "@/constants/AppColors";
-import RequiredMark from "@/shared/components/RequiredMark";
 import { uploadWithAuth } from "@/constants/authApi";
 import { fetchBulsuColleges } from "@/constants/CollegeBuildings";
 import fetchGates from "@/constants/Gates";
@@ -13,10 +12,12 @@ import {
   setReportDraft,
 } from "@/constants/reportDraft";
 import fetchSharedStudentSpaces from "@/constants/SharedStudentSpaces";
-import { appendImageField } from "@/shared/utils/formDataImage";
-import { guessImageMimeType } from "@/shared/utils/imageMime";
+import DatePicker from "@/shared/components/CrossPlatformDatePicker";
+import RequiredMark from "@/shared/components/RequiredMark";
 import { useAlertModal } from "@/shared/hooks/useAlertModal";
 import { useUnsavedChangesGuard } from "@/shared/hooks/useUnsavedChangesGuard";
+import { appendImageField } from "@/shared/utils/formDataImage";
+import { guessImageMimeType } from "@/shared/utils/imageMime";
 import {
   buildLocationLost,
   hasReportLocation,
@@ -36,7 +37,6 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import DatePicker from "@/shared/components/CrossPlatformDatePicker";
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -501,6 +501,7 @@ function EditNextScreen() {
 
   const isSubmitDisabled =
     isSubmitting ||
+    !hasChanges ||
     !hasReportLocation({
       cantRemember,
       colleges: selectedColleges,
@@ -570,6 +571,8 @@ function EditNextScreen() {
       return;
     }
 
+    if (!hasChanges) return;
+    
     const validation = validateReportPage2({
       dateLost: date,
       timeLost: time,
