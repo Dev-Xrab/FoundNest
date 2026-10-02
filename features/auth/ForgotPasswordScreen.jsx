@@ -3,7 +3,7 @@ import { showToast } from "@/components/GlobalToast";
 import { API_BASE_URL } from "@/constants/api";
 import AppColors from "@/constants/AppColors";
 import { useUnsavedChangesGuard } from "@/shared/hooks/useUnsavedChangesGuard";
-import { startCooldownIfIdle } from "@/shared/utils/otpCooldown";
+import { getRetryAfterSeconds, startCooldown } from "@/shared/utils/otpCooldown";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
@@ -66,11 +66,21 @@ export default function ForgotPasswordScreen() {
 
       if (!response.ok) {
         const data = await response.json().catch(() => ({}));
+
+        if (response.status === 429 && data.code === "OTP_COOLDOWN") {
+          startCooldown(email.trim(), getRetryAfterSeconds(response));
+          router.push({
+            pathname: "/forgotPasswordVerify",
+            params: { email: email.trim() },
+          });
+          return;
+        }
+
         setError(data.message || "Something went wrong. Please try again.");
         return;
       }
-      
-      startCooldownIfIdle(email.trim());
+
+      startCooldown(email.trim());
       router.push({
         pathname: "/forgotPasswordVerify",
         params: { email: email.trim() },
