@@ -1,24 +1,23 @@
 import ConfirmDiscardModal from "@/components/ConfirmDiscardModal";
-import PhotoPickerModal from "@/shared/components/PhotoPickerModal";
-import WebCameraModal from "@/shared/components/WebCameraModal";
-import ScanImageButton from "@/shared/components/ScanImageButton";
 import { API_BASE_URL } from "@/constants/api";
 import AppColors from "@/constants/AppColors";
 import { uploadWithAuth } from "@/constants/authApi";
 import { getCategories, matchCategoryFromAi } from "@/constants/category";
 import { DescribeItem } from "@/constants/geminiAI";
 import { setIsAnalyzing as setGlobalAnalyzing } from "@/constants/lostReports";
+import { addConnectivityListener } from "@/constants/netInfo";
 import { isOnline } from "@/constants/offlineDb";
 import { getUserProfile } from "@/constants/profile";
 import { upsertQrItemInCache, validateQrItemForm } from "@/constants/qrItems";
-import { guessImageMimeType } from "@/shared/utils/imageMime";
-import { appendImageField } from "@/shared/utils/formDataImage";
-import { useUnsavedChangesGuard } from "@/shared/hooks/useUnsavedChangesGuard";
+import PhotoPickerModal from "@/shared/components/PhotoPickerModal";
+import ScanImageButton from "@/shared/components/ScanImageButton";
+import WebCameraModal from "@/shared/components/WebCameraModal";
 import { useAlertModal } from "@/shared/hooks/useAlertModal";
+import { useUnsavedChangesGuard } from "@/shared/hooks/useUnsavedChangesGuard";
+import { appendImageField } from "@/shared/utils/formDataImage";
+import { guessImageMimeType } from "@/shared/utils/imageMime";
 import { buildPermissionAlertConfig } from "@/shared/utils/permissions";
-import { FieldError, ReadOnlyField, RequiredLabel } from "./components/QrItemFormFields";
 import { Ionicons, MaterialIcons } from "@expo/vector-icons";
-import { addConnectivityListener } from "@/constants/netInfo";
 import * as ImagePicker from "expo-image-picker";
 import { useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
@@ -36,6 +35,7 @@ import {
 } from "react-native";
 import { Dropdown } from "react-native-element-dropdown";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { FieldError, ReadOnlyField, RequiredLabel } from "./components/QrItemFormFields";
 
 export default function QrItemRegisterScreen() {
   const router = useRouter();
@@ -823,8 +823,10 @@ const styles = StyleSheet.create({
     paddingTop: 24,
   },
   cancelButton: {
-    paddingVertical: 12,
+    height: 46,
     paddingHorizontal: 28,
+    justifyContent: "center",
+    alignItems: "center",
     backgroundColor: "transparent",
     borderRadius: 14,
     borderWidth: 1.5,
@@ -836,11 +838,12 @@ const styles = StyleSheet.create({
     color: AppColors.background,
   },
   registerButton: {
-    paddingVertical: 12,
+    height: 46,
     paddingHorizontal: 26,
     backgroundColor: AppColors.background,
     borderRadius: 14,
     minWidth: 100,
+    justifyContent: "center",
     alignItems: "center",
   },
   registerButtonDisabled: {

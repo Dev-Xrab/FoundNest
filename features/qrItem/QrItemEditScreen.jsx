@@ -669,8 +669,10 @@ const styles = StyleSheet.create({
     paddingTop: 24,
   },
   cancelButton: {
-    paddingVertical: 12,
+    height: 46,
     paddingHorizontal: 28,
+    justifyContent: "center",
+    alignItems: "center",
     backgroundColor: 'transparent',
     borderRadius: 14,
     borderWidth: 1.5,
@@ -682,11 +684,12 @@ const styles = StyleSheet.create({
     color: AppColors.background,
   },
   saveButton: {
-    paddingVertical: 12,
+    height: 46,
     paddingHorizontal: 26,
     backgroundColor: AppColors.background,
     borderRadius: 14,
     minWidth: 100,
+    justifyContent: "center",
     alignItems: 'center',
   },
   saveButtonDisabled: {
