@@ -1,5 +1,5 @@
 import ConfirmDiscardModal from "@/components/ConfirmDiscardModal";
-import { getReportDraft, getReportPage1Dirty } from "@/constants/reportDraft";
+import { getNewReportDraft, getReportPage1Dirty } from "@/constants/reportDraft";
 import { usePathname } from "expo-router";
 import { useCallback, useRef, useState } from "react";
 
@@ -25,7 +25,7 @@ export function useReportLeaveGuard() {
       const onReportScreen =
         pathname === "/report" || pathname === "/reportNextPage";
       const hasUnsavedReport =
-        onReportScreen && Boolean(getReportDraft() || getReportPage1Dirty());
+        onReportScreen && Boolean(getNewReportDraft() || getReportPage1Dirty());
 
       if (!hasUnsavedReport) {
         navigate();
