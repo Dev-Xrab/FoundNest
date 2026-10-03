@@ -1,19 +1,19 @@
-import PhotoPickerModal from "@/shared/components/PhotoPickerModal";
-import WebCameraModal from "@/shared/components/WebCameraModal";
-import ScanImageButton from "@/shared/components/ScanImageButton";
 import ConfirmDiscardModal from "@/components/ConfirmDiscardModal";
-import RequiredMark from "@/shared/components/RequiredMark";
 import AppColors from "@/constants/AppColors";
 import { getCategories, matchCategoryFromAi } from "@/constants/category";
 import { DescribeItem } from "@/constants/geminiAI";
-import { isOnline } from "@/constants/offlineDb";
 import { setIsAnalyzing } from "@/constants/lostReports";
-import { setReportDraft, getReportDraft, setReportPage1Dirty, getReportPage1Dirty } from "@/constants/reportDraft";
+import { addConnectivityListener } from "@/constants/netInfo";
+import { isOnline } from "@/constants/offlineDb";
+import { clearNewReportDraft, getNewReportDraft, getReportPage1Dirty, setReportDraft, setReportPage1Dirty } from "@/constants/reportDraft";
+import PhotoPickerModal from "@/shared/components/PhotoPickerModal";
+import RequiredMark from "@/shared/components/RequiredMark";
+import ScanImageButton from "@/shared/components/ScanImageButton";
+import WebCameraModal from "@/shared/components/WebCameraModal";
 import { useAlertModal } from "@/shared/hooks/useAlertModal";
 import { buildPermissionAlertConfig } from "@/shared/utils/permissions";
 import { isReportPage1Complete, validateReportPage1 } from "@/utils/lostReport";
 import { MaterialIcons } from "@expo/vector-icons";
-import { addConnectivityListener } from "@/constants/netInfo";
 import * as ImagePicker from "expo-image-picker";
 import { useFocusEffect, useRouter } from "expo-router";
 import React, { useCallback, useEffect, useState } from "react";
@@ -100,7 +100,7 @@ export default function ReportScreen() {
   useFocusEffect(
     useCallback(() => {
       isOnline().then(setOnline);
-      const currentDraft = getReportDraft();
+      const currentDraft = getNewReportDraft();
 
       if (currentDraft) {
         setSelectedImage(currentDraft.imageUri || null);
@@ -173,7 +173,7 @@ export default function ReportScreen() {
     setDetailedDescription("");
     setContents("");
     setErrors({});
-    setReportDraft(null);
+    clearNewReportDraft();
     setClearModalVisible(false);
   };
 
