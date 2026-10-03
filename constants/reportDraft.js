@@ -27,6 +27,34 @@ export function clearReportDraft() {
 }
 
 /**
+ * Clears the draft only if it belongs to the given report. Used when an edit
+ * session is left with no changes, so it never wipes some other flow's draft.
+ */
+export function clearReportDraftFor(reportId) {
+  if (!draft) return;
+  if (String(draft.reportId) !== String(reportId)) return;
+  draft = null;
+}
+
+/**
+ * Draft for the "new report" flow only. Edit-flow drafts carry a reportId,
+ * so they are never returned here — otherwise a leftover edit draft would
+ * hydrate the Report screen with another report's details.
+ */
+export function getNewReportDraft() {
+  if (!draft) return null;
+  if (draft.reportId !== undefined && draft.reportId !== null) return null;
+  return draft;
+}
+
+/** Clears the draft only if it belongs to the new-report flow. */
+export function clearNewReportDraft() {
+  if (draft && (draft.reportId === undefined || draft.reportId === null)) {
+    draft = null;
+  }
+}
+
+/**
  * Tracks whether the user has started filling in report page 1 (image,
  * category, name, description, contents) before a formal draft exists —
  * setReportDraft() only runs once they tap "Next". Lets the tabs layout
