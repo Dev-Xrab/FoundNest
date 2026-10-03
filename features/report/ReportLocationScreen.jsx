@@ -1,15 +1,17 @@
 import AppColors from "@/constants/AppColors";
-import RequiredMark from "@/shared/components/RequiredMark";
 import { fetchBulsuColleges } from "@/constants/CollegeBuildings";
 import fetchGates from "@/constants/Gates";
+import { addConnectivityListener } from "@/constants/netInfo";
 import { isOnline } from "@/constants/offlineDb";
 import { startAtHome } from "@/constants/previousPage";
 import {
   clearReportDraft,
-  getReportDraft,
+  getNewReportDraft,
   setReportPage1Dirty,
 } from "@/constants/reportDraft";
 import fetchSharedStudentSpaces from "@/constants/SharedStudentSpaces";
+import DatePicker from "@/shared/components/CrossPlatformDatePicker";
+import RequiredMark from "@/shared/components/RequiredMark";
 import { useAlertModal } from "@/shared/hooks/useAlertModal";
 import {
   buildLocationLost,
@@ -18,7 +20,6 @@ import {
   validateReportPage2,
 } from "@/utils/lostReport";
 import { Feather, MaterialIcons } from "@expo/vector-icons";
-import { addConnectivityListener } from "@/constants/netInfo";
 import { useFocusEffect, useRouter } from "expo-router";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
@@ -32,7 +33,6 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import DatePicker from "@/shared/components/CrossPlatformDatePicker";
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -148,7 +148,7 @@ export default function ReportLocationScreen() {
   useFocusEffect(
     useCallback(() => {
       isOnline().then(setOnline);
-      const saved = getReportDraft();
+      const saved = getNewReportDraft();
       if (!saved) {
         showCustomAlert({
           message: "Please complete page 1 before continuing.",
