@@ -1,4 +1,5 @@
 import ConfirmDiscardModal from "@/components/ConfirmDiscardModal";
+import { showToast } from "@/components/GlobalToast";
 import { API_BASE_URL } from "@/constants/api";
 import AppColors from "@/constants/AppColors";
 import { uploadWithAuth } from "@/constants/authApi";
@@ -7,6 +8,7 @@ import fetchGates from "@/constants/Gates";
 import { getLostReportDetail } from "@/constants/lostReports";
 import {
   clearReportDraft,
+  clearReportDraftFor,
   getReportDraft,
   getReportDraftFor,
   setReportDraft,
@@ -28,6 +30,7 @@ import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  BackHandler,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -427,7 +430,9 @@ function EditNextScreen() {
 
   // True value comparison against the original report — covers this page's
   // fields (location/date) plus whatever page 1 last committed to the draft.
-  const isSessionDirty = () => {
+  // `onlyPage2` skips the page 1 fields (read from the draft) and checks just
+  // this page's location / specific location / date.
+  const isSessionDirty = ({ onlyPage2 = false } = {}) => {
     if (!draft) return false;
 
     const originalReport = draft.reportParam
@@ -444,15 +449,17 @@ function EditNextScreen() {
     const originalContents = (originalReport.contents ?? "").trim();
     const originalPhoto = originalReport.lost_item_image ?? null;
 
-    if ((draft.categoryId ?? "") !== originalCategoryId) return true;
-    if ((draft.itemName ?? "").trim() !== originalItemName) return true;
-    if ((draft.description ?? "").trim() !== originalDescription) return true;
-    if ((draft.contents ?? "").trim() !== originalContents) return true;
+    if (!onlyPage2) {
+      if ((draft.categoryId ?? "") !== originalCategoryId) return true;
+      if ((draft.itemName ?? "").trim() !== originalItemName) return true;
+      if ((draft.description ?? "").trim() !== originalDescription) return true;
+      if ((draft.contents ?? "").trim() !== originalContents) return true;
 
-    const draftPhoto = draft.isImageRemoved
-      ? null
-      : (draft.imageUri ?? draft.existingImageUrl ?? null);
-    if (draftPhoto !== originalPhoto) return true;
+      const draftPhoto = draft.isImageRemoved
+        ? null
+        : (draft.imageUri ?? draft.existingImageUrl ?? null);
+      if (draftPhoto !== originalPhoto) return true;
+    }
 
     // Compare structured selections (not rebuilt strings) so formatting
     // differences from the parse/build round trip never cause a false positive.
@@ -524,9 +531,10 @@ function EditNextScreen() {
       return;
     }
 
-    // Leaving with unsaved edits preserves the draft (like the create-report
-    // wizard already does) instead of wiping it — re-entering this report's
-    // edit screen later resumes from it.
+    // Leaving the edit flow discards this report's draft. When there were
+    // changes, the "Discard changes?" modal already warned the user.
+    if (hasChanges) showToast("Edit has been cancelled.", "info");
+    clearReportDraftFor(draft?.reportId);
     router.navigate("/(tabs)/profileReportHistory");
   });
 
@@ -552,6 +560,9 @@ function EditNextScreen() {
       }),
       specificLocation,
       lostDate: localISO,
+      // Lets page 1 know whether this page actually changed anything, using
+      // the structural comparison above instead of re-comparing strings.
+      page2Changed: isSessionDirty({ onlyPage2: true }),
     });
 
     router.navigate({
@@ -564,6 +575,31 @@ function EditNextScreen() {
     });
   };
 
+  // Swipe-back / hardware back should behave like "Back to Page 1" (carry
+  // this page's values into the draft and return to page 1) instead of
+  // tripping the unsaved-changes modal. The latest handler is read through a
+  // ref so the listener never calls a stale closure.
+  const backPressRef = useRef(() => false);
+  backPressRef.current = () => {
+    if (isSubmitting) return true; // swallow back presses mid-save
+    if (!draft) return false; // nothing to carry over, let the default handler run
+    handleBack();
+    return true;
+  };
+
+  // Declared after useUnsavedChangesGuard so this listener is registered
+  // later on every focus, which means it runs before the guard's own.
+  useFocusEffect(
+    useCallback(() => {
+      if (isViewOnly) return undefined;
+      const subscription = BackHandler.addEventListener(
+        "hardwareBackPress",
+        () => backPressRef.current(),
+      );
+      return () => subscription.remove();
+    }, [isViewOnly]),
+  );
+
   const handleSubmit = async () => {
     if (!draft) {
       bypassNextLeave();
@@ -572,7 +608,7 @@ function EditNextScreen() {
     }
 
     if (!hasChanges) return;
-    
+
     const validation = validateReportPage2({
       dateLost: date,
       timeLost: time,
@@ -717,9 +753,9 @@ function EditNextScreen() {
     >
       <ConfirmDiscardModal
         visible={discardModalVisible}
-        message="Leave this report? Your progress will be saved as a draft so you can continue later."
+        message="Discard changes? Unsaved edits will be lost."
         cancelLabel="Keep Editing"
-        confirmLabel="Leave"
+        confirmLabel="Discard"
         onKeepEditing={dismissDiscard}
         onDiscard={handleDiscardConfirm}
       />
