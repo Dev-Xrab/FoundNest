@@ -271,7 +271,9 @@ export default function ReportScreen() {
       itemName: itemName.trim(),
       description: detailedDescription.trim(),
       contents: contents.trim(),
-      createdAt: Date.now(),
+      // Stable for the whole report session (back to page 1 and Next again
+      // keeps it); a fresh one only starts after the draft is cleared.
+      createdAt: getNewReportDraft()?.createdAt ?? Date.now(),
     });
 
     router.push("/(tabs)/reportNextPage");
