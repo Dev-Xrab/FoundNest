@@ -90,6 +90,11 @@ export default function ReportLocationScreen() {
 
   const [time, setTime] = useState(new Date());
   const [date, setDate] = useState(new Date());
+  // Date/time default to "now" every time this page is entered. Once the user
+  // picks one themselves it is kept for the rest of that report session
+  // (e.g. Back to page 1 and Next again), and reset when a new session starts.
+  const dateTimeTouchedRef = useRef(false);
+  const reportSessionRef = useRef(null);
   const [openCalendar, setOpenCalendar] = useState(false);
   const [openClock, setOpenClock] = useState(false);
   const [cantRemember, setCantRemember] = useState(false);
@@ -160,6 +165,15 @@ export default function ReportLocationScreen() {
       }
 
       setDraft(saved);
+
+      if (reportSessionRef.current !== saved.createdAt) {
+        reportSessionRef.current = saved.createdAt;
+        dateTimeTouchedRef.current = false;
+      }
+      if (!dateTimeTouchedRef.current) {
+        setDate(new Date());
+        setTime(new Date());
+      }
 
       const loadDropdownData = async () => {
         try {
@@ -286,6 +300,8 @@ export default function ReportLocationScreen() {
       setDraft(null);
       setDate(new Date());
       setTime(new Date());
+      dateTimeTouchedRef.current = false;
+      reportSessionRef.current = null;
       setCantRemember(false);
       setSelectedColleges([]);
       setSelectedSpaces([]);
@@ -386,6 +402,7 @@ export default function ReportLocationScreen() {
         maximumDate={new Date()}
         onConfirm={(d) => {
           setOpenCalendar(false);
+          dateTimeTouchedRef.current = true;
           setDate(d);
         }}
         onCancel={() => setOpenCalendar(false)}
@@ -398,6 +415,7 @@ export default function ReportLocationScreen() {
         maximumDate={isDateToday ? new Date() : undefined}
         onConfirm={(t) => {
           setOpenClock(false);
+          dateTimeTouchedRef.current = true;
           setTime(t);
         }}
         onCancel={() => setOpenClock(false)}
