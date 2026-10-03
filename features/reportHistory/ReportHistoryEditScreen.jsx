@@ -1,17 +1,19 @@
 import ConfirmDiscardModal from "@/components/ConfirmDiscardModal";
+import { showToast } from "@/components/GlobalToast";
 import AppColors from "@/constants/AppColors";
 import { getCategories, matchCategoryFromAi } from "@/constants/category";
 import { DescribeItem } from "@/constants/geminiAI";
 import { getLostReportDetail, setIsAnalyzing } from "@/constants/lostReports";
 import {
+  clearReportDraftFor,
   getReportDraft,
   getReportDraftFor,
   setReportDraft
 } from "@/constants/reportDraft";
 import PhotoPickerModal from "@/shared/components/PhotoPickerModal";
-import WebCameraModal from "@/shared/components/WebCameraModal";
-import ScanImageButton from "@/shared/components/ScanImageButton";
 import RequiredMark from "@/shared/components/RequiredMark";
+import ScanImageButton from "@/shared/components/ScanImageButton";
+import WebCameraModal from "@/shared/components/WebCameraModal";
 import { useAlertModal } from "@/shared/hooks/useAlertModal";
 import { useUnsavedChangesGuard } from "@/shared/hooks/useUnsavedChangesGuard";
 import { buildPermissionAlertConfig } from "@/shared/utils/permissions";
@@ -334,6 +336,10 @@ export default function ReportHistoryEditScreen() {
         report.actual_lost_date ??
         report.lost_date ??
         null,
+      // Page 2's own verdict on whether it changed anything (see handleBack
+      // there). Carried through so page 1 never has to re-compare rebuilt
+      // location/date strings itself.
+      page2Changed: existingDraft?.page2Changed ?? false,
     };
     setReportDraft(nextDraft);
 
@@ -349,18 +355,6 @@ export default function ReportHistoryEditScreen() {
   const displayImage = isImageRemoved
     ? null
     : (selectedImage ?? existingImageUrl ?? null);
-
-  const parseDateToMinuteMs = (value) => {
-    if (!value) return null;
-    const cleaned = String(value)
-      .replace(/\+\d{2}(:\d{2})?$/, "")
-      .replace(/\+00$/, "")
-      .replace("T", " ")
-      .trim();
-    const d = new Date(cleaned.replace(" ", "T"));
-    if (isNaN(d.getTime())) return null;
-    return Math.floor(d.getTime() / 60000) * 60000;
-  };
 
   const isSessionDirty = () => {
     const originalCategoryId = report.category_id
@@ -381,26 +375,11 @@ export default function ReportHistoryEditScreen() {
       : (selectedImage ?? existingImageUrl ?? null);
     if (currentPhoto !== originalPhoto) return true;
 
-    const existingDraft = getReportDraftFor(report.lost_report_id);
-
-    const originalLocationLost = report.location_lost ?? "";
-    const currentLocationLost =
-      existingDraft?.locationLost ?? originalLocationLost;
-    if (currentLocationLost !== originalLocationLost) return true;
-
-    const originalSpecificLocation = (report.specific_location ?? "").trim();
-    const currentSpecificLocation = (
-      existingDraft?.specificLocation ?? originalSpecificLocation
-    ).trim();
-    if (currentSpecificLocation !== originalSpecificLocation) return true;
-
-    const originalLostDateMs = parseDateToMinuteMs(
-      report.actual_lost_date ?? report.lost_date,
-    );
-    const currentLostDateMs = existingDraft?.lostDate
-      ? parseDateToMinuteMs(existingDraft.lostDate)
-      : originalLostDateMs;
-    if (currentLostDateMs !== originalLostDateMs) return true;
+    // Location / specific location / date live on page 2, which compares them
+    // structurally against the original and records the result on the draft.
+    // Comparing the rebuilt strings here gave false positives after a
+    // page 1 -> page 2 -> back round trip.
+    if (getReportDraftFor(report.lost_report_id)?.page2Changed) return true;
 
     return false;
   };
@@ -423,7 +402,12 @@ export default function ReportHistoryEditScreen() {
     confirmDiscard: handleDiscardConfirm,
     dismissDiscard,
   } = useUnsavedChangesGuard(hasChanges, () => {
-    // Preserves drafts for this report so the user can resume later
+    // Leaving the edit flow discards this report's draft. When there were
+    // changes, the "Discard changes?" modal already warned the user.
+    if (!isViewOnly) {
+      if (hasChanges) showToast("Edit has been cancelled.", "info");
+      clearReportDraftFor(report.lost_report_id);
+    }
     router.navigate("/(tabs)/profileReportHistory");
   });
 
@@ -434,9 +418,9 @@ export default function ReportHistoryEditScreen() {
     >
       <ConfirmDiscardModal
         visible={discardModalVisible}
-        message="Leave this report? Your progress will be saved as a draft so you can continue later."
+        message="Discard changes? Unsaved edits will be lost."
         cancelLabel="Keep Editing"
-        confirmLabel="Leave"
+        confirmLabel="Discard"
         onKeepEditing={dismissDiscard}
         onDiscard={handleDiscardConfirm}
       />
