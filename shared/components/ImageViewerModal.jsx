@@ -1,6 +1,6 @@
 import { Image, Modal, StyleSheet, TouchableOpacity } from "react-native";
 
-/** Fullscreen tap-to-dismiss image viewer, shared by the edit wizard and the match-comparison screen. */
+// Fullscreen tap-to-dismiss image viewer
 export default function ImageViewerModal({ uri, visible, onClose }) {
   return (
     <Modal
