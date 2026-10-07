@@ -1,7 +1,8 @@
 import AppColors from '@/constants/AppColors';
 import { getQrItemDetail } from '@/constants/qrItems';
+import ImageModal from '@/shared/components/ImageViewerModal';
 import { useUnsavedChangesGuard } from '@/shared/hooks/useUnsavedChangesGuard';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useRef, useState } from 'react';
 import {
@@ -28,6 +29,7 @@ function ReadOnlyField({ label, value, multiline = false }) {
 export default function QrItemViewScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const [imageViewerVisible, setImageViewerVisible] = useState(false);
   const { item: itemParam, fromScan } = useLocalSearchParams();
   const parsedItem = JSON.parse(itemParam || '{}');
   const [item, setItem] = useState(parsedItem);
@@ -85,6 +87,12 @@ export default function QrItemViewScreen() {
 
   return (
     <View style={styles.screen}>
+      <ImageModal
+        uri={item.image_url}
+        visible={imageViewerVisible}
+        onClose={() => setImageViewerVisible(false)}
+      />
+
       {/* RED HEADER */}
       <View style={[styles.redHeader, { paddingTop: insets.top }]}>
         <View style={styles.headerRow}>
@@ -117,15 +125,31 @@ export default function QrItemViewScreen() {
         <Text style={styles.sectionHeading}>Item Description</Text>
 
         {/* IMAGE */}
-        <View style={styles.imageWrapper}>
-          {item.image_url ? (
-            <Image source={{ uri: item.image_url }} style={styles.itemImage} />
-          ) : (
-            <View style={styles.imageFallback}>
-              <Ionicons name="image-outline" size={40} color="#B0A09A" />
-              <Text style={styles.imageFallbackText}>No photo available</Text>
-            </View>
-          )}
+        <View style={styles.uploadCardWrapper}>
+          <View style={styles.uploadCard}>
+            <TouchableOpacity
+              style={styles.uploadTarget}
+              activeOpacity={0.7}
+              onPress={() => item.image_url && setImageViewerVisible(true)}
+              disabled={!item.image_url}
+            >
+              {item.image_url ? (
+                <View style={styles.imagePreviewContainer}>
+                  <Image source={{ uri: item.image_url }} style={styles.previewImage} />
+                  <View style={styles.expandIcon}>
+                    <Ionicons name="expand-outline" size={18} color="#FFFFFF" />
+                  </View>
+                </View>
+              ) : (
+                <View style={[styles.dashedRing, styles.dashedRingViewOnly]}>
+                  <MaterialIcons name="image-not-supported" size={28} color="#B0A09A" />
+                </View>
+              )}
+            </TouchableOpacity>
+            <Text style={[styles.uploadTitle, { marginBottom: 0 }]}>
+              {item.image_url ? 'Item Photo' : 'No Photo Attached'}
+            </Text>
+          </View>
         </View>
 
         {/* CATEGORY */}
@@ -253,29 +277,6 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     marginTop: 4,
   },
-  imageWrapper: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    overflow: 'hidden',
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: '#D6D6D6',
-  },
-  itemImage: {
-    width: '100%',
-    height: 220,
-    resizeMode: 'cover',
-  },
-  imageFallback: {
-    height: 120,
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 8,
-  },
-  imageFallbackText: {
-    fontSize: 14,
-    color: '#B0A09A',
-  },
 
   // ── Scan another ──────────────────────────────────────────────────────────
   divider: {
@@ -309,5 +310,65 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '700',
     color: '#FFFFFF',
+  },
+  uploadCardWrapper: { 
+    alignItems: 'center', 
+    marginBottom: 16 
+  },
+  uploadCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 24,
+    paddingVertical: 20,
+    paddingHorizontal: 20,
+    alignItems: 'center',
+    width: '100%',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  uploadTarget: { 
+    marginBottom: 14, 
+    justifyContent: 'center', 
+    alignItems: 'center' 
+  },
+  dashedRing: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    borderWidth: 1.5,
+    borderColor: '#900000',
+    borderStyle: 'dashed',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  dashedRingViewOnly: { 
+    borderColor: '#CCCCCC' 
+  },
+  imagePreviewContainer: { 
+    width: 110, 
+    height: 110, 
+    position: 'relative' 
+  },
+  previewImage: { 
+    width: '100%', 
+    height: '100%', 
+    borderRadius: 16 
+  },
+  expandIcon: {
+    position: 'absolute',
+    bottom: 8,
+    right: 8,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    borderRadius: 6,
+    padding: 4,
+  },
+  uploadTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#6B5A52',
+    textAlign: 'center',
+    marginBottom: 8,
   },
 });
