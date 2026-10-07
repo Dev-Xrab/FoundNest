@@ -1,10 +1,12 @@
 import ConfirmDiscardModal from '@/components/ConfirmDiscardModal';
 import AppColors from '@/constants/AppColors';
+import { addConnectivityListener } from '@/constants/netInfo';
+import { isOnline } from '@/constants/offlineDb';
 import { deleteQrItem, getUserQrItems } from '@/constants/qrItems';
 import { useAlertModal } from '@/shared/hooks/useAlertModal';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -36,7 +38,7 @@ function EmptyNestIllustration() {
 }
 
 // ── Item card ─────────────────────────────────────────────────────────────────
-function ItemCard({ item, onPress, onEdit, onDelete }) {
+function ItemCard({ item, onPress, onEdit, onDelete, online }) {
   return (
     <View style={styles.card}>
       <TouchableOpacity onPress={onPress} activeOpacity={0.8}>
@@ -53,17 +55,23 @@ function ItemCard({ item, onPress, onEdit, onDelete }) {
       {/* Action buttons */}
       <View style={styles.cardActions}>
         <TouchableOpacity
-          style={styles.editButton}
+          style={[styles.editButton, !online && styles.disabledButton]}
           onPress={onEdit}
           activeOpacity={0.7}
+          disabled={!online}
         >
-          <MaterialCommunityIcons name="pencil-outline" size={20} color={AppColors.background} />
+          <MaterialCommunityIcons
+            name="pencil-outline"
+            size={20}
+            color={online ? AppColors.background : '#A0A0A0'}
+          />
         </TouchableOpacity>
         <View style={styles.actionDivider} />
         <TouchableOpacity
-          style={styles.deleteButton}
+          style={[styles.deleteButton, !online && styles.disabledDeleteButton]}
           onPress={onDelete}
           activeOpacity={0.7}
+          disabled={!online}
         >
           <MaterialCommunityIcons name="trash-can-outline" size={20} color="#FFFFFF" />
         </TouchableOpacity>
@@ -78,13 +86,28 @@ export default function QrItemListScreen() {
   const insets = useSafeAreaInsets();
   const [items, setItems] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [online, setOnline] = useState(true);
   const [deleteModalVisible, setDeleteModalVisible] = useState(false);
   const [itemToDelete, setItemToDelete] = useState(null);
   const { alertModal, showAlert } = useAlertModal();
 
+  useEffect(() => {
+    isOnline().then(setOnline);
+
+    const unsubscribe = addConnectivityListener((state) => {
+      const isConnected = Boolean(
+        state.isConnected && state.isInternetReachable !== false
+      );
+      setOnline(isConnected);
+    });
+
+    return () => unsubscribe();
+  }, []);
+
   // Reload list every time screen comes into focus
   useFocusEffect(
     useCallback(() => {
+      isOnline().then(setOnline);
       loadItems();
     }, [])
   );
@@ -102,6 +125,7 @@ export default function QrItemListScreen() {
   };
 
   const handleDelete = (item) => {
+    if (!online) return;
     setItemToDelete(item);
     setDeleteModalVisible(true);
   };
@@ -109,6 +133,12 @@ export default function QrItemListScreen() {
   const confirmDelete = async () => {
     if (!itemToDelete) return;
     setDeleteModalVisible(false);
+
+    if (!online) {
+      setItemToDelete(null);
+      showAlert({ message: 'Cannot delete items while offline.' });
+      return;
+    }
 
     try {
       const res = await deleteQrItem(itemToDelete.qr_code_id);
@@ -195,6 +225,7 @@ export default function QrItemListScreen() {
           renderItem={({ item }) => (
             <ItemCard
               item={item}
+              online={online}
               onPress={() => handleCardPress(item)}
               onEdit={() => handleEdit(item)}
               onDelete={() => handleDelete(item)}
@@ -363,5 +394,12 @@ const styles = StyleSheet.create({
     position: 'absolute',
     right: 42,
     top: 25,
+  },
+  disabledButton: {
+    opacity: 0.45,
+  },
+  disabledDeleteButton: {
+    backgroundColor: '#A0A0A0',
+    opacity: 0.7,
   },
 });
