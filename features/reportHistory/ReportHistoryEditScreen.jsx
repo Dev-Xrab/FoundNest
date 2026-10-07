@@ -2,7 +2,7 @@ import ConfirmDiscardModal from "@/components/ConfirmDiscardModal";
 import { showToast } from "@/components/GlobalToast";
 import AppColors from "@/constants/AppColors";
 import { getCategories, matchCategoryFromAi } from "@/constants/category";
-import { DescribeItem } from "@/constants/geminiAI";
+import { DescribeItem, getAiErrorMessage } from "@/constants/geminiAI";
 import { getLostReportDetail, setIsAnalyzing } from "@/constants/lostReports";
 import {
   clearReportDraftFor,
@@ -10,6 +10,7 @@ import {
   getReportDraftFor,
   setReportDraft
 } from "@/constants/reportDraft";
+import ImageModal from '@/shared/components/ImageViewerModal';
 import PhotoPickerModal from "@/shared/components/PhotoPickerModal";
 import RequiredMark from "@/shared/components/RequiredMark";
 import ScanImageButton from "@/shared/components/ScanImageButton";
@@ -36,8 +37,6 @@ import {
   View,
 } from "react-native";
 import { Dropdown } from "react-native-element-dropdown";
-
-import ImageModal from "./components/ImageViewerModal";
 
 function FieldError({ message }) {
   if (!message) return null;
@@ -210,7 +209,7 @@ export default function ReportHistoryEditScreen() {
     } catch (error) {
       console.error("AI Analysis Failed:", error);
       showAlert({
-        message: "Failed to auto-fill details. Please fill them out manually.",
+        message: getAiErrorMessage(error, "Failed to auto-fill details. Please fill them out manually."),
       });
     } finally {
       setIsLoading(false);
@@ -486,11 +485,11 @@ export default function ReportHistoryEditScreen() {
               style={styles.uploadTarget}
               activeOpacity={0.7}
               onPress={() => {
-                if (isViewOnly) {
-                  if (displayImage) setImageViewerVisible(true);
+                if (displayImage) {
+                  setImageViewerVisible(true);
                   return;
                 }
-                setPhotoModalVisible(true);
+                if (!isViewOnly) setPhotoModalVisible(true);
               }}
               disabled={isLoading || (isViewOnly && !displayImage)}
             >
@@ -513,9 +512,13 @@ export default function ReportHistoryEditScreen() {
                       />
                     </View>
                   ) : (
-                    <View style={styles.changeBadge}>
+                    <TouchableOpacity
+                      style={styles.changeBadge}
+                      onPress={() => setPhotoModalVisible(true)}
+                      activeOpacity={0.8}
+                    >
                       <MaterialIcons name="edit" size={16} color="#FFFFFF" />
-                    </View>
+                    </TouchableOpacity>
                   )}
                 </View>
               ) : isViewOnly ? (

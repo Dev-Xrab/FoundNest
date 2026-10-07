@@ -1,11 +1,12 @@
 import ConfirmDiscardModal from "@/components/ConfirmDiscardModal";
 import AppColors from "@/constants/AppColors";
 import { getCategories, matchCategoryFromAi } from "@/constants/category";
-import { DescribeItem } from "@/constants/geminiAI";
+import { DescribeItem, getAiErrorMessage } from "@/constants/geminiAI";
 import { setIsAnalyzing } from "@/constants/lostReports";
 import { addConnectivityListener } from "@/constants/netInfo";
 import { isOnline } from "@/constants/offlineDb";
 import { clearNewReportDraft, getNewReportDraft, getReportPage1Dirty, setReportDraft, setReportPage1Dirty } from "@/constants/reportDraft";
+import ImageModal from '@/shared/components/ImageViewerModal';
 import PhotoPickerModal from "@/shared/components/PhotoPickerModal";
 import RequiredMark from "@/shared/components/RequiredMark";
 import ScanImageButton from "@/shared/components/ScanImageButton";
@@ -49,6 +50,7 @@ export default function ReportScreen() {
   const [modalVisible, setModalVisible] = useState(false);
   const [webCameraVisible, setWebCameraVisible] = useState(false);
   const [online, setOnline] = useState(true);
+  const [imageViewerVisible, setImageViewerVisible] = useState(false);
   const router = useRouter();
 
   const { alertModal, showAlert } = useAlertModal();
@@ -152,7 +154,7 @@ export default function ReportScreen() {
     } catch (error) {
       console.error("AI Analysis Failed:", error);
       showAlert({
-        message: "Failed to auto-fill details. Please fill them out manually.",
+        message: getAiErrorMessage(error, "Failed to auto-fill details. Please fill them out manually."),
         cancelLabel: "Dismiss",
       });
     } finally {
@@ -314,6 +316,12 @@ export default function ReportScreen() {
         onCapture={handleWebCameraCapture}
       />
 
+      <ImageModal
+        uri={selectedImage}
+        visible={imageViewerVisible}
+        onClose={() => setImageViewerVisible(false)}
+      />
+
       <ScrollView contentContainerStyle={styles.container}>
         <Text style={styles.title}>Lost Item Report Form</Text>
 
@@ -328,7 +336,9 @@ export default function ReportScreen() {
               <TouchableOpacity
                 style={styles.uploadTarget}
                 activeOpacity={0.7}
-                onPress={() => setModalVisible(true)}
+                onPress={() =>
+                  selectedImage ? setImageViewerVisible(true) : setModalVisible(true)
+                }
                 disabled={isLoading || !online}
               >
                 {isLoading ? (
@@ -342,9 +352,13 @@ export default function ReportScreen() {
                       style={styles.previewImage}
                     />
                     {online && (
-                      <View style={styles.changeBadge}>
+                      <TouchableOpacity
+                        style={styles.changeBadge}
+                        onPress={() => setModalVisible(true)}
+                        activeOpacity={0.8}
+                      >
                         <MaterialIcons name="edit" size={16} color="#FFFFFF" />
-                      </View>
+                      </TouchableOpacity>
                     )}
                   </View>
                 ) : (
