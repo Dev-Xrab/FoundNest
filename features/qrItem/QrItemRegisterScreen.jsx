@@ -3,12 +3,13 @@ import { API_BASE_URL } from "@/constants/api";
 import AppColors from "@/constants/AppColors";
 import { uploadWithAuth } from "@/constants/authApi";
 import { getCategories, matchCategoryFromAi } from "@/constants/category";
-import { DescribeItem } from "@/constants/geminiAI";
+import { DescribeItem, getAiErrorMessage } from "@/constants/geminiAI";
 import { setIsAnalyzing as setGlobalAnalyzing } from "@/constants/lostReports";
 import { addConnectivityListener } from "@/constants/netInfo";
 import { isOnline } from "@/constants/offlineDb";
 import { getUserProfile } from "@/constants/profile";
 import { upsertQrItemInCache, validateQrItemForm } from "@/constants/qrItems";
+import ImageModal from '@/shared/components/ImageViewerModal';
 import PhotoPickerModal from "@/shared/components/PhotoPickerModal";
 import ScanImageButton from "@/shared/components/ScanImageButton";
 import WebCameraModal from "@/shared/components/WebCameraModal";
@@ -48,7 +49,6 @@ export default function QrItemRegisterScreen() {
   const [selectedImage, setSelectedImage] = useState(null);
   const [categories, setCategories] = useState([]);
   const [selectedCategoryId, setSelectedCategoryId] = useState("");
-  const [selectedCategoryName, setSelectedCategoryName] = useState("");
   const [itemName, setItemName] = useState("");
   const [description, setDescription] = useState("");
   const [contents, setContents] = useState("");
@@ -63,6 +63,7 @@ export default function QrItemRegisterScreen() {
   const [modalVisible, setModalVisible] = useState(false);
   const [webCameraVisible, setWebCameraVisible] = useState(false);
   const [online, setOnline] = useState(true);
+  const [imageViewerVisible, setImageViewerVisible] = useState(false);
 
   const { alertModal, showAlert: showCustomAlert } = useAlertModal();
 
@@ -87,7 +88,6 @@ export default function QrItemRegisterScreen() {
         // Runs when screen loses focus — clears all inputs
         setSelectedImage(null);
         setSelectedCategoryId("");
-        setSelectedCategoryName("");
         setItemName("");
         setDescription("");
         setContents("");
@@ -151,13 +151,12 @@ export default function QrItemRegisterScreen() {
         const matched = matchCategoryFromAi(aiResult.category, categoryList);
         if (matched) {
           setSelectedCategoryId(String(matched.category_id));
-          setSelectedCategoryName(matched.category_name);
         }
       }
     } catch (err) {
       console.error("AI analysis failed:", err);
       showCustomAlert({
-        message: "Failed to auto-fill details. Please fill them in manually.",
+        message: getAiErrorMessage(error, "Failed to auto-fill details. Please fill them out manually."),
       });
     } finally {
       setIsAnalyzing(false);
@@ -233,8 +232,15 @@ export default function QrItemRegisterScreen() {
   };
 
   // ── Validation ─────────────────────────────────────────────────────────────
-  const validate = () =>
-    validateQrItemForm({ categoryId: selectedCategoryId, itemName, description });
+  const validate = () => {
+    const errs = validateQrItemForm({
+      categoryId: selectedCategoryId,
+      itemName,
+      description,
+    });
+    if (!selectedImage) errs.image = "Item photo is required.";
+    return errs;
+  };
 
   const isFormComplete = Object.keys(validate()).length === 0;
   const isRegisterDisabled =
@@ -350,6 +356,12 @@ export default function QrItemRegisterScreen() {
         onCapture={handleWebCameraCapture}
       />
 
+      <ImageModal
+        uri={selectedImage}
+        visible={imageViewerVisible}
+        onClose={() => setImageViewerVisible(false)}
+      />
+
       <ConfirmDiscardModal
         visible={discardVisible}
         onKeepEditing={dismissDiscard}
@@ -402,7 +414,9 @@ export default function QrItemRegisterScreen() {
               <TouchableOpacity
                 style={styles.uploadTarget}
                 activeOpacity={0.7}
-                onPress={() => setModalVisible(true)}
+                onPress={() =>
+                  selectedImage ? setImageViewerVisible(true) : setModalVisible(true)
+                }
                 disabled={isAnalyzing || !online}
               >
                 {isAnalyzing ? (
@@ -410,33 +424,18 @@ export default function QrItemRegisterScreen() {
                     <ActivityIndicator size="large" color="#900000" />
                   </View>
                 ) : selectedImage ? (
-                  <View style={styles.imagePreviewOuter}>
-                    <View style={styles.imagePreviewContainer}>
-                      <Image
-                        source={{ uri: selectedImage }}
-                        style={styles.previewImage}
-                      />
-                      {online && (
-                        <View style={styles.changeBadge}>
-                          <MaterialIcons
-                            name="edit"
-                            size={16}
-                            color="#FFFFFF"
-                          />
-                        </View>
-                      )}
-                    </View>
+                  <View style={styles.imagePreviewContainer}>
+                    <Image
+                      source={{ uri: selectedImage }}
+                      style={styles.previewImage}
+                    />
                     {online && (
                       <TouchableOpacity
-                        style={styles.clearImageButton}
-                        onPress={() => setSelectedImage(null)}
-                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                        style={styles.changeBadge}
+                        onPress={() => setModalVisible(true)}
+                        activeOpacity={0.8}
                       >
-                        <Ionicons
-                          name="close-circle"
-                          size={24}
-                          color="#C62828"
-                        />
+                        <MaterialIcons name="edit" size={16} color="#FFFFFF" />
                       </TouchableOpacity>
                     )}
                   </View>
@@ -461,7 +460,7 @@ export default function QrItemRegisterScreen() {
               <Text style={styles.uploadTitle}>
                 {isAnalyzing
                   ? "Analyzing Image"
-                  : "Upload Item Photo (Optional)"}
+                  : "Upload Item Photo (Required)"}
               </Text>
               <Text style={styles.uploadSub}>
                 *FoundNest AI will help auto-fill details based on your photo.
@@ -503,7 +502,6 @@ export default function QrItemRegisterScreen() {
               value={selectedCategoryId || null}
               onChange={(item) => {
                 setSelectedCategoryId(item.value);
-                setSelectedCategoryName(item.name);
                 if (errors.category)
                   setErrors((p) => ({ ...p, category: undefined }));
               }}
@@ -729,18 +727,6 @@ const styles = StyleSheet.create({
     backgroundColor: "#900000",
     justifyContent: "center",
     alignItems: "center",
-  },
-  imagePreviewOuter: {
-    position: "relative",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  clearImageButton: {
-    position: "absolute",
-    top: -8,
-    right: -8,
-    backgroundColor: "#FFFFFF",
-    borderRadius: 12,
   },
   imagePreviewContainer: {
     width: 110,

@@ -3,9 +3,13 @@ import { showToast } from '@/components/GlobalToast';
 import { API_BASE_URL } from '@/constants/api';
 import AppColors from '@/constants/AppColors';
 import { fetchWithAuth, uploadWithAuth } from '@/constants/authApi';
-import { getCategories } from '@/constants/category';
+import { getCategories, matchCategoryFromAi } from '@/constants/category';
+import { DescribeItem, getAiErrorMessage } from '@/constants/geminiAI';
+import { setIsAnalyzing as setGlobalAnalyzing } from '@/constants/lostReports';
 import { getQrItemDetail, validateQrItemForm } from '@/constants/qrItems';
+import ImageModal from '@/shared/components/ImageViewerModal';
 import PhotoPickerModal from '@/shared/components/PhotoPickerModal';
+import ScanImageButton from '@/shared/components/ScanImageButton';
 import WebCameraModal from '@/shared/components/WebCameraModal';
 import { useAlertModal } from '@/shared/hooks/useAlertModal';
 import { useUnsavedChangesGuard } from '@/shared/hooks/useUnsavedChangesGuard';
@@ -54,8 +58,10 @@ export default function QrItemEditScreen() {
   const [categories, setCategories]                 = useState([]);
   const [errors, setErrors]                         = useState({});
   const [isSaving, setIsSaving]                     = useState(false);
+  const [isAnalyzing, setIsAnalyzing]               = useState(false);
   const [modalVisible, setModalVisible]             = useState(false);
-  const [webCameraVisible, setWebCameraVisible] = useState(false);
+  const [webCameraVisible, setWebCameraVisible]     = useState(false);
+  const [imageViewerVisible, setImageViewerVisible] = useState(false);
 
   const { alertModal, showAlert: showCustomAlert } = useAlertModal();
 
@@ -155,11 +161,20 @@ export default function QrItemEditScreen() {
 
   // ── Validation ─────────────────────────────────────────────────────────────
 
-  const validate = () =>
-    validateQrItemForm({ categoryId: selectedCategoryId, itemName, description });
+  const displayImage = selectedImage || (imageRemoved ? null : baseImageUrl) || null;
+
+  const validate = () => {
+    const errs = validateQrItemForm({
+      categoryId: selectedCategoryId,
+      itemName,
+      description,
+    });
+    if (!displayImage) errs.image = 'Item photo is required.';
+    return errs;
+  };
 
   const isFormComplete = Object.keys(validate()).length === 0;
-  const isSaveDisabled = isSaving || !isFormComplete || !hasSaveableChanges;
+  const isSaveDisabled = isSaving || isAnalyzing || !isFormComplete || !hasSaveableChanges;
 
   // ── Image picker ───────────────────────────────────────────────────────────
 
@@ -210,6 +225,37 @@ export default function QrItemEditScreen() {
     setModalVisible(false);
     setSelectedImage(null);
     setImageRemoved(true);
+  };
+
+  const analyzeImage = async (uri) => {
+    setIsAnalyzing(true);
+    setGlobalAnalyzing(true);
+    try {
+      let categoryList = categories;
+      if (categoryList.length === 0) {
+        categoryList = await getCategories();
+        setCategories(categoryList);
+      }
+
+      const aiResult = await DescribeItem({ imageUri: uri });
+
+      if (aiResult) {
+        setItemName(aiResult.itemName || '');
+        setDescription(aiResult.detailedDescription || '');
+        setContents(aiResult.contents || '');
+
+        const matched = matchCategoryFromAi(aiResult.category, categoryList);
+        if (matched) setSelectedCategoryId(String(matched.category_id));
+      }
+    } catch (err) {
+      console.error('AI analysis failed:', err);
+      showCustomAlert({
+        message: getAiErrorMessage(err, 'Failed to auto-fill details. Please fill them in manually.'),
+      });
+    } finally {
+      setIsAnalyzing(false);
+      setGlobalAnalyzing(false);
+    }
   };
 
   // ── Cancel / discard ───────────────────────────────────────────────────────
@@ -328,8 +374,6 @@ export default function QrItemEditScreen() {
 
   // ── Render ─────────────────────────────────────────────────────────────────
 
-  const displayImage = selectedImage || (imageRemoved ? null : baseImageUrl) || null;
-
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -348,6 +392,12 @@ export default function QrItemEditScreen() {
         visible={webCameraVisible}
         onClose={() => setWebCameraVisible(false)}
         onCapture={handleWebCameraCapture}
+      />
+
+      <ImageModal
+        uri={displayImage}
+        visible={imageViewerVisible}
+        onClose={() => setImageViewerVisible(false)}
       />
 
       <ConfirmDiscardModal
@@ -388,28 +438,53 @@ export default function QrItemEditScreen() {
         {/* ITEM DESCRIPTION */}
         <Text style={styles.sectionHeading}>Item Description</Text>
 
-        {/* IMAGE */}
-        {displayImage ? (
-          <View style={styles.imageWrapper}>
-            <Image source={{ uri: displayImage }} style={styles.itemImage} />
+        {/* IMAGE UPLOAD CARD */}
+        <View style={styles.uploadCardWrapper}>
+          <View style={styles.uploadCard}>
             <TouchableOpacity
-              style={styles.changeImageBadge}
-              onPress={() => setModalVisible(true)}
-              activeOpacity={0.8}
+              style={styles.uploadTarget}
+              activeOpacity={0.7}
+              onPress={() =>
+                displayImage ? setImageViewerVisible(true) : setModalVisible(true)
+              }
+              disabled={isAnalyzing || isSaving}
             >
-              <MaterialIcons name="edit" size={16} color="#FFFFFF" />
+              {isAnalyzing ? (
+                <View style={[styles.dashedRing, { borderColor: '#CCC' }]}>
+                  <ActivityIndicator size="large" color="#900000" />
+                </View>
+              ) : displayImage ? (
+                <View style={styles.imagePreviewContainer}>
+                  <Image source={{ uri: displayImage }} style={styles.previewImage} />
+                  <TouchableOpacity
+                    style={styles.changeBadge}
+                    onPress={() => setModalVisible(true)}
+                    activeOpacity={0.8}
+                  >
+                    <MaterialIcons name="edit" size={16} color="#FFFFFF" />
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                <View style={styles.dashedRing}>
+                  <View style={styles.solidCircle}>
+                    <MaterialIcons name="add" size={32} color="#FFFFFF" />
+                  </View>
+                </View>
+              )}
             </TouchableOpacity>
+            <Text style={styles.uploadTitle}>
+              {isAnalyzing ? 'Analyzing Image' : 'Upload Item Photo (Required)'}
+            </Text>
+            <Text style={styles.uploadSub}>
+              *FoundNest AI will help auto-fill details based on your photo.
+            </Text>
+
+            <ScanImageButton
+              onPress={() => analyzeImage(selectedImage)}
+              disabled={!selectedImage || isAnalyzing || isSaving}
+            />
           </View>
-        ) : (
-          <TouchableOpacity
-            style={styles.imagePlaceholder}
-            onPress={() => setModalVisible(true)}
-            activeOpacity={0.7}
-          >
-            <MaterialIcons name="add-photo-alternate" size={32} color="#B0A09A" />
-            <Text style={styles.imagePlaceholderText}>Add Photo</Text>
-          </TouchableOpacity>
-        )}
+        </View>
 
         {/* CATEGORY */}
         <View style={styles.fieldGroup}>
@@ -591,48 +666,6 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     marginTop: 4,
   },
-  imageWrapper: {
-    position: 'relative',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    overflow: 'hidden',
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: '#D6D6D6',
-  },
-  itemImage: {
-    width: '100%',
-    height: 220,
-    resizeMode: 'cover',
-  },
-  changeImageBadge: {
-    position: 'absolute',
-    bottom: 10,
-    right: 10,
-    backgroundColor: AppColors.background,
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 2,
-    borderColor: '#FFFFFF',
-  },
-  imagePlaceholder: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    height: 120,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: '#D6D6D6',
-    gap: 8,
-  },
-  imagePlaceholderText: {
-    fontSize: 14,
-    color: '#B0A09A',
-  },
   dropdown: {
     backgroundColor: '#FFFFFF',
     borderRadius: 8,
@@ -700,5 +733,80 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '500',
     color: '#FFFFFF',
+  },
+  uploadCardWrapper: { 
+    alignItems: 'center', 
+    marginBottom: 16 
+  },
+  uploadCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 24,
+    paddingVertical: 20,
+    paddingHorizontal: 20,
+    alignItems: 'center',
+    width: '100%',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  uploadTarget: { 
+    marginBottom: 14, 
+    justifyContent: 'center', 
+    alignItems: 'center' 
+  },
+  dashedRing: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    borderWidth: 1.5,
+    borderColor: '#900000',
+    borderStyle: 'dashed',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  solidCircle: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: '#900000',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  imagePreviewContainer: { 
+    width: 110, 
+    height: 110, 
+    position: 'relative' 
+  },
+  previewImage: { width: '100%', 
+    height: '100%', 
+    borderRadius: 16 
+  },
+  changeBadge: {
+    position: 'absolute',
+    bottom: -4,
+    right: -4,
+    backgroundColor: '#900000',
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
+  },
+  uploadTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#6B5A52',
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  uploadSub: { 
+    fontSize: 13, 
+    color: '#8C7A70', 
+    textAlign: 'center', 
+    lineHeight: 20 
   },
 });
