@@ -1,7 +1,7 @@
 import { API_BASE_URL, DESCRIBE_ITEM_PATH } from "@/constants/api";
 import { uploadWithAuth } from "@/constants/authApi";
-import { guessImageMimeType } from "@/shared/utils/imageMime";
 import { appendImageField } from "@/shared/utils/formDataImage";
+import { guessImageMimeType } from "@/shared/utils/imageMime";
 import { parseApiError } from "@/utils/lostReport";
 
 export async function DescribeItem({ imageUri }) {
@@ -28,9 +28,11 @@ export async function DescribeItem({ imageUri }) {
   );
 
   if (!response.ok) {
-    const message = await parseApiError(response);
-    throw new Error(message);
-  }
+  const message = await parseApiError(response);
+  const error = new Error(message);
+  error.status = response.status;
+  throw error;
+}
 
   const contentType = response.headers.get("content-type") ?? "";
   if (!contentType.includes("application/json")) {
@@ -40,4 +42,10 @@ export async function DescribeItem({ imageUri }) {
   const data = await response.json();
   console.log("AI service response:", data);
   return data;
+}
+
+export function getAiErrorMessage(error, fallback) {
+  return error?.status === 429
+    ? "You've reached the hourly limit for AI analysis. Please fill out the details manually or try again later."
+    : fallback;
 }
