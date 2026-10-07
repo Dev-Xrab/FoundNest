@@ -1,8 +1,8 @@
 import AppColors from "@/constants/AppColors";
 import { getMatchDetail } from "@/constants/lostReports";
+import ImageModal from '@/shared/components/ImageViewerModal';
 import { formatFoundId, formatReportId } from "@/shared/utils/reportFormatters";
 import { Ionicons } from "@expo/vector-icons";
-import ImageModal from "./components/ImageViewerModal";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useRef, useState } from "react";
 import {
