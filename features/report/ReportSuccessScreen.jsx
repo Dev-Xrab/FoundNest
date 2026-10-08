@@ -180,7 +180,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: AppColors.textOnLight,
     lineHeight: 20,
-    textAlign: 'justify',
+    textAlign: 'left',
   },
   actionSeparator: {
     height: 1,
