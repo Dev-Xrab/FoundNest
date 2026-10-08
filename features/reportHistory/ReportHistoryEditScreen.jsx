@@ -330,6 +330,7 @@ export default function ReportHistoryEditScreen() {
       locationLost: existingDraft?.locationLost ?? report.location_lost ?? "",
       specificLocation:
         existingDraft?.specificLocation ?? report.specific_location ?? "",
+      originalSpecificLocation: existingDraft?.originalSpecificLocation,
       lostDate:
         existingDraft?.lostDate ??
         report.actual_lost_date ??

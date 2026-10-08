@@ -216,6 +216,8 @@ function EditNextScreen() {
   const [selectedSpaces, setSelectedSpaces] = useState([]);
   const [selectedGates, setSelectedGates] = useState([]);
   const [specificLocation, setSpecificLocation] = useState("");
+  // Server value of specific_location, used as the baseline for dirty checks.
+  const [loadedSpecificLocation, setLoadedSpecificLocation] = useState(null);
   const [showLocation, setShowLocation] = useState(false);
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -323,6 +325,23 @@ function EditNextScreen() {
 
       setDraft(saved);
       setSpecificLocation(saved.specificLocation ?? "");
+      setLoadedSpecificLocation(saved.originalSpecificLocation ?? null);
+
+      // The list snapshot has no specific_location, so fetch it once per
+      // edit session and prefill (without clobbering anything already typed).
+      if (saved.originalSpecificLocation === undefined && fresh.lost_report_id) {
+        (async () => {
+          try {
+            const data = await getLostReportDetail(fresh.lost_report_id);
+            if (!data) return;
+            const original = data.specific_location ?? "";
+            setLoadedSpecificLocation(original);
+            setSpecificLocation((prev) => (prev.trim() ? prev : original));
+          } catch (err) {
+            console.warn("Specific location load failed:", err.message);
+          }
+        })();
+      }
 
       if (saved.lostDate) {
         const d = parseLostDateToDate(saved.lostDate);
@@ -483,7 +502,7 @@ function EditNextScreen() {
 
     if (
       specificLocation.trim() !==
-      (originalReport.specific_location ?? "").trim()
+      (loadedSpecificLocation ?? originalReport.specific_location ?? "").trim()
     )
       return true;
 
@@ -559,6 +578,7 @@ function EditNextScreen() {
         gates: selectedGates,
       }),
       specificLocation,
+      originalSpecificLocation: loadedSpecificLocation ?? undefined,
       lostDate: localISO,
       // Lets page 1 know whether this page actually changed anything, using
       // the structural comparison above instead of re-comparing strings.

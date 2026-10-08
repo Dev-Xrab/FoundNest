@@ -94,7 +94,9 @@ export async function cancelLostReport(reportId, reason) {
 export async function getLostReportDetail(reportId) {
   const res = await fetchWithAuth(`${API_BASE_URL}/api/lost-reports/${reportId}/detail`);
   if (!res.ok) return null;
-  return res.json();
+  const data = await res.json();
+  console.log("[lostReportDetail]", data?.specific_location, data);
+  return data;
 }
 
 /**
