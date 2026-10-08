@@ -1,6 +1,6 @@
 import AppColors from "@/constants/AppColors";
-import { API_BASE_URL } from "@/constants/api";
 import { goBack, addPage } from "@/constants/previousPage";
+import HowToClaimSheet from "@/shared/components/HowToClaimSheet";
 import { Ionicons } from "@expo/vector-icons";
 
 import { useLocalSearchParams, useRouter, usePathname } from "expo-router";
@@ -12,7 +12,6 @@ import {
   StyleSheet,
   Text,
   TouchableOpacity,
-  TouchableWithoutFeedback,
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -25,7 +24,6 @@ const FoundItemDetailsScreen = () => {
 
   const [claimModalVisible, setClaimModalVisible] = useState(false);
   const [imageModalVisible, setImageModalVisible] = useState(false);
-  const [claimSteps, setClaimSteps] = useState([]);
   const pathname = usePathname();
   
   useEffect(() => {
@@ -33,32 +31,6 @@ const FoundItemDetailsScreen = () => {
     addPage(pathname, { itemString });
   }
 }, [pathname, itemString]);
-
-  useEffect(() => {
-    const fetchPolicies = async () => {
-      try {
-        const response = await fetch(
-          `${API_BASE_URL}/api/policies`
-        );
-
-        const data = await response.json();
-
-        const claimPolicy = data.find(
-          (policy) => policy.policy_name === "Item Claim Process"
-        );
-
-        if (claimPolicy) {
-          const steps = JSON.parse(claimPolicy.policy_value);
-          setClaimSteps(steps);
-          console.log("Claim Steps:", steps);
-        }
-      } catch (error) {
-        console.error("Error fetching policies:", error);
-      }
-    };
-
-    fetchPolicies();
-  }, []);
 
   useEffect(() => {
     if (item) {
@@ -172,44 +144,10 @@ const FoundItemDetailsScreen = () => {
         </View>
       </ScrollView>
 
-      {/* How to Claim Modal */}
-      <Modal
-        animationType="slide"
-        transparent={true}
+      <HowToClaimSheet
         visible={claimModalVisible}
-        onRequestClose={() => setClaimModalVisible(false)}
-      >
-        <TouchableOpacity
-          style={styles.modalOverlay}
-          activeOpacity={1}
-          onPressOut={() => setClaimModalVisible(false)}
-        >
-          <TouchableWithoutFeedback>
-            <View style={styles.modalContent}>
-              <View style={styles.dragHandle} />
-
-              <Text style={styles.modalTitle}>How to Claim?</Text>
-
-              {claimSteps.length > 0 ? (
-                claimSteps.map((step, index) => (
-                  <View key={index}>
-                    <Text style={styles.stepTitle}>
-                      Step {index + 1}: {step.title}
-                    </Text>
-                    <Text style={styles.stepDescription}>
-                      {step.description}
-                    </Text>
-                  </View>
-                ))
-              ) : (
-                <Text style={styles.stepDescription}>
-                  Loading claim process...
-                </Text>
-              )}
-            </View>
-          </TouchableWithoutFeedback>
-        </TouchableOpacity>
-      </Modal>
+        onClose={() => setClaimModalVisible(false)}
+      />
 
       {/* Fullscreen Image Modal */}
       <Modal
@@ -358,46 +296,6 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-  },
-  modalOverlay: {
-    flex: 1,
-    justifyContent: "flex-end",
-    backgroundColor: "rgba(0, 0, 0, 0.5)",
-  },
-  modalContent: {
-    backgroundColor: "#fff",
-    borderTopLeftRadius: 30,
-    borderTopRightRadius: 30,
-    padding: 25,
-    paddingBottom: 80,
-    width: "100%",
-  },
-  dragHandle: {
-    width: 50,
-    height: 5,
-    backgroundColor: "#EBEBEB",
-    borderRadius: 3,
-    alignSelf: "center",
-    marginBottom: 20,
-  },
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: "bold",
-    color: "#000",
-    marginBottom: 15,
-    textAlign: "center",
-  },
-  stepTitle: {
-    fontSize: 14,
-    fontWeight: "bold",
-    color: "#000",
-    marginTop: 15,
-    marginBottom: 5,
-  },
-  stepDescription: {
-    fontSize: 14,
-    color: "#333",
-    lineHeight: 20,
   },
   imageModalOverlay: {
     flex: 1,
