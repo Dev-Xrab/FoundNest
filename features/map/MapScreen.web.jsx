@@ -17,7 +17,7 @@ import OfficeModal from "./components/OfficeModal";
 import { useColleges } from "./hooks/useColleges";
 import { useOfficeParamSync } from "./hooks/useOfficeParamSync";
 import { useOfficeSearch } from "./hooks/useOfficeSearch";
-import { GOOGLE_HYBRID_TILE_URL } from "./mapStyle";
+import { CAMPUS_BOUNDS_LAT_LNG, GOOGLE_HYBRID_TILE_URL } from "./mapStyle";
 
 const BULSU_CENTER = { lng: 120.8142, lat: 14.8582 };
 const MARKER_COLOR = "#D32F2F";
@@ -79,6 +79,8 @@ export default function MapScreenWeb() {
       zoom: 17,
       minZoom: 15,
       maxZoom: 20,
+      maxBounds: CAMPUS_BOUNDS_LAT_LNG,
+      maxBoundsViscosity: 1.0,
       attributionControl: false,
       zoomControl: false,
     });

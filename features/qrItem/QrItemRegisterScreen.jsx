@@ -1,4 +1,5 @@
 import ConfirmDiscardModal from "@/components/ConfirmDiscardModal";
+import { showToast } from "@/components/GlobalToast";
 import { API_BASE_URL } from "@/constants/api";
 import AppColors from "@/constants/AppColors";
 import { uploadWithAuth } from "@/constants/authApi";
@@ -155,9 +156,10 @@ export default function QrItemRegisterScreen() {
       }
     } catch (err) {
       console.error("AI analysis failed:", err);
-      showCustomAlert({
-        message: getAiErrorMessage(error, "Failed to auto-fill details. Please fill them out manually."),
-      });
+      showToast(
+        getAiErrorMessage(err, "Failed to auto-fill details. Please fill them out manually."),
+        "error",
+      );
     } finally {
       setIsAnalyzing(false);
       setGlobalAnalyzing(false);
@@ -282,7 +284,7 @@ export default function QrItemRegisterScreen() {
       const data = await res.json();
 
       if (!res.ok) {
-        showCustomAlert({ message: data.message || "Failed to register item." });
+        showToast(data.message || "Failed to register item.", "error");
         return;
       }
 
@@ -299,7 +301,7 @@ export default function QrItemRegisterScreen() {
       });
     } catch (err) {
       console.error("Register QR item error:", err);
-      showCustomAlert({ message: "Could not connect to server." });
+      showToast("Could not connect to server.", "error");
     } finally {
       setIsSubmitting(false);
     }
@@ -309,14 +311,14 @@ export default function QrItemRegisterScreen() {
     const currentlyOnline = await isOnline();
     if (!currentlyOnline) {
       setOnline(false);
-      showCustomAlert({ message: "Cannot register items while offline." });
+      showToast("Cannot register items while offline.", "error");
       return;
     }
 
     const newErrors = validate();
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
-      showCustomAlert({ message: "Please fix the highlighted fields." });
+      showToast("Please fix the highlighted fields.", "error");
       return;
     }
 

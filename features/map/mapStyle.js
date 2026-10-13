@@ -22,3 +22,25 @@ export const highDetailHybridStyle = {
     },
   ],
 };
+
+
+// The map can't be panned beyond the BulSU main campus (+ a small margin).
+// Same box as the web app's CAMPUS_BOUNDS.
+const CAMPUS_SOUTH = 14.8535;
+const CAMPUS_WEST = 120.8085;
+const CAMPUS_NORTH = 14.863;
+const CAMPUS_EAST = 120.82;
+
+// MapLibre order: [west, south, east, north]
+export const CAMPUS_BOUNDS_LNG_LAT = [
+  CAMPUS_WEST,
+  CAMPUS_SOUTH,
+  CAMPUS_EAST,
+  CAMPUS_NORTH,
+];
+
+// Leaflet order: [[south, west], [north, east]]
+export const CAMPUS_BOUNDS_LAT_LNG = [
+  [CAMPUS_SOUTH, CAMPUS_WEST],
+  [CAMPUS_NORTH, CAMPUS_EAST],
+];

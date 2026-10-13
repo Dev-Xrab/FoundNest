@@ -113,7 +113,9 @@ export default function HomeScreen() {
         {/* Lost Item Report Card */}
         <View style={styles.lostReportSection}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Lost Item Report</Text>
+            <Text style={[styles.sectionTitle, { flexShrink: 1, marginRight: 8 }]}>
+              Recent Lost Item Report
+            </Text>
             <TouchableOpacity
               activeOpacity={0.7}
               onPress={() => router.push("/profileReportHistory")}

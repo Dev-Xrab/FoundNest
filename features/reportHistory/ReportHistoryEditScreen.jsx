@@ -208,9 +208,10 @@ export default function ReportHistoryEditScreen() {
       }
     } catch (error) {
       console.error("AI Analysis Failed:", error);
-      showAlert({
-        message: getAiErrorMessage(error, "Failed to auto-fill details. Please fill them out manually."),
-      });
+      showToast(
+        getAiErrorMessage(error, "Failed to auto-fill details. Please fill them out manually."),
+        "error",
+      );
     } finally {
       setIsLoading(false);
       setIsAnalyzing(false);
@@ -303,9 +304,7 @@ export default function ReportHistoryEditScreen() {
 
     if (!validation.valid) {
       setErrors(validation.errors);
-      showAlert({
-        message: "Please fix the highlighted fields before continuing.",
-      });
+      showToast("Please fix the highlighted fields before continuing.", "error");
       return;
     }
 

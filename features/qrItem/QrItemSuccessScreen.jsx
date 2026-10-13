@@ -1,4 +1,5 @@
 import FoundNestLogo from '@/assets/images/app-logo.png';
+import { showToast } from '@/components/GlobalToast';
 import AppColors from '@/constants/AppColors';
 import { useUnsavedChangesGuard } from '@/shared/hooks/useUnsavedChangesGuard';
 import { useAlertModal } from '@/shared/hooks/useAlertModal';
@@ -52,7 +53,7 @@ export default function QrItemSuccessScreen() {
         link.click();
         document.body.removeChild(link);
 
-        showAlert({ message: 'QR code image downloaded.' });
+        showToast('QR code image downloaded.');
         return;
       }
 
@@ -64,10 +65,10 @@ export default function QrItemSuccessScreen() {
 
       const uri = await viewShotRef.current.capture();
       await MediaLibrary.saveToLibraryAsync(uri);
-      showAlert({ message: 'QR code image saved to your gallery.' });
+      showToast('QR code image saved to your gallery.');
     } catch (err) {
       console.error('Download error:', err);
-      showAlert({ message: 'Failed to save QR code image.' });
+      showToast('Failed to save QR code image.', 'error');
     }
   };
 

@@ -249,9 +249,10 @@ export default function QrItemEditScreen() {
       }
     } catch (err) {
       console.error('AI analysis failed:', err);
-      showCustomAlert({
-        message: getAiErrorMessage(err, 'Failed to auto-fill details. Please fill them in manually.'),
-      });
+      showToast(
+        getAiErrorMessage(err, 'Failed to auto-fill details. Please fill them in manually.'),
+        'error',
+      );
     } finally {
       setIsAnalyzing(false);
       setGlobalAnalyzing(false);
@@ -306,7 +307,7 @@ export default function QrItemEditScreen() {
         );
         const data = await res.json();
         if (!res.ok) {
-          showCustomAlert({ message: data.message || 'Failed to save changes.' });
+          showToast(data.message || 'Failed to save changes.', 'error');
           return;
         }
       } else {
@@ -325,7 +326,7 @@ export default function QrItemEditScreen() {
         );
         const data = await res.json();
         if (!res.ok) {
-          showCustomAlert({ message: data.message || 'Failed to save changes.' });
+          showToast(data.message || 'Failed to save changes.', 'error');
           return;
         }
       }
@@ -360,7 +361,7 @@ export default function QrItemEditScreen() {
     const newErrors = validate();
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
-      showCustomAlert({ message: 'Please fix the highlighted fields.' });
+      showToast('Please fix the highlighted fields.', 'error');
       return;
     }
 

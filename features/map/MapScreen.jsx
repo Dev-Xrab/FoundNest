@@ -26,7 +26,7 @@ import { useColleges } from "./hooks/useColleges";
 import { useMapLocation } from "./hooks/useMapLocation";
 import { useOfficeParamSync } from "./hooks/useOfficeParamSync";
 import { useOfficeSearch } from "./hooks/useOfficeSearch";
-import { highDetailHybridStyle } from "./mapStyle";
+import { CAMPUS_BOUNDS_LNG_LAT, highDetailHybridStyle } from "./mapStyle";
 
 const BULSU_CENTER = [120.8142, 14.8582];
 
@@ -171,6 +171,7 @@ export default function MapScreen() {
           animationDuration={cameraConfig.animationDuration}
           minZoom={15}
           maxZoom={20}
+          maxBounds={CAMPUS_BOUNDS_LNG_LAT}
         />
 
         {hasPermission && !isWakingGPS && <NativeUserLocation />}

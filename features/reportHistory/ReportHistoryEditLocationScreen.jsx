@@ -644,7 +644,7 @@ function EditNextScreen() {
         setShowLocation(true);
         mainRotation.value = withTiming(180, { duration: 300 });
       }
-      showAlert({ message: Object.values(validation.errors).join("\n") });
+      showToast(Object.values(validation.errors).join("\n"), "error");
       scrollRef.current?.scrollToEnd({ animated: true });
       return;
     }
@@ -740,6 +740,8 @@ function EditNextScreen() {
       clearReportDraft();
       bypassNextLeave();
 
+      showToast("Report edited successfully.");
+
       router.replace({
         pathname: "/(tabs)/reportSuccess",
         params: {
@@ -749,10 +751,10 @@ function EditNextScreen() {
       });
     } catch (error) {
       console.error("Update lost report error:", error);
-      showAlert({
-        message:
-          error?.message ?? "Could not update your report. Please try again.",
-      });
+      showToast(
+        error?.message ?? "Could not update your report. Please try again.",
+        "error",
+      );
     } finally {
       setIsSubmitting(false);
     }

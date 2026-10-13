@@ -374,6 +374,14 @@ export default function ReportHistoryScreen() {
     savedFilters?.selectedStatuses ?? []
   );
   const [activeMenu, setActiveMenu] = useState(savedFilters?.activeMenu ?? null);
+  // "Matched" toggle, cycled on every tap: all -> only matched -> only unmatched -> all
+  const [matchMode, setMatchMode] = useState(savedFilters?.matchMode ?? "all");
+
+  const cycleMatchMode = () => {
+    setMatchMode((prev) =>
+      prev === "all" ? "matched" : prev === "matched" ? "unmatched" : "all"
+    );
+  };
 
   const STATUS_OPTIONS = ["open", "cancelled", "resolved"];
 
@@ -410,8 +418,9 @@ export default function ReportHistoryScreen() {
       selectedCategories,
       selectedStatuses,
       activeMenu,
+      matchMode,
     });
-  }, [searchQuery, selectedCategories, selectedStatuses, activeMenu]);
+  }, [searchQuery, selectedCategories, selectedStatuses, activeMenu, matchMode]);
 
   const loadReports = async () => {
     setIsLoading(true);
@@ -448,6 +457,7 @@ export default function ReportHistoryScreen() {
       showToast("Report Cancelled. Thank you for your feedback!", "info");
     } catch (err) {
       console.error("Cancel report error:", err);
+      showToast(err?.message || "Could not cancel the report.", "error");
     } finally {
       setReportToCancel(null);
     }
@@ -466,7 +476,13 @@ export default function ReportHistoryScreen() {
       );
     const matchesStatus =
       selectedStatuses.length === 0 || selectedStatuses.includes(r.status);
-    return matchesSearch && matchesCategory && matchesStatus;
+    // Cancelled reports never show matches
+    const hasMatches =
+      r.status !== "cancelled" && (r.matches?.length ?? 0) > 0;
+    const matchesMode =
+      matchMode === "all" ||
+      (matchMode === "matched" ? hasMatches : !hasMatches);
+    return matchesSearch && matchesCategory && matchesStatus && matchesMode;
   });
 
   let categoryDisplayText = "Category";
@@ -483,7 +499,10 @@ export default function ReportHistoryScreen() {
   }
 
   const hasActiveFilters =
-    !!searchQuery || selectedCategories.length > 0 || selectedStatuses.length > 0;
+    !!searchQuery ||
+    selectedCategories.length > 0 ||
+    selectedStatuses.length > 0 ||
+    matchMode !== "all";
 
   return (
     <View style={styles.screen}>
@@ -596,6 +615,26 @@ export default function ReportHistoryScreen() {
                 />
               </TouchableOpacity>
 
+              <TouchableOpacity
+                style={[
+                  styles.filterTrigger,
+                  matchMode !== "all" && styles.filterTriggerActive,
+                ]}
+                onPress={cycleMatchMode}
+                activeOpacity={0.7}
+              >
+                <Text
+                  style={[
+                    styles.filterTriggerText,
+                    { marginRight: 0 },
+                    matchMode !== "all" && styles.filterTriggerTextActive,
+                  ]}
+                  numberOfLines={1}
+                >
+                  {matchMode === "unmatched" ? "Unmatched" : "Matched"}
+                </Text>
+              </TouchableOpacity>
+
               {hasActiveFilters && (
                 <TouchableOpacity
                   style={styles.clearButton}
@@ -603,6 +642,7 @@ export default function ReportHistoryScreen() {
                     setSearchQuery("");
                     setSelectedCategories([]);
                     setSelectedStatuses([]);
+                    setMatchMode("all");
                     setActiveMenu(null);
                   }}
                   activeOpacity={0.7}

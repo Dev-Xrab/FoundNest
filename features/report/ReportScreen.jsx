@@ -1,4 +1,5 @@
 import ConfirmDiscardModal from "@/components/ConfirmDiscardModal";
+import { showToast } from "@/components/GlobalToast";
 import AppColors from "@/constants/AppColors";
 import { getCategories, matchCategoryFromAi } from "@/constants/category";
 import { DescribeItem, getAiErrorMessage } from "@/constants/geminiAI";
@@ -153,10 +154,10 @@ export default function ReportScreen() {
       }
     } catch (error) {
       console.error("AI Analysis Failed:", error);
-      showAlert({
-        message: getAiErrorMessage(error, "Failed to auto-fill details. Please fill them out manually."),
-        cancelLabel: "Dismiss",
-      });
+      showToast(
+        getAiErrorMessage(error, "Failed to auto-fill details. Please fill them out manually."),
+        "error",
+      );
     } finally {
       setIsLoading(false);
       setIsAnalyzing(false);
@@ -244,10 +245,7 @@ export default function ReportScreen() {
     const currentlyOnline = await isOnline();
     if (!currentlyOnline) {
       setOnline(false);
-      showAlert({
-        message: "Form submission is unavailable while offline.",
-        cancelLabel: "Dismiss",
-      });
+      showToast("Form submission is unavailable while offline.", "error");
       return;
     }
 
@@ -259,10 +257,7 @@ export default function ReportScreen() {
 
     if (!validation.valid) {
       setErrors(validation.errors);
-      showAlert({
-        message: "Please fix the highlighted fields before continuing.",
-        cancelLabel: "Got It",
-      });
+      showToast("Please fix the highlighted fields before continuing.", "error");
       return;
     }
 

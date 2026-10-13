@@ -1,3 +1,4 @@
+import { showToast } from "@/components/GlobalToast";
 import AppColors from "@/constants/AppColors";
 import { fetchBulsuColleges } from "@/constants/CollegeBuildings";
 import fetchGates from "@/constants/Gates";
@@ -311,6 +312,8 @@ export default function ReportLocationScreen() {
       setOpenSubSection(null);
       setErrors({});
 
+      showToast("Report submitted successfully.");
+
       router.replace({
         pathname: "/(tabs)/reportSuccess",
         params: {
@@ -320,11 +323,7 @@ export default function ReportLocationScreen() {
       });
     } catch (error) {
       console.error("Submit lost report failure:", error);
-      showCustomAlert({
-        message: error?.message ?? "Could not submit your report.",
-        cancelLabel: "Dismiss",
-        confirmLabel: null,
-      });
+      showToast(error?.message ?? "Could not submit your report.", "error");
     } finally {
       setIsSubmitting(false);
     }
@@ -334,11 +333,7 @@ export default function ReportLocationScreen() {
     const currentlyOnline = await isOnline();
     if (!currentlyOnline) {
       setOnline(false);
-      showCustomAlert({
-        message: "Cannot submit report while offline.",
-        cancelLabel: "Dismiss",
-        confirmLabel: null,
-      });
+      showToast("Cannot submit report while offline.", "error");
       return;
     }
 
@@ -362,11 +357,7 @@ export default function ReportLocationScreen() {
         setShowLocation(true);
         mainRotation.value = withTiming(180, { duration: 300 });
       }
-      showCustomAlert({
-        message: Object.values(validation.errors).join("\n"),
-        cancelLabel: "Got It",
-        confirmLabel: null,
-      });
+      showToast(Object.values(validation.errors).join("\n"), "error");
       scrollRef.current?.scrollToEnd({ animated: true });
       return;
     }

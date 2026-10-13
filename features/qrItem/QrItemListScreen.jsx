@@ -1,5 +1,7 @@
 import ConfirmDiscardModal from '@/components/ConfirmDiscardModal';
+import { showToast } from '@/components/GlobalToast';
 import AppColors from '@/constants/AppColors';
+import { getCategories } from '@/constants/category';
 import { addConnectivityListener } from '@/constants/netInfo';
 import { isOnline } from '@/constants/offlineDb';
 import { deleteQrItem, getUserQrItems } from '@/constants/qrItems';
@@ -13,6 +15,7 @@ import {
   Image,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -34,6 +37,21 @@ function EmptyNestIllustration() {
       <Image source={upperRightBee} style={styles.upperRightBee} />
       <Image source={emptyNest} style={styles.nestImage} />
     </View>
+  );
+}
+
+// ── Filter chip ───────────────────────────────────────────────────────────────
+function FilterChip({ label, isActive, onPress }) {
+  return (
+    <TouchableOpacity
+      style={[styles.filterChip, isActive && styles.filterChipActive]}
+      onPress={onPress}
+      activeOpacity={0.7}
+    >
+      <Text style={[styles.filterChipText, isActive && styles.filterChipTextActive]}>
+        {label}
+      </Text>
+    </TouchableOpacity>
   );
 }
 
@@ -89,7 +107,13 @@ export default function QrItemListScreen() {
   const [online, setOnline] = useState(true);
   const [deleteModalVisible, setDeleteModalVisible] = useState(false);
   const [itemToDelete, setItemToDelete] = useState(null);
-  const { alertModal, showAlert } = useAlertModal();
+  const { alertModal } = useAlertModal();
+
+  // Search + category filter of the registered items
+  const [searchQuery, setSearchQuery] = useState('');
+  const [categories, setCategories] = useState([]);
+  const [selectedCategories, setSelectedCategories] = useState([]);
+  const [categoryMenuOpen, setCategoryMenuOpen] = useState(false);
 
   useEffect(() => {
     isOnline().then(setOnline);
@@ -102,6 +126,12 @@ export default function QrItemListScreen() {
     });
 
     return () => unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    getCategories()
+      .then((data) => setCategories(Array.isArray(data) ? data : []))
+      .catch((err) => console.error('Load categories error:', err));
   }, []);
 
   // Reload list every time screen comes into focus
@@ -136,7 +166,7 @@ export default function QrItemListScreen() {
 
     if (!online) {
       setItemToDelete(null);
-      showAlert({ message: 'Cannot delete items while offline.' });
+      showToast('Cannot delete items while offline.', 'info');
       return;
     }
 
@@ -144,17 +174,52 @@ export default function QrItemListScreen() {
       const res = await deleteQrItem(itemToDelete.qr_code_id);
       if (res.ok) {
         setItems((prev) => prev.filter((i) => i.qr_code_id !== itemToDelete.qr_code_id));
+        showToast('Item deleted.');
       } else {
-        const data = await res.json();
-        showAlert({ message: data.message || 'Failed to delete item.' });
+        const data = await res.json().catch(() => ({}));
+        showToast(data.message || 'Failed to delete item.', 'error');
       }
     } catch (err) {
       console.error('Delete QR item error:', err);
-      showAlert({ message: 'Could not connect to server.' });
+      showToast('Could not connect to server.', 'error');
     } finally {
       setItemToDelete(null);
     }
   };
+
+  const toggleCategory = (categoryId) => {
+    setSelectedCategories((prev) =>
+      prev.includes(categoryId)
+        ? prev.filter((id) => id !== categoryId)
+        : [...prev, categoryId]
+    );
+  };
+
+  const clearFilters = () => {
+    setSearchQuery('');
+    setSelectedCategories([]);
+    setCategoryMenuOpen(false);
+  };
+
+  const filteredItems = items.filter((item) => {
+    const q = searchQuery.trim().toLowerCase();
+    const matchesSearch = !q || String(item.item_name ?? '').toLowerCase().includes(q);
+    const matchesCategory =
+      selectedCategories.length === 0 ||
+      selectedCategories.some((id) => String(id) === String(item.category_id));
+    return matchesSearch && matchesCategory;
+  });
+
+  let categoryDisplayText = 'All Categories';
+  if (selectedCategories.length === 1) {
+    categoryDisplayText =
+      categories.find((c) => c.category_id === selectedCategories[0])?.category_name ??
+      '1 Selected';
+  } else if (selectedCategories.length > 1) {
+    categoryDisplayText = `${selectedCategories.length} Selected`;
+  }
+
+  const hasActiveFilters = !!searchQuery || selectedCategories.length > 0;
 
   const handleCardPress = (item) => {
     router.push({
@@ -184,7 +249,7 @@ export default function QrItemListScreen() {
         onDiscard={confirmDelete}
         message="This will remove your registered item from the system."
         cancelLabel="No, keep it"
-        confirmLabel="Confirm Cancel"
+        confirmLabel="Delete"
       />
 
       {alertModal}
@@ -216,22 +281,120 @@ export default function QrItemListScreen() {
           </Text>
         </View>
       ) : (
-        <FlatList
-          data={items}
-          keyExtractor={(item) => String(item.qr_code_id)}
-          numColumns={2}
-          contentContainerStyle={styles.grid}
-          columnWrapperStyle={styles.gridRow}
-          renderItem={({ item }) => (
-            <ItemCard
-              item={item}
-              online={online}
-              onPress={() => handleCardPress(item)}
-              onEdit={() => handleEdit(item)}
-              onDelete={() => handleDelete(item)}
+        <>
+          {/* Search */}
+          <View style={styles.searchContainer}>
+            <Ionicons
+              name="search-outline"
+              size={20}
+              color={AppColors.background}
+              style={styles.searchIcon}
+            />
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Search Item"
+              placeholderTextColor="#999"
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+            />
+            {searchQuery.length > 0 && (
+              <TouchableOpacity onPress={() => setSearchQuery('')} activeOpacity={0.7}>
+                <Ionicons name="close-circle" size={18} color="#B0A09A" />
+              </TouchableOpacity>
+            )}
+          </View>
+
+          {/* Filter */}
+          <View style={styles.filterBar}>
+            <View style={styles.filterContainer}>
+              <TouchableOpacity
+                style={[
+                  styles.filterTrigger,
+                  (categoryMenuOpen || selectedCategories.length > 0) &&
+                    styles.filterTriggerActive,
+                ]}
+                onPress={() => setCategoryMenuOpen((open) => !open)}
+                activeOpacity={0.7}
+              >
+                <Text
+                  style={[
+                    styles.filterTriggerText,
+                    (categoryMenuOpen || selectedCategories.length > 0) &&
+                      styles.filterTriggerTextActive,
+                  ]}
+                  numberOfLines={1}
+                >
+                  {categoryDisplayText}
+                </Text>
+                <Ionicons
+                  name={categoryMenuOpen ? 'chevron-up' : 'chevron-down'}
+                  size={14}
+                  color={AppColors.background}
+                />
+              </TouchableOpacity>
+
+              {hasActiveFilters && (
+                <TouchableOpacity
+                  style={styles.clearButton}
+                  onPress={clearFilters}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons name="close" size={14} color={AppColors.background} />
+                  <Text style={styles.clearButtonText}>Clear</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+
+            {categoryMenuOpen && (
+              <View style={styles.dropdownCard}>
+                <View style={styles.chipRow}>
+                  <FilterChip
+                    label="All Categories"
+                    isActive={selectedCategories.length === 0}
+                    onPress={() => {
+                      setSelectedCategories([]);
+                      setCategoryMenuOpen(false);
+                    }}
+                  />
+                  {categories.map((cat) => (
+                    <FilterChip
+                      key={cat.category_id}
+                      label={cat.category_name}
+                      isActive={selectedCategories.includes(cat.category_id)}
+                      onPress={() => toggleCategory(cat.category_id)}
+                    />
+                  ))}
+                </View>
+              </View>
+            )}
+          </View>
+
+          {filteredItems.length === 0 ? (
+            <View style={styles.centered}>
+              <Ionicons name="search-outline" size={48} color="#C5AFA7" />
+              <Text style={styles.emptyTitle}>No items found</Text>
+              <Text style={styles.emptySubtitle}>Try adjusting your search or filter.</Text>
+            </View>
+          ) : (
+            <FlatList
+              data={filteredItems}
+              keyExtractor={(item) => String(item.qr_code_id)}
+              numColumns={2}
+              contentContainerStyle={styles.grid}
+              columnWrapperStyle={styles.gridRow}
+              keyboardShouldPersistTaps="handled"
+              renderItem={({ item }) => (
+                <ItemCard
+                  item={item}
+                  online={online}
+                  onPress={() => handleCardPress(item)}
+                  onEdit={() => handleEdit(item)}
+                  onDelete={() => handleDelete(item)}
+                />
+              )}
             />
           )}
-        />
+        </>
       )}
     </View>
   );
@@ -394,6 +557,121 @@ const styles = StyleSheet.create({
     position: 'absolute',
     right: 42,
     top: 25,
+  },
+  searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    margin: 15,
+    paddingHorizontal: 15,
+    borderRadius: 25,
+    borderWidth: 1,
+    borderColor: '#ddd',
+    height: 45,
+  },
+  searchIcon: {
+    marginRight: 10,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 16,
+    color: '#333',
+  },
+  filterBar: {
+    marginBottom: 10,
+    backgroundColor: AppColors.surface,
+    paddingVertical: 10,
+    marginHorizontal: 10,
+    borderRadius: 15,
+  },
+  filterContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingHorizontal: 10,
+  },
+  filterTrigger: {
+    flex: 1,
+    marginHorizontal: 4,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 8,
+    paddingVertical: 8,
+    borderRadius: 15,
+    borderWidth: 1,
+    borderColor: '#ddd',
+    minWidth: 0,
+  },
+  filterTriggerActive: {
+    borderColor: '#A31D1D',
+  },
+  filterTriggerText: {
+    fontSize: 12,
+    color: '#333',
+    marginRight: 5,
+    flexShrink: 1,
+  },
+  filterTriggerTextActive: {
+    color: '#A31D1D',
+    fontWeight: '700',
+  },
+  clearButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 3,
+    marginHorizontal: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 8,
+    borderRadius: 15,
+    borderWidth: 1,
+    borderColor: '#ddd',
+    flexShrink: 0,
+  },
+  clearButtonText: {
+    fontSize: 12,
+    color: AppColors.background,
+    fontWeight: '600',
+  },
+  dropdownCard: {
+    backgroundColor: '#FFFFFF',
+    marginTop: 12,
+    marginHorizontal: 10,
+    borderRadius: 12,
+    padding: 15,
+    borderWidth: 1,
+    borderColor: '#eee',
+  },
+  chipRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'flex-start',
+  },
+  filterChip: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    alignSelf: 'flex-start',
+    marginHorizontal: 5,
+    marginVertical: 5,
+    borderWidth: 1,
+    borderColor: '#eee',
+  },
+  filterChipActive: {
+    borderColor: '#A31D1D',
+  },
+  filterChipText: {
+    fontSize: 13,
+    color: '#333',
+    fontWeight: '600',
+  },
+  filterChipTextActive: {
+    color: '#A31D1D',
+    fontWeight: '700',
   },
   disabledButton: {
     opacity: 0.45,

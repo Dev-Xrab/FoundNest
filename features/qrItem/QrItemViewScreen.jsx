@@ -288,14 +288,16 @@ const styles = StyleSheet.create({
     width: '100%',
     height: 52,
     borderRadius: 12,
-    backgroundColor: AppColors.background,
+    backgroundColor: 'transparent',
+    borderWidth: 1.5,
+    borderColor: '#A31D1D',
     alignItems: 'center',
     justifyContent: 'center',
   },
   scanAnotherText: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: '#A31D1D',
   },
   viewQrButton: {
     flexDirection: 'row',
