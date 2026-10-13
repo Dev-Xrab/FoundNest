@@ -111,6 +111,11 @@ export default function OfficeModal({ visible, onClose, office }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [confirmDeleteVisible, setConfirmDeleteVisible] = useState(false);
+  const [confirmUpdateVisible, setConfirmUpdateVisible] = useState(false);
+  const [discardVisible, setDiscardVisible] = useState(false);
+  // The swipe-down PanResponder is created once, so it reads the latest
+  // "has unsaved changes" value through a ref instead of a stale closure.
+  const isDirtyRef = useRef(false);
   const [existingReviewId, setExistingReviewId] = useState(null);
   const [online, setOnline] = useState(true);
 
@@ -139,6 +144,16 @@ export default function OfficeModal({ visible, onClose, office }) {
       },
       onPanResponderRelease: (_, gestureState) => {
         if (gestureState.dy > DISMISS_THRESHOLD || gestureState.vy > 0.8) {
+          if (isDirtyRef.current) {
+            // Unsaved edits: snap back and ask before closing.
+            Animated.spring(translateY, {
+              toValue: 0,
+              useNativeDriver: true,
+              bounciness: 4,
+            }).start();
+            setDiscardVisible(true);
+            return;
+          }
           Animated.timing(translateY, {
             toValue: SCREEN_HEIGHT,
             duration: 200,
@@ -236,8 +251,36 @@ export default function OfficeModal({ visible, onClose, office }) {
   const isChanged =
     rating !== initialRating || reviewText.trim() !== initialReviewText.trim();
   const canSubmit = isEditing ? isChanged && rating > 0 : rating > 0;
+  isDirtyRef.current = isChanged;
+
+  // Every way of closing the sheet (X, backdrop, back button, swipe) comes
+  // through here so unsaved review edits are never lost silently.
+  const requestClose = () => {
+    if (isChanged) {
+      setDiscardVisible(true);
+    } else {
+      onClose();
+    }
+  };
+
+  const handleDiscard = () => {
+    setDiscardVisible(false);
+    onClose();
+  };
+
+  // Updating an existing review asks first; a brand-new review posts directly.
+  const handleSubmitPress = () => {
+    if (!canSubmit) return;
+    if (isEditing) {
+      setConfirmUpdateVisible(true);
+    } else {
+      handlePostReview();
+    }
+  };
 
   const handlePostReview = async () => {
+    setConfirmUpdateVisible(false);
+
     const currentlyOnline = await isOnline();
     if (!currentlyOnline) {
       setOnline(false);
@@ -369,10 +412,10 @@ export default function OfficeModal({ visible, onClose, office }) {
         animationType="slide"
         transparent
         visible={visible}
-        onRequestClose={onClose}
+        onRequestClose={requestClose}
       >
         <KeyboardAvoidingView behavior="padding" style={styles.overlay}>
-          <TouchableWithoutFeedback onPress={onClose}>
+          <TouchableWithoutFeedback onPress={requestClose}>
             <View style={styles.backgroundTap} />
           </TouchableWithoutFeedback>
 
@@ -390,7 +433,7 @@ export default function OfficeModal({ visible, onClose, office }) {
                     {headerTitle}
                   </Text>
                 </View>
-                <TouchableOpacity onPress={onClose} style={styles.closeButton}>
+                <TouchableOpacity onPress={requestClose} style={styles.closeButton}>
                   <Text style={styles.closeText}>✕</Text>
                 </TouchableOpacity>
               </View>
@@ -525,7 +568,7 @@ export default function OfficeModal({ visible, onClose, office }) {
                       canSubmit && !isLoadingReviews && online && styles.postButtonActive,
                       (!online || !canSubmit) && styles.disabledPostButton,
                     ]}
-                    onPress={handlePostReview}
+                    onPress={handleSubmitPress}
                     disabled={
                       isSubmitting ||
                       isDeleting ||
@@ -611,6 +654,24 @@ export default function OfficeModal({ visible, onClose, office }) {
           </Animated.View>
         </KeyboardAvoidingView>
       </Modal>
+
+      <ConfirmDiscardModal
+        visible={discardVisible}
+        onKeepEditing={() => setDiscardVisible(false)}
+        onDiscard={handleDiscard}
+        message="Discard changes? Unsaved edits will be lost."
+        cancelLabel="Keep Editing"
+        confirmLabel="Discard"
+      />
+
+      <ConfirmDiscardModal
+        visible={confirmUpdateVisible}
+        onKeepEditing={() => setConfirmUpdateVisible(false)}
+        onDiscard={handlePostReview}
+        message="Are you sure you want to update your review?"
+        cancelLabel="Cancel"
+        confirmLabel="Update"
+      />
 
       <ConfirmDiscardModal
         visible={confirmDeleteVisible}

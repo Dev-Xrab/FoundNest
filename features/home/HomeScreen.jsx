@@ -113,8 +113,11 @@ export default function HomeScreen() {
         {/* Lost Item Report Card */}
         <View style={styles.lostReportSection}>
           <View style={styles.sectionHeader}>
-            <Text style={[styles.sectionTitle, { flexShrink: 1, marginRight: 8 }]}>
-              Recent Lost Item Report
+            <Text
+              style={[styles.sectionTitle, { flexShrink: 1, marginRight: 8 }]}
+              numberOfLines={1}
+            >
+              Recent Lost Report
             </Text>
             <TouchableOpacity
               activeOpacity={0.7}

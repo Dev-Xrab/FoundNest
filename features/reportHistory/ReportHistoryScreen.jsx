@@ -45,6 +45,10 @@ function EmptyNestIllustration() {
 }
 
 // ΓöÇΓöÇ Filter chip ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+// Report history opens showing only open reports; "All" in the Status menu
+// widens it, and Clear returns to this default.
+const DEFAULT_STATUSES = ["open"];
+
 function FilterChip({ label, isActive, onPress }) {
   return (
     <TouchableOpacity
@@ -371,7 +375,7 @@ export default function ReportHistoryScreen() {
     savedFilters?.selectedCategories ?? []
   );
   const [selectedStatuses, setSelectedStatuses] = useState(
-    savedFilters?.selectedStatuses ?? []
+    savedFilters?.selectedStatuses ?? DEFAULT_STATUSES
   );
   const [activeMenu, setActiveMenu] = useState(savedFilters?.activeMenu ?? null);
   // "Matched" toggle, cycled on every tap: all -> only matched -> only unmatched -> all
@@ -498,10 +502,14 @@ export default function ReportHistoryScreen() {
     statusDisplayText = `${selectedStatuses.length} Selected`;
   }
 
+  const isDefaultStatuses =
+    selectedStatuses.length === DEFAULT_STATUSES.length &&
+    DEFAULT_STATUSES.every((st) => selectedStatuses.includes(st));
+
   const hasActiveFilters =
     !!searchQuery ||
     selectedCategories.length > 0 ||
-    selectedStatuses.length > 0 ||
+    !isDefaultStatuses ||
     matchMode !== "all";
 
   return (
@@ -641,7 +649,7 @@ export default function ReportHistoryScreen() {
                   onPress={() => {
                     setSearchQuery("");
                     setSelectedCategories([]);
-                    setSelectedStatuses([]);
+                    setSelectedStatuses(DEFAULT_STATUSES);
                     setMatchMode("all");
                     setActiveMenu(null);
                   }}

@@ -60,7 +60,7 @@ const styles = StyleSheet.create({
 });
 
 /**
- * Pings the global toast — shows `message` for ~5s before auto-hiding.
+ * Pings the global toast — shows `message` for ~2s before auto-hiding.
  * Callable from any page, tab or not.
  * Pass `inverted: true` for a white-background/red-text toast, used on
  * screens (like login) where the default red toast would blend into a red

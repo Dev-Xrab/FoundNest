@@ -13,7 +13,7 @@ export default function Toast({ visible, type = "success", message, inverted = f
           duration: 300,
           useNativeDriver: true,
         }),
-        Animated.delay(4300),
+        Animated.delay(1300),
         Animated.timing(opacity, {
           toValue: 0,
           duration: 400,
