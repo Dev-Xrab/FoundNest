@@ -27,6 +27,7 @@ export async function getUserNotifications() {
       );
       if (res.ok) {
         const data = await res.json();
+        console.log("Fetched notifications:", data);
         await saveCache(key, data);
         return data;
       }

@@ -9,6 +9,7 @@ import {
     getReportHistoryFilters,
     setReportHistoryFilters,
 } from "@/constants/reportHistoryFilters";
+import MatchScoreBadge, { effectiveMatchType } from "@/shared/components/MatchScoreBadge";
 import { formatFoundId, formatReportId } from "@/shared/utils/reportFormatters";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useFocusEffect, useRouter } from "expo-router";
@@ -104,6 +105,12 @@ function MatchCard({ match, label, onPress }) {
               />
             </View>
           )}
+
+          <MatchScoreBadge
+            score={match.match_score_percentage}
+            matchType={effectiveMatchType(match)}
+            style={styles.scoreBadge}
+          />
 
           {match.found_category_name ? (
             <View style={styles.categoryBadge}>
@@ -1091,6 +1098,16 @@ const styles = StyleSheet.create({
     backgroundColor: "#EDE0D4",
     justifyContent: "center",
     alignItems: "center",
+  },
+  scoreBadge: {
+    position: "absolute",
+    top: 8,
+    left: 8,
+  },
+  matchTypeText: {
+    fontSize: 10,
+    fontWeight: "600",
+    color: AppColors.textMuted,
   },
   categoryBadge: {
     position: "absolute",

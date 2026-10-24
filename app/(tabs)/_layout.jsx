@@ -13,6 +13,7 @@ import * as Notifications from "expo-notifications";
 import { fetchWithAuth } from "@/constants/authApi";
 import { showToast } from "@/components/GlobalToast";
 import { useReportLeaveGuard } from "@/hooks/useReportLeaveGuard";
+import { setupAndSavePushToken } from "@/utils/pushNotifications";
 
 // expo-notifications has no web implementation at all — calling this on
 // web throws before any screen can render, so it's skipped entirely there.
@@ -43,6 +44,10 @@ export default function TabLayout() {
   useEffect(() => {
     guardedNavigateRef.current = guardedNavigate;
   }, [guardedNavigate]);
+
+  // Latest match-notification handler, so the cold-start effect below can
+  // call it without resubscribing the listeners.
+  const handleMatchNavigationRef = useRef(null);
 
   // ── AI ANALYSIS NAVIGATION BLOCKER ──
   const analyzingLastPath = useRef(pathname);
@@ -95,6 +100,8 @@ useEffect(() => {
     }
   };
   
+  handleMatchNavigationRef.current = handleMatchNavigation;
+
   // 1. Fires when a notification arrives while the app is in the foreground.
   //    This is display-only — the user hasn't interacted with it yet, so it
   //    must NOT trigger navigation (that would yank them off their current screen).
@@ -113,6 +120,8 @@ useEffect(() => {
     (response) => {
       const data = response.notification.request.content.data;
       console.log("Notification Response Data (Tapped):", data);
+      // Handled here, so don't let the cold-start check replay it later.
+      Notifications.clearLastNotificationResponse();
       handleMatchNavigation(data);
     }
   );
@@ -149,6 +158,27 @@ useEffect(() => {
 
     analyzingLastPath.current = pathname;
   }, [pathname]);
+
+  // Once we know the user is signed in: make sure this device's push token is
+  // registered (previously it only happened when the Notifications page was
+  // opened, so many devices never got one), and open the match if the app was
+  // launched by tapping a notification while it was fully closed — the
+  // listeners above only hear taps that happen while the app is running.
+  useEffect(() => {
+    if (Platform.OS === "web" || !authChecked || !loggedIn) return;
+
+    setupAndSavePushToken().catch((err) =>
+      console.warn("Push token registration failed:", err?.message ?? err)
+    );
+
+    const launchResponse = Notifications.getLastNotificationResponse();
+    if (launchResponse) {
+      Notifications.clearLastNotificationResponse();
+      handleMatchNavigationRef.current?.(
+        launchResponse.notification.request.content.data
+      );
+    }
+  }, [authChecked, loggedIn]);
 
   // Still checking SecureStore — show a spinner
   if (!authChecked) {

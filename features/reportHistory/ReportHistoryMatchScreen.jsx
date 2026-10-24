@@ -1,6 +1,11 @@
 import AppColors from "@/constants/AppColors";
 import { getMatchDetail } from "@/constants/lostReports";
 import HowToClaimSheet from "@/shared/components/HowToClaimSheet";
+import MatchScoreBadge, {
+  effectiveMatchType,
+  getMatchStrength,
+  matchTypeLabel,
+} from "@/shared/components/MatchScoreBadge";
 import ImageModal from '@/shared/components/ImageViewerModal';
 import { formatFoundId, formatReportId } from "@/shared/utils/reportFormatters";
 import { Ionicons } from "@expo/vector-icons";
@@ -124,6 +129,37 @@ function TableRow({ label, yourValue, matchValue, isLast }) {
   );
 }
 
+// ── Match indicator ───────────────────────────────────────────────────────────
+// "Image match · 90% · Very High" with a progress bar showing how close it is.
+function MatchIndicator({ match }) {
+  const score = Number(match.match_score_percentage);
+  if (!Number.isFinite(score)) return null;
+  const { color } = getMatchStrength(score);
+  const typeLabel = matchTypeLabel(effectiveMatchType(match));
+
+  return (
+    <View style={styles.indicator}>
+      <View style={styles.indicatorTop}>
+        <Text style={styles.indicatorTitle}>
+          {typeLabel ? `${typeLabel} score` : "Match score"}
+        </Text>
+        <MatchScoreBadge score={score} matchType={effectiveMatchType(match)} />
+      </View>
+      <View style={styles.indicatorTrack}>
+        <View
+          style={[
+            styles.indicatorFill,
+            {
+              width: `${Math.max(0, Math.min(100, score))}%`,
+              backgroundColor: color,
+            },
+          ]}
+        />
+      </View>
+    </View>
+  );
+}
+
 // ── Main screen ───────────────────────────────────────────────────────────────
 export default function ReportHistoryMatchScreen() {
   const router = useRouter();
@@ -162,7 +198,8 @@ export default function ReportHistoryMatchScreen() {
       try {
         const fresh = await getMatchDetail(match.match_id);
         if (!fresh) return; // keep showing cached data, fail silently
-        setMatch(fresh);
+        // Merge so fields the detail endpoint omits (e.g. score) survive
+        setMatch((prev) => ({ ...prev, ...fresh }));
       } catch (err) {
         console.warn("Background match refresh failed:", err.message);
         // no user-facing error — cached data stays on screen
@@ -213,6 +250,11 @@ export default function ReportHistoryMatchScreen() {
           <View style={styles.sectionDividerLine} />
         </View>
 
+        {effectiveMatchType(match) === "IMAGE_MATCH" ? (
+          <View style={styles.textIndicatorCard}>
+            <MatchIndicator match={match} />
+          </View>
+        ) : null}
         <View style={styles.imageCard}>
           <View style={styles.imageRow}>
             <CompareImage uri={match.lost_image_url} label="Your Image" />
@@ -229,6 +271,11 @@ export default function ReportHistoryMatchScreen() {
           <Text style={styles.sectionTitle}>Item Description Comparison</Text>
           <View style={styles.sectionDividerLine} />
         </View>
+        {effectiveMatchType(match) === "TEXT_MATCH" ? (
+          <View style={styles.textIndicatorCard}>
+            <MatchIndicator match={match} />
+          </View>
+        ) : null}
         <View style={styles.table}>
           {/* Table header */}
           <View style={styles.tableHeader}>
@@ -385,6 +432,38 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.06,
     shadowRadius: 6,
     elevation: 2,
+  },
+  indicator: {
+    gap: 6,
+    marginBottom: 12,
+  },
+  indicatorTop: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  indicatorTitle: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: AppColors.textOnLight,
+  },
+  indicatorTrack: {
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: "#EDE0D4",
+    overflow: "hidden",
+  },
+  indicatorFill: {
+    height: "100%",
+    borderRadius: 3,
+  },
+  textIndicatorCard: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: "rgba(0,0,0,0.08)",
   },
   imageRow: {
     flexDirection: "row",
